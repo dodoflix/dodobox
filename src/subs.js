@@ -46,10 +46,13 @@ async function rest (q, langs) {
 }
 // A title search also finds sequels and spin-offs ("Naruto" brings Shippuden, Boruto, other episode numbers): keep the one show and episode.
 // Compared by the show's catalog id when known, else by its name with doubled letters folded (Shippuuden = Shippuden).
+const mentions = (text, n) => new RegExp(`(?<!\\d)0*${+n}(?!\\d)`).test(text)
 const fold = t => String(t || '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '').replace(/(.)\1+/gu, '$1')
 export function sameShow (s, { episode, titles, imdb }) {
   if (+s.SeriesEpisode && +s.SeriesEpisode !== +episode) return false
-  if (imdb && s.SeriesIMDBParent) return +s.SeriesIMDBParent === +imdb.slice(2)
+  // Files for a whole show (named only by episode number, "600.ass") are filed as the show itself: parent "0", the show's own id.
+  const parent = +s.SeriesIMDBParent || (s.MovieKind === 'tv series' ? +s.IDMovieImdb : 0)
+  if (imdb && parent) return parent === +imdb.slice(2)
   const name = fold((String(s.MovieName || '').match(/"([^"]+)"/) || [])[1])
   return !name || !titles.some(fold) || titles.some(t => fold(t) === name)
 }
@@ -59,19 +62,30 @@ async function restOne ({ type, id, season, episode, titles, imdb }, code) {
   // "86 eighty-six" finds nothing, "86 eighty six" does) and as release files name it, "Title - 01".
   const words = t => encodeURIComponent(t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim())
   const ep2 = String(episode).padStart(2, '0')
+  // "Title 600" is the form that finds a long show's late episodes (files named by absolute number, filed under no season or episode);
+  // "Title - 600" ignores the number and returns the first 100 files of the show, none of them this episode.
+  const names = [...new Set(titles.map(words))].slice(0, 3)
   const anime = () => [...(imdb ? [`episode-${episode}/imdbid-${imdb.slice(2)}/season-1`] : []),
-    ...titles.slice(0, 3).flatMap(t => [`episode-${episode}/query-${words(t)}`, `query-${words(t)}%20-%20${ep2}`])].map(p => `${p}/${lang}`)
+    ...names.map(n => `query-${n}%20${episode}`), ...names.map(n => `episode-${episode}/query-${n}`), ...names.map(n => `query-${n}%20-%20${ep2}`)].map(p => `${p}/${lang}`)
   const paths = type === 'movie' ? [`imdbid-${id.slice(2)}/${lang}`]
     : type === 'series' ? [`episode-${episode}/imdbid-${id.slice(2)}/season-${season}/${lang}`]
       : anime()
+  // Anime paths go on until a few matching files are found: one path finding a single file must not hide what the others know.
+  const found = new Map()
   for (const p of paths) {
     const r = await fetchRetry(`${REST}/${p}`, { headers: { 'X-User-Agent': 'TemporaryUserAgent' }, timeout: 9000, tries: 2 }).catch(() => null)
     if (!r) continue
     const list = await r.json().catch(() => null)
-    const out = Array.isArray(list) ? list.filter(s => /^(srt|sub|ass|ssa)$/i.test(s.SubFormat) && s.SubDownloadLink && (type !== 'anime' || sameShow(s, { episode, titles, imdb }))).map(s => ({ lang: s.SubLanguageID, url: s.SubDownloadLink, enc: s.SubEncoding, rel: s.MovieReleaseName || s.SubFileName || '', dl: +s.SubDownloadsCnt || 0, forced: s.SubForeignPartsOnly === '1', via: 'rest' })) : []
-    if (out.length) return out
+    for (const s of Array.isArray(list) ? list : []) {
+      const rel = s.MovieReleaseName || s.SubFileName || ''
+      if (!/^(srt|sub|ass|ssa)$/i.test(s.SubFormat) || !s.SubDownloadLink || found.has(s.SubDownloadLink)) continue
+      // A title search returns the show's files in no useful order: keep the ones that name this episode.
+      if (type === 'anime' && !(sameShow(s, { episode, titles, imdb }) && plausible(rel, { episode, titles }) && (p.startsWith('episode-') || +s.SeriesEpisode === +episode || mentions(`${rel} ${s.SubFileName}`, episode)))) continue
+      found.set(s.SubDownloadLink, { lang: s.SubLanguageID, url: s.SubDownloadLink, enc: s.SubEncoding, rel, dl: +s.SubDownloadsCnt || 0, forced: s.SubForeignPartsOnly === '1', via: 'rest' })
+    }
+    if (found.size >= (type === 'anime' ? 3 : 1)) break
   }
-  return []
+  return [...found.values()]
 }
 
 const listCache = new Map()
@@ -92,7 +106,8 @@ export function plausible (rel, { episode, titles = [] }) {
   const n = m && +(m[1] || m[2] || m[3] || m[4])
   if (n && n !== +episode) return false
   // Anime files are numbered by episode ("Naruto 022"): a bare three-digit number that is not this episode (101 is episode 101, not S01E01) belongs to another one.
-  const bareM = !m && rel.match(/(?<![\dA-Za-z])(\d{3})(?![\dA-Za-z])|_(\d{2})_/)
+  // Long shows reach four digits (One Piece is past 1100); 1000-1499 cannot be a year, so a number there is an episode.
+  const bareM = !m && rel.match(/(?<![\dA-Za-z])(\d{3}|0?\d{3}|1[0-4]\d\d)(?![\dA-Za-z])|_(\d{2})_/)
   const bare = bareM && +(bareM[1] || bareM[2])
   if (bare && bare !== +episode && ![240, 360, 480, 576, 720].includes(bare)) return false
   return !SEQUEL.test(rel) || titles.some(t => SEQUEL.test(t))
