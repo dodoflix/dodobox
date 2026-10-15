@@ -1,9 +1,8 @@
 import { cget, api, NOW, LATER, SOON } from './api.js'
 import { S, toggleList, inList } from './session.js'
-import { $, esc, icon, poster, skeletons, mins, enc, sized, fullWidth, hue, lowres, learnLink, slowLink } from './util.js'
+import { $, esc, icon, poster, skeletons, mins, enc, sized, fullWidth, hue, lowres, learnLink, slowLink, canTrailer } from './util.js'
 import { glow, calm } from './ambient.js'
 import { usingKeys } from './nav.js'
-import { mountTrailer, canTrailer } from './trailer.js'
 import { dragScroll } from './drag.js'
 import { tr } from './i18n.js'
 import { GENRES } from './genres.js'
@@ -51,6 +50,9 @@ function heroHTML (i) {
 const portraitQuery = matchMedia('(max-width: 700px) and (orientation: portrait)')
 const heroSrc = i => portraitQuery.matches && i.poster ? { src: sized(i.poster, Math.round(innerWidth * Math.min(devicePixelRatio || 1, 3))), portrait: true } : { src: sized(i.background || i.poster, fullWidth()), portrait: false }
 
+// Started before the profile is even known, so the lists behind the banner download while the rest of the page starts up.
+export const warmHome = () => { for (const t of ['movie', 'series', 'anime']) cget(`/api/catalog?type=${t}&limit=15`, undefined, NOW, false).catch(() => {}) }
+
 export async function home (root, only = '') {
   const recent = S.me.recent.filter(r => !only || r.type === only)
   const mine = S.me.list.filter(i => !only || i.type === only)
@@ -58,7 +60,7 @@ export async function home (root, only = '') {
   root.innerHTML = `<div class="view">
     <section class="hero" id="hero" aria-roledescription="carousel" aria-label="Featured titles">
       <div class="bg"></div><div class="trailer-layer" id="htr" aria-hidden="true"></div>
-      <div id="hero-slot"></div>
+      <div id="hero-slot"><div class="hero-body" aria-hidden="true"><div class="sk" style="height:5.2rem;width:min(30rem,85%)"></div><div class="sk" style="height:1rem;width:min(18rem,70%);margin-top:1.2rem"></div><div class="sk" style="height:3.1rem;width:min(10.5rem,55%);border-radius:999px;margin-top:1.6rem"></div></div></div>
       <button class="hero-arrow l" aria-label="Previous title" tabindex="-1">${icon('left')}</button>
       <button class="hero-arrow r" aria-label="Next title" tabindex="-1">${icon('right')}</button>
       <button class="hero-sound" id="hsound" aria-label="Turn trailer sound on" hidden>${icon('mute')}</button>
@@ -119,6 +121,8 @@ export async function home (root, only = '') {
     let id = i.trailer
     if (id === undefined) { try { id = (await cget(`/api/meta/${i.type}/${enc(i.id)}`, undefined, LATER)).trailer } catch { id = null }; i.trailer = id || null }
     if (!id || dead || k !== idx || !visible) return
+    const { mountTrailer } = await import('./trailer.js')
+    if (dead || k !== idx || !visible) return
     trailer = mountTrailer(htr, id, {
       onPlaying: () => { hero.classList.add('has-trailer'); sound.hidden = false; trailerUntil = Date.now() + 18000; if (!muted) trailer.unmute() },
       onFail: () => { trailer = null; i.trailer = null }

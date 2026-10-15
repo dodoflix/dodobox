@@ -20,7 +20,11 @@ function cueHTML (text) {
   return text.split(/(<\/?i>)/i).map((p, k) => k % 2 ? p : esc(p.replace(/<[^>]*>/g, ''))).join('')
 }
 
+// The player library is big and only needed to play: it is fetched here, not with the page.
+const loadHls = () => window.Hls ? Promise.resolve() : new Promise(resolve => { const s = document.createElement('script'); s.src = '/vendor/hls.js'; s.onload = s.onerror = resolve; document.head.append(s) })
+
 export async function watch (type, id, season, episode) {
+  const hlsReady = loadHls()
   const layer = $('#layer')
   layer.className = 'player'; layer.hidden = false
   document.documentElement.classList.add('lock')
@@ -237,7 +241,7 @@ export async function watch (type, id, season, episode) {
         const d = x.released ? new Date(x.released).toLocaleDateString(document.documentElement.lang || undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''
         return `<a class="ep ${cur ? 'cur' : ''}" href="${watchHref(type, id, x.season, x.episode)}" data-ee="${x.season}/${x.episode}">
           <span class="n">${x.episode}</span>
-          <span class="th" style="--art:url('${esc(lowres(m.background || m.poster) || '')}')">${x.thumbnail ? `<img alt="" data-src="${esc(sized(x.thumbnail, thumbW()))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}${r > 0.02 ? `<span class="prog"><i style="width:${Math.min(100, r * 100)}%"></i></span>` : ''}<span class="go">${icon('play')}</span>${r > 0.93 ? `<span class="ok">${icon('check')}</span>` : ''}</span>
+          <span class="th">${x.thumbnail ? `<img alt="" data-src="${esc(sized(x.thumbnail, thumbW()))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}${r > 0.02 ? `<span class="prog"><i style="width:${Math.min(100, r * 100)}%"></i></span>` : ''}<span class="go">${icon('play')}</span>${r > 0.93 ? `<span class="ok">${icon('check')}</span>` : ''}</span>
           <span><span class="t" translate="no">${esc(x.title)}</span><br><span class="d">${cur ? 'Playing now' : d}</span></span></a>`
       }).join('')}</div>`
     menu.scrollTop = keep
@@ -484,6 +488,7 @@ export async function watch (type, id, season, episode) {
     mode = needScale || !info.direct || audio !== defaultAudio() ? 'hls' : 'direct'
   }
   // Safari plays HLS natively; if that fails, or hls.js fails elsewhere, the other engine gets one try before giving up.
+  await hlsReady
   const nativeOk = !!v.canPlayType('application/vnd.apple.mpegurl')
   let engines = [...(isSafari && nativeOk ? ['native'] : []), ...(window.Hls?.isSupported() ? ['hlsjs'] : []), ...(!isSafari && nativeOk ? ['native'] : [])]
   let engineAt = 0

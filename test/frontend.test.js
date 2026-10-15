@@ -70,8 +70,7 @@ test('translations: every row has all four languages, and the helpers work', asy
 
 test('translations: every extra language file lines up with the dictionary', async () => {
   const { ROWS, PATTERNS } = await import('../public/js/lang/strings.js')
-  const sw = fs.readFileSync(path.join(PUB, 'sw.js'), 'utf8')
-  const codes = [...sw.matchAll(/\/js\/lang\/extra-(\w+)\.js/g)].map(m => m[1])
+  const codes = fs.readdirSync(path.join(PUB, 'js/lang')).map(f => f.match(/^extra-(\w+)\.js$/)?.[1]).filter(Boolean)
   assert.ok(codes.length >= 15)
   assert.ok(codes.every(c => fs.readFileSync(path.join(PUB, 'js/i18n.js'), 'utf8').includes(`'${c}'`)), 'language missing from i18n.js')
   for (const code of codes) {
@@ -84,4 +83,18 @@ test('translations: every extra language file lines up with the dictionary', asy
       for (const n of out.matchAll(/\$(\d)/g)) assert.ok(+n[1] <= groups, `${code} pattern ${i} uses $${n[1]} of ${groups}`)
     })
   }
+})
+
+test('the first download is preloaded in one go', () => {
+  const html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8')
+  const listed = new Set([...html.matchAll(/rel="modulepreload" href="\/js\/([\w-]+\.js)"/g)].map(m => m[1]))
+  const graph = new Set()
+  const walk = f => {
+    if (graph.has(f)) return
+    graph.add(f)
+    for (const m of fs.readFileSync(path.join(PUB, 'js', f), 'utf8').matchAll(/^import[^\n]*from '\.\/([\w-]+\.js)'/gm)) walk(m[1])
+  }
+  walk('main.js')
+  graph.delete('main.js')
+  assert.deepEqual([...graph].sort(), [...listed].sort(), 'modulepreload list differs from the static imports of main.js')
 })

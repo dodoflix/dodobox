@@ -45,7 +45,7 @@ const slot = ref => new Promise((resolve, reject) => {
 
 // ref: opts a GET into the priority lane (cget always does); long-running and player calls go straight out.
 export async function api (path, { method = 'GET', body, raw, ref } = {}) {
-  if (ref && !ref.signal) ref.signal = page.signal
+  if (ref && ref.signal === undefined) ref.signal = page.signal
   const tries = method === 'GET' ? 4 : 1
   let lastErr
   for (let i = 0; i < tries; i++) {
@@ -67,11 +67,12 @@ export async function api (path, { method = 'GET', body, raw, ref } = {}) {
 }
 
 const memo = new Map()
-export function cget (path, ttl = 10 * 60e3, prio = SOON) {
+// scoped: false keeps the request alive when the page changes (for requests started before the first page exists).
+export function cget (path, ttl = 10 * 60e3, prio = SOON, scoped = true) {
   const k = lang + (safe ? '*' : '') + path
   const hit = memo.get(k)
   if (hit && Date.now() - hit.at < ttl) { hit.ref.prio = Math.min(hit.ref.prio, prio); return hit.p }
-  const ref = { prio, signal: page.signal }
+  const ref = { prio, signal: scoped ? page.signal : null }
   const p = api(path, { ref })
   memo.set(k, { at: Date.now(), p, ref })
   if (memo.size > 80) memo.delete(memo.keys().next().value) // pages of catalogs add up while scrolling

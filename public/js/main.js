@@ -1,18 +1,11 @@
-import { $, $$, esc, isTV, toast } from './util.js'
+import { $, $$, esc, isTV, toast, known, lowres } from './util.js'
 import { initAmbient } from './ambient.js'
 import { S, tryRestore, pickProfile } from './session.js'
-import { api, newPage } from './api.js'
+import { api, newPage, setLang } from './api.js'
 import { showPicker } from './profiles.js'
 import { focusFirst, usingKeys, onBack } from './nav.js'
-import { home } from './home.js'
-import { browse, search } from './browse.js'
-import { title } from './detail.js'
-import { library } from './library.js'
-import { settings } from './settings.js'
-import { watch } from './player.js'
+import { home, warmHome } from './home.js'
 import { initLoader, resetLoader } from './loader.js'
-import { watchTrailer } from './trailer.js'
-import { initPreview } from './preview.js'
 import { initProfileMenu } from './menu.js'
 import { detectDevice, installTip, profileOnboarding } from './onboarding.js'
 import { store } from './util.js'
@@ -36,6 +29,14 @@ function mark (page, arg) {
 // Pictures of the page being left stop downloading, so they do not hold up the next page's.
 const dropImages = () => { resetLoader(); for (const im of main.querySelectorAll('img')) if (!im.complete) im.removeAttribute('src') }
 
+// The player and trailer code is fetched when first needed: until it arrives the screen already shows the title, not a black page.
+function pending (type, id) {
+  const k = known.get(`${type}:${id}`)
+  const layer = $('#layer')
+  layer.className = 'player'; layer.hidden = false
+  layer.innerHTML = `<div class="pl"><div class="pl-load"><div class="bg" style="background-image:url('${esc(lowres(k?.poster) || k?.poster || '')}')"></div><div class="msg"><h2 translate="no">${esc(k?.name || '')}</h2><p>Getting ready...</p><div class="hair"><i></i></div></div></div></div>`
+}
+
 async function route () {
   const mine = ++seq
   dropImages()
@@ -45,13 +46,15 @@ async function route () {
 
   if (page === 'trailer') {
     player?.(); player = null
-    try { player = await watchTrailer(args[0], args[1]) } catch (e) { toast(e.message); location.hash = '#/' }
+    pending(args[0], args[1])
+    try { player = await (await import('./trailer.js')).watchTrailer(args[0], args[1]) } catch (e) { toast(e.message); location.hash = '#/' }
     if (mine !== seq) { player?.(); player = null }
     return
   }
   if (page === 'watch') {
     player?.(); player = null
-    try { player = await watch(args[0], args[1], args[2], args[3]) } catch (e) { toast(e.message); location.hash = '#/' }
+    pending(args[0], args[1])
+    try { player = await (await import('./player.js')).watch(args[0], args[1], args[2], args[3]) } catch (e) { toast(e.message); location.hash = '#/' }
     if (mine !== seq) { player?.(); player = null }
     return
   }
@@ -64,11 +67,12 @@ async function route () {
   document.title = 'Dodobox'
   const key = location.hash
   try {
-    if (page === 'browse') cleanup = await browse(main, args[0], q)
-    else if (page === 'search') cleanup = await search(main, q)
-    else if (page === 'title') cleanup = await title(main, args[0], args[1])
-    else if (page === 'library') cleanup = await library(main)
-    else if (page === 'settings') await settings(main)
+    // Only the home page is in the first download; every other page's code loads when it is first opened.
+    if (page === 'browse') cleanup = await (await import('./browse.js')).browse(main, args[0], q)
+    else if (page === 'search') cleanup = await (await import('./browse.js')).search(main, q)
+    else if (page === 'title') cleanup = await (await import('./detail.js')).title(main, args[0], args[1])
+    else if (page === 'library') cleanup = await (await import('./library.js')).library(main)
+    else if (page === 'settings') await (await import('./settings.js')).settings(main)
     else cleanup = await home(main)
   } catch (e) {
     if (mine !== seq) return
@@ -88,9 +92,10 @@ addEventListener('offline', () => toast('You are offline. Saved titles still pla
 document.addEventListener('keydown', e => { if (e.key === '/' && !e.target.matches('input, textarea')) { e.preventDefault(); location.hash = '#/search' } })
 
 async function boot () {
+  setLang(savedUiLang())
+  if (/^#?\/?$/.test(location.hash)) warmHome()
   initAmbient()
   await initI18n(savedUiLang())
-  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('/sw.js').catch(() => {})
   detectDevice()
   const first = await tryRestore()
   if (!first) {
@@ -103,7 +108,9 @@ async function boot () {
   installTip(toast)
   initProfileMenu()
   initLoader()
-  initPreview()
   await route()
+  // Offline caching and the hover preview start once the page is up, so they never compete with it.
+  import('./preview.js').then(m => m.initPreview())
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) setTimeout(() => navigator.serviceWorker.register('/sw.js').catch(() => {}), 4000)
 }
 boot()

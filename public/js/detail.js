@@ -1,8 +1,7 @@
 import { cget, api, NOW, LATER } from './api.js'
 import { S, progress, inList, toggleList, ratingOf, rate } from './session.js'
-import { $, esc, icon, enc, mins, sized, fullWidth, hue, lowres, thumbW, known, toast } from './util.js'
+import { $, esc, icon, enc, mins, sized, fullWidth, hue, lowres, thumbW, known, canTrailer, toast } from './util.js'
 import { dragScroll } from './drag.js'
-import { mountTrailer, canTrailer } from './trailer.js'
 import { glow } from './ambient.js'
 
 const watchHref = (t, id, s, e) => `#/watch/${t}/${enc(id)}` + (s != null ? `/${s}/${e}` : '')
@@ -56,7 +55,7 @@ export async function title (root, type, id) {
   if (target) fetch(`/api/sources?${new URLSearchParams({ type, id, ...(target.season != null && { season: target.season, episode: target.episode }) })}`).catch(() => {})
   let dtr = null; let dwell
   const hero = $('.d-hero')
-  if (m.trailer && canTrailer()) dwell = setTimeout(() => { dtr = mountTrailer($('#dtr'), m.trailer, { onPlaying: () => hero.classList.add('has-trailer'), onFail: () => { dtr = null } }) }, 1800)
+  if (m.trailer && canTrailer()) dwell = setTimeout(async () => { const { mountTrailer } = await import('./trailer.js'); dtr = mountTrailer($('#dtr'), m.trailer, { onPlaying: () => hero.classList.add('has-trailer'), onFail: () => { dtr = null } }) }, 1800)
   const stop = () => { clearTimeout(dwell); dtr?.destroy(); dtr = null }
   const io = new IntersectionObserver(es => { if (es[0].intersectionRatio < 0.3) { stop(); hero.classList.remove('has-trailer') } }, { threshold: [0, 0.3] })
   io.observe(hero)
@@ -126,7 +125,7 @@ export async function title (root, type, id) {
       const d = v.released ? new Date(v.released).toLocaleDateString(document.documentElement.lang || undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''
       return `<div class="ep-row"><a class="ep" href="${watchHref(type, id, v.season, v.episode)}">
         <span class="n">${v.episode}</span>
-        <span class="th" style="--art:url('${esc(lowres(m.background || m.poster) || '')}')">${v.thumbnail ? `<img alt="" data-src="${esc(sized(v.thumbnail, thumbW()))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}${r > 0.02 ? `<span class="prog"><i style="width:${Math.min(100, r * 100)}%"></i></span>` : ''}<span class="go">${icon('play')}</span>${r > 0.93 ? `<span class="ok">${icon('check')}</span>` : ''}</span>
+        <span class="th">${v.thumbnail ? `<img alt="" data-src="${esc(sized(v.thumbnail, thumbW()))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}${r > 0.02 ? `<span class="prog"><i style="width:${Math.min(100, r * 100)}%"></i></span>` : ''}<span class="go">${icon('play')}</span>${r > 0.93 ? `<span class="ok">${icon('check')}</span>` : ''}</span>
         <span><span class="t" translate="no">${esc(v.title)}</span><br><span class="d">${future ? 'Airs ' + d : d}${p && r < 0.95 ? ` · ${mins(Math.max(60, p[1] - p[0]))} left` : ''}</span></span>
 </a><button class="dl" data-s="${v.season}" data-e="${v.episode}" aria-label="Download">${icon('down')}</button></div>`
     }).join('') || '<p class="dim">No episodes listed yet.</p>'

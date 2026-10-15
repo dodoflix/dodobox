@@ -16,6 +16,7 @@ export const store = {
   set (k, v) { try { localStorage.setItem(k, JSON.stringify(v)) } catch {} }
 }
 
+export const canTrailer = () => (matchMedia('(hover: hover) and (pointer: fine)').matches || isTV) && !slowLink() && navigator.onLine
 export const sized = (src, w) => (src && src.startsWith('/img?') ? `${src}&w=${w}` : src)
 // A slow link (the browser's own hint, or what recent images actually took) gets smaller pictures and no trailers.
 export const slowLink = () => {
