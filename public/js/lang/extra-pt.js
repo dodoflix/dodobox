@@ -47,5 +47,5 @@ export const patterns = [
   'Preparando o idioma... $1%', 'Traduzindo... $1%',
   'Melhorando a qualidade... $1%',
   'Instalando... $1%',
-  'O Dodobox $1 está disponível', 'A versão $1 está disponível', 'Você tem a versão $1.', 'Baixe a nova imagem e recrie o contêiner: $1', 'Somente forçadas: $1', 'Código QR para $1'
+  'O Dodobox $1 está disponível', 'A versão $1 está disponível', 'Você tem a versão $1.', 'Baixe a nova imagem e recrie o contêiner: $1', 'Somente forçadas: $1', 'Nenhuma legenda em $1 encontrada', 'Código QR para $1'
 ]

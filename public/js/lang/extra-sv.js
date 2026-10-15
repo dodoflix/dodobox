@@ -47,5 +47,5 @@ export const patterns = [
   'Förbereder språket... $1 %', 'Översätter... $1 %',
   'Förbättrar kvaliteten... $1 %',
   'Installerar... $1 %',
-  'Dodobox $1 är tillgänglig', 'Version $1 är tillgänglig', 'Du har version $1.', 'Hämta den nya avbilden och skapa om containern: $1', 'Endast tvingade: $1', 'QR-kod för $1'
+  'Dodobox $1 är tillgänglig', 'Version $1 är tillgänglig', 'Du har version $1.', 'Hämta den nya avbilden och skapa om containern: $1', 'Endast tvingade: $1', 'Inga $1-undertexter hittades', 'QR-kod för $1'
 ]

@@ -47,5 +47,5 @@ export const patterns = [
   'Taal voorbereiden... $1%', 'Vertalen... $1%',
   'Kwaliteit verbeteren... $1%',
   'Installeren... $1%',
-  'Dodobox $1 is beschikbaar', 'Versie $1 is beschikbaar', 'Je hebt versie $1.', 'Haal de nieuwe image op en maak de container opnieuw aan: $1', 'Alleen geforceerd: $1', 'QR-code voor $1'
+  'Dodobox $1 is beschikbaar', 'Versie $1 is beschikbaar', 'Je hebt versie $1.', 'Haal de nieuwe image op en maak de container opnieuw aan: $1', 'Alleen geforceerd: $1', 'Geen $1 ondertitels gevonden', 'QR-code voor $1'
 ]

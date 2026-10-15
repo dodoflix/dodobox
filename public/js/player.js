@@ -89,7 +89,7 @@ export async function watch (type, id, season, episode) {
   const P = store.get(titleKey, {})
   const keep = (k, val) => { P[k] = val; store.set(titleKey, P) }
   let audio = 0; let quality = P.quality || S.me.settings.quality || 'auto'; let autoH = null
-  let subs = []; let subSel = null; let delay = 0
+  let subs = []; let subSel = null; let delay = 0; let subsDone = false
   let startAt = (progress(type, id, season, episode) || [0, 1])
   startAt = startAt[0] / startAt[1] < 0.95 && startAt[0] > 10 ? startAt[0] : 0
   const timers = []; const tried = new Set()
@@ -258,6 +258,8 @@ export async function watch (type, id, season, episode) {
     const order = [...groups.keys()].sort((a, b) => (b === pref) - (a === pref) || (b === 'eng') - (a === 'eng') || (a === '_file') - (b === '_file') || LANG(a).localeCompare(LANG(b)))
     smLang ??= subSel ? (subSel.lang || '_file') : 'off'
     const files = smLang !== 'off' ? groups.get(smLang) || [] : []
+    // The search is over and nothing real (not a machine translation) exists in the viewer's language.
+    const missing = subsDone && pref && pref !== 'off' && !subs.some(x => x.lang === pref && !x.translated && !x.pending && !x.forced)
     const name = k => (k === '_file' ? 'From file' : LANG(k))
     const keep = ['.sm-langs', '.sm-files'].map(q => menu.querySelector(q)?.scrollTop || 0)
     menu.className = 'pl-menu sm-menu'
@@ -270,6 +272,7 @@ export async function watch (type, id, season, episode) {
         ${files.map(x => `<button role="option" data-s="${subs.indexOf(x)}" class="${subSel === x ? 'on' : ''}" ${embeddedOk(x) && !x.pending ? '' : 'disabled'}><span>${esc(x.label)}<small class="hint">${esc(x.status || x.hint || '')}${x.partial ? ' · partial' : ''}</small></span>${subSel === x ? icon('check') : !embeddedOk(x) ? '<small>after more download</small>' : x.best ? '<small>best match</small>' : ''}</button>`).join('') || (smLang === 'off' ? '<div class="adj"><span class="dim">Subtitles are off</span></div>' : '')}
       </div></div>
       <div class="sm-foot">
+        ${missing ? `<div class="adj"><span class="dim">No ${esc(name(pref))} subtitles found</span></div>` : ''}
         <button data-s="upload"><span>Load from file...</span></button>
         ${subSel && !subSel.embedded ? `<div class="adj"><span>Auto sync <small class="dim">${!autoOn() ? '' : syncState === 'checking' ? 'Syncing...' : syncState === 'waiting' ? 'Needs more download' : syncState === 'insync' ? 'In sync' : syncState === 'synced' ? 'Synced' : ''}</small></span><button class="switch" role="switch" data-as aria-checked="${autoOn()}" aria-label="Auto sync"></button></div>` : ''}
         <div class="adj"><span><span>Timing</span> ${sgn(autoNow + delay)}s${autoNow || (syncRes && autoOn()) ? `<small class="dim"><span>Auto</span> ${sgn(autoNow)}s · <span>Manual</span> ${sgn(delay)}s</small>` : ''}</span><div><button class="btn btn-ghost sm" data-d="-0.5">−0.5</button><button class="btn btn-ghost sm" data-d="0.5">+0.5</button></div></div>
@@ -477,6 +480,7 @@ export async function watch (type, id, season, episode) {
     subs = [...embedded, ...ext]
     const base = subs.find(x => x.lang === 'eng' && !x.forced && !x.pending && embeddedOk(x))
     if (base) for (const [c2, c3] of targets) if (supported.includes(c2)) subs.push({ lang: c3, label: 'Auto-translated', hint: 'Translated from English', src: `/api/sub/translate?src=${enc(base.src)}&to=${c2}${S.me.settings.bestTranslation ? '&hq=1' : ''}`, translated: { src: base.src, to: c2 }, manualOnly: true })
+    subsDone = true
     autoSub(true); drawMenu()
   }
 

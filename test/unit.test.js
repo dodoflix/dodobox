@@ -221,6 +221,11 @@ test('releases that carry the viewer\'s subtitle language built in are favoured'
   assert.equal(rank([plain, multi], { runtimeMin: 24, sublang: 'tur' })[0], multi)
   assert.equal(rank([plain, multi], { runtimeMin: 24, sublang: 'eng' })[0], plain)
   assert.equal(rank([plain, multi], { runtimeMin: 24, sublang: 'off' })[0], plain)
+  // "Multi-Subs" without a list of languages: a small nudge, enough to break a tie but not to beat a clearly better release
+  const unlisted = sub('[GroupC] Show - 05 (1080p) [Multi-Subs]', 52)
+  assert.equal(rank([plain, unlisted], { runtimeMin: 24, sublang: 'tur' })[0], unlisted)
+  assert.equal(rank([plain, unlisted], { runtimeMin: 24, sublang: 'eng' })[0], plain)
+  assert.equal(rank([sub('[GroupA] Show - 05 (720p)', 60), sub('[GroupC] Show - 05 (1080p) [Multi-Subs]', 5)], { runtimeMin: 24, sublang: 'tur' })[0].title, '[GroupA] Show - 05 (720p)')
 })
 
 test('anime subtitle results keep only the asked show and episode', () => {

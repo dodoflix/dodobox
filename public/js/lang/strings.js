@@ -383,6 +383,7 @@ export const PATTERNS = [
   [/^You have (\S+)\.$/, ['Sende $1 var.', 'Tienes la versión $1.', 'Vous avez la version $1.', 'Du hast Version $1.']],
   [/^Pull the new image and recreate the container: (.+)$/, ['Yeni imajı çekip kapsayıcıyı yeniden oluştur: $1', 'Descarga la nueva imagen y recrea el contenedor: $1', 'Récupérez la nouvelle image et recréez le conteneur : $1', 'Lade das neue Image und erstelle den Container neu: $1']],
   [/^Forced only: (.+)$/, ['Yalnızca zorunlu: $1', 'Solo forzados: $1', 'Forcés uniquement : $1', 'Nur erzwungen: $1']],
+  [/^No (.+) subtitles found$/, ['$1 altyazı bulunamadı', 'No se encontraron subtítulos en $1', 'Aucun sous-titre en $1 trouvé', 'Keine $1-Untertitel gefunden']],
   [/^QR code for (.+)$/, ['$1 için QR kodu', 'Código QR de $1', 'Code QR pour $1', 'QR-Code für $1']],
   [/^Tip: (.+)$/, null]
 ].filter(p => p[1])
