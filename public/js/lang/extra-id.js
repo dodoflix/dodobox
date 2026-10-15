@@ -33,7 +33,8 @@ export const rows = [
 /*from english*/ 'Diterjemahkan dari bahasa Inggris',
 /*adult*/ 'Filter konten dewasa', 'Menyembunyikan judul yang ditandai dewasa. Mati secara default.',
 /*best*/ 'Kualitas terjemahan terbaik', 'Subtitel yang diterjemahkan otomatis memakai penerjemah yang lebih besar. Pertama kali mengunduh sekitar 2 GB, dan setiap subtitel membaik perlahan saat Anda menonton.',
-/*install*/ 'Terpasang dan siap', 'Terpasang dan siap, memakai kartu grafis', 'Gagal memasang. Periksa koneksi internet, lalu matikan dan nyalakan lagi.'
+/*install*/ 'Terpasang dan siap', 'Terpasang dan siap, memakai kartu grafis', 'Gagal memasang. Periksa koneksi internet, lalu matikan dan nyalakan lagi.',
+/*ui2*/ 'Tidak dapat memuat lebih banyak.', 'Bawaan', 'Sedang diputar', 'Membaca subtitel...', 'Menunggu unduhan lebih banyak...', 'Catatan rilis', 'Perbarui sekarang', 'Nanti', 'Mengunduh pembaruan...', 'Pembaruan siap', 'Dodobox dimulai ulang untuk menyelesaikannya.', 'Mulai ulang untuk memperbarui', 'Pembaruan gagal', 'Tutup', 'Memulai ulang Dodobox...', 'Halaman ini dimuat ulang sendiri.', 'Terjadi kesalahan.', 'Unduh penginstal baru lalu jalankan.', 'Unduh rilis baru, atau tarik kode sumber baru lalu jalankan npm install.', 'Tidak ada yang bisa diputar untuk judul ini saat ini'
 ]
 export const patterns = [
   'Hai $1, buat jadi milikmu', 'Musim $1', 'Musim $1 · Episode $2', 'Lanjutkan S$1 E$2', 'S$1 E$2$3', 'Tayang $1', '$1 j $2 mnt', '$1 mnt', '$1sisa $2', '$1sisa $2 mnt',
@@ -43,5 +44,6 @@ export const patterns = [
   '10 film teratas di $1', '10 serial teratas di $1', 'Film $1 populer', 'Serial $1 populer', 'Anime $1 populer',
   'Menyiapkan bahasa... $1%', 'Menerjemahkan... $1%',
   'Meningkatkan kualitas... $1%',
-  'Memasang... $1%'
+  'Memasang... $1%',
+  'Dodobox $1 tersedia', 'Versi $1 tersedia', 'Anda memiliki versi $1.', 'Tarik image baru lalu buat ulang container: $1', 'Hanya paksa: $1'
 ]

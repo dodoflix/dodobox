@@ -33,7 +33,8 @@ export const rows = [
 /*from english*/ 'Översatt från engelska',
 /*adult*/ 'Filter för vuxeninnehåll', 'Döljer titlar som är markerade som vuxeninnehåll. Av som standard.',
 /*best*/ 'Bästa översättningskvalitet', 'Automatiskt översatta undertexter använder en större översättare. Den laddar ner cirka 2 GB första gången, och varje undertext blir gradvis bättre medan du tittar.',
-/*install*/ 'Installerat och klart', 'Installerat och klart, använder grafikkortet', 'Det gick inte att installera. Kontrollera internetanslutningen och stäng sedan av och slå på igen.'
+/*install*/ 'Installerat och klart', 'Installerat och klart, använder grafikkortet', 'Det gick inte att installera. Kontrollera internetanslutningen och stäng sedan av och slå på igen.',
+/*ui2*/ 'Kunde inte ladda mer.', 'Standard', 'Spelas nu', 'Läser undertexter...', 'Väntar på mer av nedladdningen...', 'Versionsanteckningar', 'Uppdatera nu', 'Senare', 'Laddar ned uppdateringen...', 'Uppdateringen är klar', 'Dodobox startar om för att slutföra.', 'Starta om för att uppdatera', 'Uppdateringen misslyckades', 'Stäng', 'Startar om Dodobox...', 'Den här sidan laddas om automatiskt.', 'Något gick fel.', 'Ladda ned det nya installationsprogrammet och kör det.', 'Ladda ned den nya versionen, eller hämta den nya källkoden och kör npm install.', 'Inget spelbart hittades för den här titeln just nu'
 ]
 export const patterns = [
   'Hej $1, gör det till ditt', 'Säsong $1', 'Säsong $1 · Avsnitt $2', 'Återuppta S$1 A$2', 'S$1 A$2$3', 'Sänds $1', '$1 h $2 min', '$1 min', '$1$2 kvar', '$1$2 min kvar',
@@ -43,5 +44,6 @@ export const patterns = [
   'Topp 10 filmer i $1', 'Topp 10 serier i $1', 'Populära $1-filmer', 'Populära $1-serier', 'Populär $1-anime',
   'Förbereder språket... $1 %', 'Översätter... $1 %',
   'Förbättrar kvaliteten... $1 %',
-  'Installerar... $1 %'
+  'Installerar... $1 %',
+  'Dodobox $1 är tillgänglig', 'Version $1 är tillgänglig', 'Du har version $1.', 'Hämta den nya avbilden och skapa om containern: $1', 'Endast tvingade: $1'
 ]

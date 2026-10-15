@@ -33,7 +33,8 @@ export const rows = [
 /*from english*/ 'Tradotto dall\'inglese',
 /*adult*/ 'Filtro contenuti per adulti', 'Nasconde i titoli contrassegnati per adulti. Disattivato per impostazione predefinita.',
 /*best*/ 'Migliore qualità di traduzione', 'I sottotitoli tradotti automaticamente usano un traduttore più grande. La prima volta scarica circa 2 GB e ogni sottotitolo migliora gradualmente mentre guardi.',
-/*install*/ 'Installato e pronto', 'Installato e pronto, usa la scheda grafica', 'Impossibile installare. Controlla la connessione internet, poi disattiva e riattiva l\'opzione.'
+/*install*/ 'Installato e pronto', 'Installato e pronto, usa la scheda grafica', 'Impossibile installare. Controlla la connessione internet, poi disattiva e riattiva l\'opzione.',
+/*ui2*/ 'Impossibile caricare altro.', 'Predefinito', 'In riproduzione', 'Lettura dei sottotitoli...', 'In attesa di altro download...', 'Note di rilascio', 'Aggiorna ora', 'Più tardi', 'Download dell\'aggiornamento...', 'L\'aggiornamento è pronto', 'Dodobox si riavvia per completare.', 'Riavvia per aggiornare', 'L\'aggiornamento non è riuscito', 'Chiudi', 'Riavvio di Dodobox...', 'Questa pagina si ricarica da sola.', 'Qualcosa è andato storto.', 'Scarica il nuovo programma di installazione ed eseguilo.', 'Scarica la nuova versione, oppure scarica il nuovo codice sorgente ed esegui npm install.', 'Al momento non è stato trovato nulla di riproducibile per questo titolo'
 ]
 export const patterns = [
   'Ciao $1, rendilo tuo', 'Stagione $1', 'Stagione $1 · Episodio $2', 'Riprendi S$1 E$2', 'S$1 E$2$3', 'Esce il $1', '$1 h $2 min', '$1 min', '$1restano $2', '$1restano $2 min',
@@ -43,5 +44,6 @@ export const patterns = [
   'Top 10 film in $1', 'Top 10 serie in $1', 'Film $1 popolari', 'Serie $1 popolari', 'Anime $1 popolari',
   'Preparazione della lingua... $1%', 'Traduzione... $1%',
   'Miglioramento della qualità... $1%',
-  'Installazione... $1%'
+  'Installazione... $1%',
+  'Dodobox $1 è disponibile', 'La versione $1 è disponibile', 'Hai la versione $1.', 'Scarica la nuova immagine e ricrea il container: $1', 'Solo forzati: $1'
 ]

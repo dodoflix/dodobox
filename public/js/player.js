@@ -11,7 +11,8 @@ import { bandwidth, saveData, displayPx, measure as measureBandwidth } from './b
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2]
 const QUALITIES = [['auto', 'Auto'], ['2160', '4K'], ['1080', '1080p'], ['720', '720p'], ['480', '480p, data saver']]
-const LANG = (() => { try { const n = new Intl.DisplayNames(['en'], { type: 'language' }); return c => !c || c === 'und' ? 'Unknown language' : c === 'pob' ? 'Portuguese (Brazil)' : n.of(c) } catch { return c => c } })()
+// Language names come in the interface language; 'Unknown language' is translated by the page translator.
+const LANG = (() => { try { const n = new Intl.DisplayNames([document.documentElement.lang || 'en'], { type: 'language' }); return c => !c || c === 'und' ? 'Unknown language' : c === 'pob' ? n.of('pt-BR') : n.of(c) } catch { return c => c } })()
 const watchHref = (t, id, s, e) => `#/watch/${t}/${enc(id)}` + (s != null ? `/${s}/${e}` : '')
 
 // Subtitle files carry their own styling: bold, underline, fonts, colours. Built-in (ASS) tracks use it freely and external
@@ -468,7 +469,7 @@ export async function watch (type, id, season, episode) {
     const qs = new URLSearchParams({ type, id, langs, release: st.name || '', ...(season != null && { season, episode }) })
     let raw = []
     for (let i = 0; i < 3 && !raw.length; i++) { if (i) await new Promise(r => setTimeout(r, 3000 * i)); raw = await api(`/api/subs?${qs}`).catch(() => []) }
-    const ext = raw.map(s => ({ lang: s.lang, label: s.label, hint: s.hint, best: s.best, forced: s.forced, src: `/api/sub?url=${enc(s.url)}${s.enc ? '&enc=' + enc(s.enc) : ''}` }))
+    const ext = raw.map(s => ({ lang: s.lang, label: LANG(s.lang) + (s.label.match(/ #\d+$/)?.[0] || ''), hint: s.hint, best: s.best, forced: s.forced, src: `/api/sub?url=${enc(s.url)}${s.enc ? '&enc=' + enc(s.enc) : ''}` }))
     subs = [...embedded, ...ext]
     const base = subs.find(x => x.lang === 'eng' && !x.forced && !x.pending && embeddedOk(x))
     if (base) for (const [c2, c3] of targets) if (supported.includes(c2)) subs.push({ lang: c3, label: 'Auto-translated', hint: 'Translated from English', src: `/api/sub/translate?src=${enc(base.src)}&to=${c2}${S.me.settings.bestTranslation ? '&hq=1' : ''}`, translated: { src: base.src, to: c2 }, manualOnly: true })

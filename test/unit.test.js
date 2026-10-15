@@ -271,3 +271,18 @@ test('an update can be started only where the build can replace itself, and only
   assert.equal(updates.view('0.1.0', true).canApply, false)
   assert.match(updates.view('0.1.0', true).hint, /installer/)
 })
+
+test('lookup finds a newer release by itself and reports a version once', async () => {
+  const real = globalThis.fetch
+  globalThis.fetch = async () => new Response(JSON.stringify({ tag_name: 'v9.9.9', html_url: 'https://example.test/r' }), { headers: { 'content-type': 'application/json' } })
+  const seen = []
+  updates.onFound(i => seen.push(i.version))
+  const log = console.log; console.log = () => {}
+  try {
+    updates.set({ version: '', phase: 'idle' })
+    assert.equal(await updates.lookup('0.1.0'), true)
+    assert.equal(await updates.lookup('0.1.0'), true)
+    assert.equal(await updates.lookup('9.9.9'), false)
+  } finally { globalThis.fetch = real; console.log = log }
+  assert.deepEqual(seen, ['9.9.9'])
+})

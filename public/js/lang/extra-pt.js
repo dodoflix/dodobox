@@ -33,7 +33,8 @@ export const rows = [
 /*from english*/ 'Traduzido do inglês',
 /*adult*/ 'Filtro de conteúdo adulto', 'Oculta títulos marcados como adultos. Desativado por padrão.',
 /*best*/ 'Melhor qualidade de tradução', 'As legendas traduzidas automaticamente usam um tradutor maior. Ele baixa cerca de 2 GB na primeira vez, e cada legenda melhora aos poucos enquanto você assiste.',
-/*install*/ 'Instalado e pronto', 'Instalado e pronto, usando a placa de vídeo', 'Não foi possível instalar. Verifique a conexão com a internet e depois desligue e ligue de novo.'
+/*install*/ 'Instalado e pronto', 'Instalado e pronto, usando a placa de vídeo', 'Não foi possível instalar. Verifique a conexão com a internet e depois desligue e ligue de novo.',
+/*ui2*/ 'Não foi possível carregar mais.', 'Padrão', 'Reproduzindo agora', 'Lendo as legendas...', 'Aguardando mais do download...', 'Notas da versão', 'Atualizar agora', 'Mais tarde', 'Baixando a atualização...', 'A atualização está pronta', 'O Dodobox reinicia para concluir.', 'Reiniciar para atualizar', 'A atualização não funcionou', 'Fechar', 'Reiniciando o Dodobox...', 'Esta página recarrega sozinha.', 'Algo deu errado.', 'Baixe o novo instalador e execute-o.', 'Baixe a nova versão, ou obtenha o novo código-fonte e execute npm install.', 'Nada reproduzível encontrado para este título no momento'
 ]
 export const patterns = [
   'Olá $1, deixe com a sua cara', 'Temporada $1', 'Temporada $1 · Episódio $2', 'Continuar T$1 E$2', 'T$1 E$2$3', 'Estreia em $1', '$1 h $2 min', '$1 min', '$1faltam $2', '$1faltam $2 min',
@@ -43,5 +44,6 @@ export const patterns = [
   'Top 10 filmes em $1', 'Top 10 séries em $1', 'Filmes de $1 populares', 'Séries de $1 populares', 'Animes de $1 populares',
   'Preparando o idioma... $1%', 'Traduzindo... $1%',
   'Melhorando a qualidade... $1%',
-  'Instalando... $1%'
+  'Instalando... $1%',
+  'O Dodobox $1 está disponível', 'A versão $1 está disponível', 'Você tem a versão $1.', 'Baixe a nova imagem e recrie o contêiner: $1', 'Somente forçadas: $1'
 ]
