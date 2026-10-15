@@ -48,6 +48,10 @@ ffprobe lists audio tracks with language, title and default flag. The player sta
 
 Vanilla ES modules, no build step. `nav.js` handles arrow-key navigation and the Back key for TV remotes. The player draws its own controls and subtitles and supports Cast, AirPlay, Media Session, Picture-in-Picture and wake lock. `sw.js` caches the shell, catalog data and posters for offline browsing; bump its `VERSION` when a shell file changes. Per-title player options live in `localStorage` under `title:<profile>:<type>:<id>`.
 
+## Desktop app
+
+`desktop/main.js` is a tray-only Electron app: it sets `DATA_DIR` to the user data folder, starts `server.js` in the same process (on a free port if 3000 is taken) and offers a tray menu. It has no window; the page opens in the system browser. Starting it again opens the page, or quits with `--quit`. Packaged with electron-builder without an asar archive, so the worker and WebAssembly files stay plain files; `desktop/prune.cjs` drops other platforms' ffprobe and native prebuilds and ad-hoc signs the macOS app. Electron emits `ready` only after the entry module finishes evaluating, so the entry must not await it at the top level. The release workflow builds each platform on its own runner (the bundled ffmpeg is the runner's) and attaches the installers to the release.
+
 ## Tests
 
 `npm test` runs unit tests, an offline end-to-end test (local seeder, download, probe, HLS, subtitles; needs `ffmpeg` on the path), library, profile API, HTTP client, sync and translation tests, and static checks of the frontend. `npm run lint` runs ESLint.

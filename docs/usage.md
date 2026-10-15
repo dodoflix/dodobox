@@ -4,6 +4,18 @@
 
 Start the server and open its address (the start scripts open it for you; with `npm start` open the printed address yourself). Create a profile and pick your language, subtitles and what you like. Each person keeps their own Continue Watching, My List and preferences.
 
+## Desktop app
+
+Each [release](https://github.com/dodoflix/dodobox/releases) has installers for Windows (setup and portable), macOS (Apple silicon and Intel, `.dmg`) and Linux x64 (`AppImage`, `.deb`). The app is just the server: it sits in the system tray and has no window of its own. Click the tray icon to open Dodobox in your browser. The tray menu also copies the address for phones and TVs, turns on "Start when I sign in" (Windows and macOS), shows the data folder and quits. Data lives in the app's folder for your user.
+
+The installers are not signed yet, so the system warns on first run:
+
+- **Windows**: SmartScreen says "Windows protected your PC". Choose More info, Run anyway.
+- **macOS**: open the app with right-click, Open. If it says the app is damaged, run `xattr -cr /Applications/Dodobox.app`.
+- **Linux**: `chmod +x` the AppImage. If it exits at once on a recent Ubuntu, start it with `--no-sandbox`. Some desktops (GNOME) hide tray icons without an extension; starting the app again opens the page, and `Dodobox --quit` stops it.
+
+"Best translation quality" is not available in the app (it installs through npm); use the server install for it.
+
 ## Other devices
 
 Open the address the server prints (for example `http://192.168.1.20:3000`, or `http://dodobox.local:3000`) on the same Wi-Fi. Settings shows a QR code for it.
