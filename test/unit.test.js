@@ -231,6 +231,11 @@ test('anime subtitle results keep only the asked show and episode', () => {
   assert.ok(sameShow({ MovieName: '"Naruto: Shippuden" Kikyo', SeriesEpisode: '1' }, { episode: 1, titles: ['Naruto: Shippuuden'] }))
   assert.ok(!sameShow({ MovieName: '"Naruto: Shippuden" Kikyo', SeriesEpisode: '1' }, { episode: 1, titles: ['Naruto'] }))
   assert.ok(plausible('Naruto.S01E01.WEBRip', q) && plausible('[ANBU]_Naruto_01_[ED]', q) && plausible('Naruto - S01E01 (001) 1080p', q))
+  assert.ok(sameShow({ SeriesIMDBParent: '0', MovieKind: 'tv series', IDMovieImdb: '409591', SeriesEpisode: '0' }, q), 'a file filed as the show itself')
+  assert.ok(!sameShow({ SeriesIMDBParent: '0', MovieKind: 'tv series', IDMovieImdb: '988824', SeriesEpisode: '0' }, q))
+  const op = { episode: 1000, titles: ['One Piece'] }
+  assert.ok(plausible('1000.ass', op) && plausible('[SubsPlease] One Piece - 1000 (1080p)', op) && plausible('One Piece (1999)', op))
+  assert.ok(!plausible('[SubsPlease] One Piece - 1001 (1080p)', op) && !plausible('One Piece 600', op))
   assert.ok(!plausible('Naruto 101 Gotta See Gotta Know', q) && !plausible('Naruto Shippuden - 001', q) && !plausible('Naruto.S01E02', q) && !plausible('[ANBU]_Naruto_94_[D1]', q))
 })
 
