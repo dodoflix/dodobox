@@ -18,6 +18,7 @@ It prints an address for your phone and TV. Dodobox has no login, so keep it on 
 
 - [Using Dodobox](docs/usage.md)
 - [How it works](docs/architecture.md)
+- [Code signing policy](docs/code-signing.md)
 - [Android TV app](apps/android/README.md)
 - [Contributing](CONTRIBUTING.md) and [security policy](SECURITY.md)
 

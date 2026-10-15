@@ -105,7 +105,7 @@ async function boot () {
       const { response } = await dialog.showMessageBox({ type: 'info', title: 'Dodobox update', message: 'The update is ready', detail: 'Restart Dodobox to finish.', buttons: ['Restart now', 'Later'], defaultId: 0, cancelId: 1 })
       if (response === 0) autoUpdater.quitAndInstall()
     })
-    const checkUpdates = () => { if (app.isPackaged) autoUpdater.checkForUpdates().catch(() => {}) }
+    const checkUpdates = () => { if (app.isPackaged && !process.env.NO_UPDATE_CHECK) autoUpdater.checkForUpdates().catch(() => {}) }
     updateCheck = manual => {
       if (!app.isPackaged) return dialog.showMessageBox({ message: 'Updates are checked in the installed app.' })
       if (manual) { asked = ''; autoUpdater.once('update-not-available', upToDate) }

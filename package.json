@@ -92,7 +92,8 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "artifactName": "Dodobox-Setup-${version}-${arch}.${ext}"
+      "artifactName": "Dodobox-Setup-${version}-${arch}.${ext}",
+      "differentialPackage": false
     },
     "linux": {
       "category": "AudioVideo",

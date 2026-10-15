@@ -79,9 +79,11 @@ jobs:
       ELECTRON_SKIP_BINARY_DOWNLOAD: 1
     if: needs.release-please.outputs.created == 'true'
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    # Signing waits for a person to approve the request, so the Windows job may take hours.
+    timeout-minutes: ${{ matrix.os == 'windows-latest' && 360 || 45 }}
     permissions:
       contents: write
+      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -105,6 +107,39 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx electron-builder ${{ matrix.args }} --publish never
+      # Windows installers are signed through SignPath Foundation once the SIGNPATH_ORGANIZATION_ID variable and SIGNPATH_API_TOKEN secret are set
+      # (docs/code-signing.md); until then the unsigned ones are attached as before.
+      - name: Upload the unsigned Windows installers
+        id: unsigned
+        if: matrix.os == 'windows-latest' && vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-unsigned
+          path: |
+            dist/Dodobox-Setup-*.exe
+            dist/Dodobox-Portable-*.exe
+          if-no-files-found: error
+      - name: Sign them with SignPath
+        if: matrix.os == 'windows-latest' && vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: dodobox
+          signing-policy-slug: release-signing
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 21600
+          output-artifact-directory: signed
+      - name: Use the signed installers
+        if: matrix.os == 'windows-latest' && vars.SIGNPATH_ORGANIZATION_ID != ''
+        shell: pwsh
+        run: |
+          foreach ($f in Get-ChildItem signed -Filter *.exe) {
+            if ((Get-AuthenticodeSignature $f.FullName).Status -ne 'Valid') { throw "$($f.Name) is not validly signed" }
+            Copy-Item $f.FullName dist -Force
+          }
+          node .github/scripts/refresh-update-yml.mjs dist
       - name: Attach installers to the release
         shell: bash
         env:

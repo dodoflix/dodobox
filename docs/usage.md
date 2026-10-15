@@ -35,7 +35,7 @@ Dodobox checks the releases page for a newer version now and then.
 
 - **Desktop app**: it asks whether to update. On Windows (installer) and Linux (AppImage) choosing "Update now" downloads it, then offers to restart. The portable exe, the `.deb` and the macOS builds are not signed, so for those it opens the download page. "Check for updates" in the tray menu checks right away.
 - **Docker, npm and source**: it only writes a line in the log with how to update (`docker pull ghcr.io/dodoflix/dodobox:latest`, then recreate the container). Settings shows the new version next to the current one.
-- Set `NO_UPDATE_CHECK=1` to turn the check off.
+- Set `NO_UPDATE_CHECK=1` to turn the check off (the desktop app too).
 
 Phones and laptops use plain HTTP on the local network, so "install as app" gives a bookmark-style shortcut. That is a browser rule for non-HTTPS addresses.
 
