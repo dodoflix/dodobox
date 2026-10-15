@@ -188,7 +188,9 @@ html.tv .poster:focus-visible .art { outline-width: 4px; transform: scale(1.06);
 .ep { display: grid; grid-template-columns: 2.6rem 11.5rem 1fr; gap: 1.1rem; align-items: center; padding: .7rem .8rem; border-radius: 12px; transition: background .2s; }
 .ep:hover, .ep:focus-visible { background: rgb(255 255 255 / .07); }
 .ep .n { font: 800 1.7rem/1 var(--display); color: var(--ink3); text-align: right; }
-.ep .th { position: relative; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden; background: linear-gradient(rgb(12 12 17 / .62), rgb(12 12 17 / .62)), var(--art, none) center / cover var(--s2); }
+.ep .th { position: relative; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden; background: radial-gradient(120% 90% at 25% 0%, hsl(var(--h, 30) 34% 24%), hsl(var(--h, 30) 28% 9%)); }
+/* The tinted tile with a big number is what shows until a picture arrives, and for ever when there is none. */
+.th .num { position: absolute; right: .45rem; bottom: -.35rem; font: 900 clamp(2.6rem, 5vw, 3.6rem)/1 var(--display); letter-spacing: -.02em; color: hsl(var(--h, 30) 40% 72% / .2); pointer-events: none; }
 .ep .th img { position: absolute; inset: 0; }
 .ep .th img { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .4s; }
 .ep .th img.in { opacity: 1; }
@@ -206,7 +208,8 @@ html.tv .poster:focus-visible .art { outline-width: 4px; transform: scale(1.06);
 .list { padding: 0 var(--pad); max-width: 62rem; display: grid; gap: .25rem; }
 .item { display: grid; grid-template-columns: 3.4rem minmax(0, 1fr) auto; gap: 1rem; align-items: center; padding: .7rem .5rem; border-radius: 12px; }
 .item:hover { background: rgb(255 255 255 / .05); }
-.item .th { aspect-ratio: 2 / 3; border-radius: 4px; background: var(--s2) center / cover; }
+.item .th { position: relative; overflow: hidden; aspect-ratio: 2 / 3; border-radius: 4px; background-image: var(--art, none), radial-gradient(120% 75% at 25% 0%, hsl(var(--h, 30) 34% 24%), hsl(var(--h, 30) 28% 9%)); background-size: cover; background-position: center; }
+.item .th .num { right: .3rem; bottom: -.3rem; font-size: 3rem; }
 .item .t { font-weight: 700; display: block; }
 .item .d { color: var(--ink3); font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .item .bar { height: 3px; background: var(--s3); border-radius: 3px; margin-top: .45rem; overflow: hidden; }
