@@ -9,7 +9,7 @@ const href = i => `#/watch/${i.type}/${enc(i.id)}` + (i.season != null ? `/${i.s
 const same = (a, b) => !!a && !!b && a.type === b.type && a.id === b.id && (a.season ?? null) === (b.season ?? null) && (a.episode ?? null) === (b.episode ?? null)
 
 let status = { active: false, members: [], now: null }; let statusAt = Date.now()
-let es = null; let player = null; let pop = null; let popCtx = null; let seen = null
+let es = null; let player = null; let pop = null; let popPanel = null; let seen = null
 const sinks = new Set()
 
 const take = s => { status = s; statusAt = Date.now() }
@@ -36,6 +36,7 @@ function onEvent (e) {
   for (const f of sinks) f(e)
   paintChip()
   if (pop) draw()
+  if (player?.menu?.isParty()) player.menu.redraw()
 }
 
 function listen () {
@@ -61,7 +62,7 @@ export async function initParty () {
   if (!me || chip) return
   chip = document.createElement('button')
   chip.className = 'party-chip'; chip.dataset.party = ''; chip.setAttribute('aria-label', 'Watch party'); chip.hidden = true
-  chip.onclick = () => openPanel(document.body, null)
+  chip.onclick = () => openPanel(document.body)
   me.before(chip)
   paintChip()
 }
@@ -79,15 +80,15 @@ const posterOf = item => {
   return posters.get(k)
 }
 
-function draw () {
-  const s = status; const ctx = popCtx
+// The panel's markup and behaviour, for either place it lives: a popover on the page (ctx null) or one of the player's own menus.
+function html (ctx) {
+  const s = status
   const here = ctx && same(ctx.item, s.now?.item)
-  const keep = pop.querySelector('input')?.value
   const head = `<header class="pp-h"><h3>Watch party</h3><button class="icon-btn pp-x" data-a="close" aria-label="Close">${icon('close')}</button></header>`
   let body
   if (!s.active) {
     body = `<p class="pp-lead">Get a code to share, then watch anything together, episode after episode.</p>
-      <button class="btn btn-ink" data-a="start">Start a party</button>
+      <button class="btn btn-ink" data-a="start" data-autofocus>Start a party</button>
       <p class="pp-note">Friends need Dodobox too. Share the code with them.</p>
       <div class="pp-or"><span>or</span></div>
       <form class="pp-join"><label for="pp-code">Join with a code</label><div class="pp-row"><input id="pp-code" class="field" name="code" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24"><button class="btn btn-ghost">Join</button></div></form>`
@@ -98,7 +99,7 @@ function draw () {
       ? `<section class="pp-now"><span class="pp-label">Watching</span>
           <div class="pp-show"><span class="pp-poster" style="--h:${hue(n.title)}">${poster ? `<img alt="" src="${esc(sized(poster, 160))}">` : ''}</span>
           <div class="pp-cap"><b translate="no">${esc(n.title || '')}</b>${n.season != null ? `<span>S${n.season} E${n.episode}</span>` : ''}</div></div>
-          ${here ? '' : '<button class="btn btn-ink sm" data-a="go">Watch together</button>'}</section>`
+          ${here ? '' : '<button class="btn btn-ink sm" data-a="go" data-autofocus>Watch together</button>'}</section>`
       : '<p class="pp-note">Pick anything to watch and everyone follows.</p>'
     body = `<section class="pp-code"><span class="pp-label">Party code</span><div class="pp-codeline"><b translate="no">${esc(s.code)}</b><button class="icon-btn" data-a="copy" aria-label="Copy code">${icon('copy')}</button></div></section>
       <ul class="pp-members">${s.members.map(m => `<li><span class="avatar" style="--c:${esc(m.color)}">${esc((m.name || '?')[0].toUpperCase())}</span><span class="pp-name" translate="no">${esc(m.name)}</span>${m.you ? '<small>You</small>' : ''}</li>`).join('')}</ul>
@@ -106,47 +107,64 @@ function draw () {
       ${now}
       <button class="btn btn-quiet pp-leave" data-a="leave">Leave party</button>`
   }
-  pop.innerHTML = head + body
+  return head + body
+}
+
+// host: { close(), redraw() } for wherever the panel is drawn.
+function behaviour (ctx, host) {
+  return {
+    html: () => html(ctx),
+    async submit (e) {
+      e.preventDefault()
+      try { take(await api('/api/party/join', { method: 'POST', body: { code: e.target.querySelector('input').value } })); seen = new Set(status.members.map(m => m.id)); listen(); paintChip(); host.redraw() } catch (err) { toast(err.message) }
+    },
+    async click (e) {
+      const a = e.target.closest('[data-a]')?.dataset.a
+      if (!a) return
+      try {
+        if (a === 'close') host.close()
+        if (a === 'start') {
+          // From the player it starts on what is playing; from anywhere else it is an empty room.
+          take(await api('/api/party/start', { method: 'POST', body: ctx ? { item: ctx.item, hash: ctx.hash(), pos: ctx.v.currentTime, paused: ctx.v.paused } : {} }))
+          seen = new Set(status.members.map(m => m.id)); listen(); paintChip(); host.redraw()
+        }
+        if (a === 'leave') { await api('/api/party/leave', { method: 'POST' }); take({ active: false, members: [], now: null }); seen = null; es?.close(); es = null; paintChip(); host.redraw() }
+        if (a === 'go') { host.close(); location.hash = href(status.now.item) }
+        if (a === 'copy') { await navigator.clipboard?.writeText(status.code); toast('Code copied') }
+      } catch (err) { toast(err.message) }
+    }
+  }
+}
+
+function draw () {
+  if (!pop) return
+  const keep = pop.querySelector('input')?.value
+  pop.innerHTML = popPanel.html()
   if (keep) pop.querySelector('input').value = keep
 }
 
-export function closePanel () { pop?.remove(); pop = null; popCtx = null }
+export function closePanel () { pop?.remove(); pop = null; popPanel = null }
 
-// host: where the panel lives (the player element, so it shows in full screen, or the page); ctx: the player's title, or null.
-export function openPanel (host, ctx) {
+// A popover on the page, from the profile menu or the chip.
+export function openPanel (host) {
   if (pop) return closePanel()
   listen()
   pop = document.createElement('div')
-  pop.className = `party-pop ${host === document.body ? 'in-page' : 'in-player'}`
+  pop.className = 'party-pop in-page'
   pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', 'Watch party'); pop.dataset.modal = ''
-  popCtx = ctx
+  popPanel = behaviour(null, { close: closePanel, redraw: draw })
   host.append(pop)
   draw()
-  const outside = e => { if (pop && !pop.contains(e.target) && !e.target.closest('[data-party], #m-party')) { closePanel(); document.removeEventListener('pointerdown', outside, true) } }
+  pop.querySelector('[data-autofocus]')?.focus()
+  const outside = e => { if (pop && !pop.contains(e.target) && !e.target.closest('[data-party]')) { closePanel(); document.removeEventListener('pointerdown', outside, true) } }
   document.addEventListener('pointerdown', outside, true)
-  pop.addEventListener('submit', async e => {
-    e.preventDefault()
-    try { take(await api('/api/party/join', { method: 'POST', body: { code: pop.querySelector('input').value } })); seen = new Set(status.members.map(m => m.id)); listen(); paintChip(); draw() } catch (err) { toast(err.message) }
-  })
-  pop.addEventListener('click', async e => {
-    const a = e.target.closest('[data-a]')?.dataset.a
-    if (!a) return
-    try {
-      if (a === 'close') closePanel()
-      if (a === 'start') {
-        // From the player it starts on what is playing; from anywhere else it is an empty room.
-        take(await api('/api/party/start', { method: 'POST', body: ctx ? { item: ctx.item, hash: ctx.hash(), pos: ctx.v.currentTime, paused: ctx.v.paused } : {} }))
-        seen = new Set(status.members.map(m => m.id)); listen(); paintChip(); draw()
-      }
-      if (a === 'leave') { await api('/api/party/leave', { method: 'POST' }); take({ active: false, members: [], now: null }); seen = null; es?.close(); es = null; paintChip(); draw() }
-      if (a === 'go') { closePanel(); location.hash = href(status.now.item) }
-      if (a === 'copy') { await navigator.clipboard?.writeText(status.code); toast('Code copied') }
-    } catch (err) { toast(err.message) }
-  })
+  pop.addEventListener('submit', e => popPanel?.submit(e))
+  pop.addEventListener('click', e => popPanel?.click(e))
+  pop.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); closePanel() } })
 }
 
 // ---- the player ----
-// ctx: { v, root, item: { type, id, season, episode, title }, hash: () => infoHash of what is playing, button }
+// ctx: { v, root, item: { type, id, season, episode, title }, hash: () => infoHash of what is playing, button, menu: { isParty, redraw, close } }
 export function attachPlayer (ctx) {
   const { v, item } = ctx
   player = ctx
@@ -198,6 +216,8 @@ export function attachPlayer (ctx) {
   sinks.add(sink)
   const mark = () => ctx.button?.classList.toggle('on', status.active)
   sinks.add(mark); mark()
-  if (ctx.button) ctx.button.onclick = () => openPanel(ctx.root, ctx)
-  return () => { sinks.delete(sink); sinks.delete(mark); offs.forEach(f => f()); clearInterval(tick); closePanel(); if (player === ctx) player = null }
+  // The panel is one of the player's own menus: it draws and closes it like the speed or subtitle menu.
+  const detach = () => { sinks.delete(sink); sinks.delete(mark); offs.forEach(f => f()); clearInterval(tick); if (player === ctx) player = null }
+  detach.panel = behaviour(ctx, { close: ctx.menu.close, redraw: ctx.menu.redraw })
+  return detach
 }

@@ -94,7 +94,7 @@ export async function watch (type, id, season, episode) {
   let startAt = (progress(type, id, season, episode) || [0, 1])
   startAt = startAt[0] / startAt[1] < 0.95 && startAt[0] > 10 ? startAt[0] : 0
   const timers = []; const tried = new Set()
-  let castCtl = null; let detachParty = null
+  let castCtl = null; let detachParty = null; let partyPanel = null
 
   let picH = 0
   const applySize = () => root.style.setProperty('--sub', `${(isTV ? 33.6 : picH ? Math.min(28, Math.max(13, picH * 0.06)) : innerWidth < 700 ? 16 : 28) * (P.size ?? store.get('subsize', 1))}px`)
@@ -230,6 +230,7 @@ export async function watch (type, id, season, episode) {
     if (menuKind === 'audio') h = '<h4>Audio</h4>' + info.audio.map(a => row(esc(LANG(a.lang || 'und')) + (a.title ? ` · ${esc(a.title)}` : '') + (a.i === bestAudio() ? '<small class="hint">Default</small>' : ''), { on: a.i === audio, data: `data-a="${a.i}"`, extra: `<small>${esc(a.codec)}</small>` })).join('')
     if (menuKind === 'subs') return drawSubsMenu()
     if (menuKind === 'eps') return drawEpsMenu()
+    if (menuKind === 'party') { menu.className = 'party-pop in-player'; menu.innerHTML = partyPanel.html(); return }
     menu.className = 'pl-menu'
     menu.innerHTML = h
   }
@@ -281,12 +282,15 @@ export async function watch (type, id, season, episode) {
       </div>`
     ;['.sm-langs', '.sm-files'].forEach((q, i) => { menu.querySelector(q).scrollTop = keep[i] })
   }
-  const open = k => { if (menuKind === k) return closeMenu(); menuKind = k; epSeason = season; menu.hidden = false; drawMenu(); wake(); (k === 'eps' && menu.querySelector('.ep.cur') || menu.querySelector('button:not(:disabled), .ep'))?.focus() }
+  const open = k => { if (menuKind === k) return closeMenu(); menuKind = k; epSeason = season; menu.hidden = false; drawMenu(); wake(); (k === 'eps' && menu.querySelector('.ep.cur') || menu.querySelector('[data-autofocus]') || menu.querySelector('button:not(:disabled), .ep'))?.focus() }
   $('#m-speed', root).onclick = () => open('speed'); $('#m-quality', root).onclick = () => open('quality')
   $('#m-eps', root)?.addEventListener('click', () => open('eps'))
   $('#m-audio', root).onclick = () => open('audio'); $('#m-subs', root).onclick = () => open('subs')
+  $('#m-party', root).onclick = () => { if (partyPanel) open('party') }
   root.addEventListener('pointerdown', e => { if (!menu.hidden && !e.target.closest('#menu, .ctrls .cbtn')) closeMenu() })
+  menu.addEventListener('submit', e => { if (menuKind === 'party') partyPanel.submit(e) })
   menu.onclick = async e => {
+    if (menuKind === 'party') return partyPanel.click(e)
     const a = e.target.closest('a[data-ee]')
     if (a) { e.preventDefault(); const [s2, e2] = a.dataset.ee.split('/').map(Number); if (s2 !== season || e2 !== episode) go({ season: s2, episode: e2 }); return closeMenu() }
     const b = e.target.closest('button'); if (!b || b.disabled) return
@@ -773,7 +777,8 @@ export async function watch (type, id, season, episode) {
     const party = await import('./party.js')
     await party.ready()
     const here = { type, id, season: flat ? null : season, episode: flat ? null : episode, title: m.name }
-    detachParty = party.attachPlayer({ v, root, item: here, hash: () => hash, button: $('#m-party', root) })
+    detachParty = party.attachPlayer({ v, root, item: here, hash: () => hash, button: $('#m-party', root), menu: { isParty: () => menuKind === 'party', redraw: drawMenu, close: closeMenu } })
+    partyPanel = detachParty.panel
     forced = party.sourceFor(here)
     if (party.onThis(here)) startAt = party.nowPos()
   } catch { $('#m-party', root).hidden = true }
