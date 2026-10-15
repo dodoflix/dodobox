@@ -1,7 +1,7 @@
 // ffmpeg glue: probing, on-demand HLS for formats browsers can't play natively, embedded subtitles.
 import { spawn, execFile } from 'node:child_process'
 import { srtToVtt } from './subs.js'
-import { FFMPEG, ENCODERS, encoder } from './bin.js'
+import { FFMPEG, ENCODERS, encoder, ensureFfmpeg } from './bin.js'
 
 export const SEG = 6
 const DIRECT_V = new Set(['h264', 'vp8', 'vp9', 'av1'])
@@ -42,7 +42,7 @@ export function parseProbe (text) {
 const probes = new Map()
 export function probe (url, key, name = '') {
   if (!probes.has(key)) {
-    const p = new Promise((resolve, reject) => {
+    const p = ensureFfmpeg().then(() => new Promise((resolve, reject) => {
       // With no output file ffmpeg prints what it found and exits with an error, which is expected here.
       execFile(FFMPEG, ['-hide_banner', '-nostdin', '-probesize', '5000000', '-analyzeduration', '5000000', '-i', url], { maxBuffer: 1e7, timeout: 120000 }, (err, out, text) => {
         if (!/^Input #0/m.test(text || '')) return reject(err || new Error('ffmpeg could not read the file'))
@@ -64,7 +64,7 @@ export function probe (url, key, name = '') {
           audio, subs
         })
       })
-    })
+    }))
     p.catch(() => probes.delete(key))
     probes.set(key, p)
   }
@@ -78,14 +78,14 @@ export function playlist (duration, query) {
   return m3u + '#EXT-X-ENDLIST\n'
 }
 
-export const run = (args, input) => new Promise((resolve, reject) => {
+export const run = (args, input) => ensureFfmpeg().then(() => new Promise((resolve, reject) => {
   const p = spawn(FFMPEG, ['-v', 'error', '-nostdin', ...args], { stdio: [input ? 'pipe' : 'ignore', 'pipe', 'pipe'] })
   const out = []; let err = ''
   p.stdout.on('data', d => out.push(d))
   p.stderr.on('data', d => { err += d })
   p.on('close', code => code === 0 ? resolve(Buffer.concat(out)) : reject(new Error(err.trim() || `ffmpeg exit ${code}`)))
   if (input) p.stdin.on('error', () => {}).end(input)
-})
+}))
 
 const segs = new Map()
 let running = 0

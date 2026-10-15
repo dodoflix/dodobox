@@ -1,7 +1,7 @@
 // Automatic subtitle sync: speech in the audio is cross-correlated with subtitle times in a few short windows; how the per-window offsets change reveals a constant shift, frame-rate drift or a splice.
 import { spawn } from 'node:child_process'
 import { Worker } from 'node:worker_threads'
-import { FFMPEG } from './bin.js'
+import { FFMPEG, ensureFfmpeg } from './bin.js'
 import { mapTime, classify, isLine } from '../public/js/syncmap.js'
 export { mapTime, offsetAt } from '../public/js/syncmap.js'
 
@@ -98,7 +98,7 @@ export function align (sig, ws, cues, range) {
 }
 
 function pcm (url, start, len, timeoutMs = 60000) {
-  return new Promise((resolve, reject) => {
+  return ensureFfmpeg().then(() => new Promise((resolve, reject) => {
     // Lowest priority: playback and transcoding always come first.
     const args = ['-v', 'error', '-nostdin', '-threads', '1', '-ss', String(Math.max(0, start)), '-t', String(len), '-i', url, '-vn', '-sn', '-dn', '-map', '0:a:0',
       '-ac', '1', '-ar', '16000', '-af', 'highpass=f=250,lowpass=f=3500', '-f', 's16le', 'pipe:1']
@@ -107,7 +107,7 @@ function pcm (url, start, len, timeoutMs = 60000) {
     const timer = setTimeout(() => { p.kill('SIGKILL'); reject(new Error('audio read timed out')) }, timeoutMs)
     p.stdout.on('data', d => out.push(d)); p.stderr.on('data', d => { err += d })
     p.on('close', code => { clearTimeout(timer); code === 0 ? resolve(Buffer.concat(out)) : reject(new Error(err.trim() || `ffmpeg exit ${code}`)) })
-  })
+  }))
 }
 
 // Loudness per frame in the speech band, weighted by how much the level changes from moment to moment: syllables make it jump, music and engine noise hold steady. Loudness alone is fooled by theme songs and action scenes.

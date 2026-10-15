@@ -6,7 +6,7 @@ Start the server and open its address (the start scripts open it for you; with `
 
 ## Desktop app
 
-Each [release](https://github.com/dodoflix/dodobox/releases) has installers for Windows (setup and portable), macOS (Apple silicon and Intel, `.dmg`) and Linux x64 (`AppImage`, `.deb`). The app is just the server: it sits in the system tray and has no window of its own. Click the tray icon to open Dodobox in your browser. The tray menu also copies the address for phones and TVs, turns on "Start when I sign in" (Windows and macOS), shows the data folder and quits. Data lives in the app's folder for your user.
+Each [release](https://github.com/dodoflix/dodobox/releases) has installers for Windows (setup and portable), macOS (Apple silicon and Intel, `.dmg`) and Linux x64 (`AppImage`, `.deb`). The app is just the server: it sits in the system tray and has no window of its own. Click the tray icon to open Dodobox in your browser. The tray menu also copies the address for phones and TVs, turns on "Start when I sign in" (Windows and macOS), shows the data folder and quits. Data lives in the app's folder for your user. On first start it downloads ffmpeg (about 30 MB) unless one is installed; video plays after that.
 
 The installers are not signed yet, so the system warns on first run:
 
@@ -90,7 +90,7 @@ Dodobox looks in your Videos and Movies folders (and `MEDIA_DIR`) and matches fi
 | `MEDIA_DIR` | none | An extra folder of your own media |
 | `DODOBOX_ENCODER` | automatic | Force `libx264` if a graphics-card encoder misbehaves |
 | `OPEN` | unset | Set to `1` to open a browser on start (the start scripts do) |
-| `FFMPEG` | automatic | Path to ffmpeg. A system install is used when present, else the bundled build |
+| `FFMPEG` | automatic | Path to ffmpeg. A system install is used when present, else the build from npm; the desktop app downloads it into its data folder on first start |
 | `VAAPI_DEVICE` | `/dev/dri/renderD128` | Device used by the VAAPI hardware encoder |
 | `MAX_TRANSCODES` | `3` | Video segments encoded at the same time |
 | `MIN_LOCAL_BYTES` | `30000000` | Smallest file counted as a video when scanning your own folders |

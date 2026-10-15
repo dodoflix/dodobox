@@ -1,5 +1,5 @@
-// Drops the binaries of other platforms and architectures and the source maps from the packaged app, and gives macOS builds an ad-hoc
-// signature (Apple silicon refuses to run a binary with none).
+// Drops the binaries of other platforms and architectures, the source maps and the ffmpeg build (src/bin.js downloads it on first use)
+// from the packaged app, and gives macOS builds an ad-hoc signature (Apple silicon refuses to run a binary with none).
 const fs = require('node:fs')
 const path = require('node:path')
 const { execFileSync } = require('node:child_process')
@@ -27,6 +27,7 @@ exports.default = async function afterPack (ctx) {
   const mods = path.join(app, 'node_modules')
 
   if (fs.existsSync(mods)) dropMaps(mods)
+  keepOnly(path.join(mods, 'ffmpeg-static'), ['index.js', 'package.json', 'LICENSE'])
   keepOnly(path.join(mods, 'utp-native', 'prebuilds'), [`${os}-${arch}`])
   keepOnly(path.join(mods, 'fs-native-extensions', 'prebuilds'), [`${os}-${arch}`])
   // Only the minified player library is served.
