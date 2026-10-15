@@ -45,5 +45,5 @@ export const patterns = [
   'Preparazione della lingua... $1%', 'Traduzione... $1%',
   'Miglioramento della qualità... $1%',
   'Installazione... $1%',
-  'Dodobox $1 è disponibile', 'La versione $1 è disponibile', 'Hai la versione $1.', 'Scarica la nuova immagine e ricrea il container: $1', 'Solo forzati: $1'
+  'Dodobox $1 è disponibile', 'La versione $1 è disponibile', 'Hai la versione $1.', 'Scarica la nuova immagine e ricrea il container: $1', 'Solo forzati: $1', 'Nessun sottotitolo in $1 trovato'
 ]

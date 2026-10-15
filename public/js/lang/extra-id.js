@@ -45,5 +45,5 @@ export const patterns = [
   'Menyiapkan bahasa... $1%', 'Menerjemahkan... $1%',
   'Meningkatkan kualitas... $1%',
   'Memasang... $1%',
-  'Dodobox $1 tersedia', 'Versi $1 tersedia', 'Anda memiliki versi $1.', 'Tarik image baru lalu buat ulang container: $1', 'Hanya paksa: $1'
+  'Dodobox $1 tersedia', 'Versi $1 tersedia', 'Anda memiliki versi $1.', 'Tarik image baru lalu buat ulang container: $1', 'Hanya paksa: $1', 'Subtitel $1 tidak ditemukan'
 ]

@@ -329,7 +329,7 @@ const routes = [
   ['GET', /^\/api\/info\/(\w+)$/, async (req, res, [, h]) => {
     const s = statusOf(h)
     if (!s || s.fileIdx == null) return fail(req, res, 409, 'not ready')
-    json(req, res, { ...s, ...await probe(rawUrl(h, s.fileIdx), `${h}:${s.fileIdx}`, s.name || ''), sidecar: local.isLocal(h) ? [] : engine.sidecars(h, s.fileIdx) })
+    json(req, res, { ...s, ...await probe(rawUrl(h, s.fileIdx), `${h}:${s.fileIdx}`, s.name || ''), sidecar: (local.isLocal(h) ? local.sidecars(h) : engine.sidecars(h, s.fileIdx)).map(({ path, ...x }) => x) })
   }],
   ['GET', /^\/raw\/(\w+)\/(\d+)$/, (req, res, [, h, i]) => local.isLocal(h) ? local.serve(h, req, res) : engine.serve(h, +i, req, res)],
   // Safari hands HLS to AirPlay by URL, so only subtitles inside the stream reach a TV; with `sl` or `sub` the playlist becomes a master playlist with a WebVTT rendition.
@@ -452,12 +452,14 @@ const routes = [
   }],
   // A subtitle file that came inside the torrent.
   ['GET', /^\/api\/sub\/file\/(\w+)\/(\d+)$/, async (req, res, [, h, n]) => {
-    if (local.isLocal(h) || !statusOf(h)) return fail(req, res, 404, 'unknown source')
+    if (!statusOf(h)) return fail(req, res, 404, 'unknown source')
+    // Files from a torrent are kept as WebVTT on disk; a local file is read again each time (it may be edited).
+    const isLocal = local.isLocal(h)
     const file = path.join(DATA, 'subs', `side-${h}-${n}.vtt`)
-    const vtt = (fs.existsSync(file) && fs.readFileSync(file, 'utf8')) || await once(`side:${h}:${n}`, async () => {
-      const { name, buf } = await engine.readSidecar(h, +n)
+    const vtt = (!isLocal && fs.existsSync(file) && fs.readFileSync(file, 'utf8')) || await once(`side:${h}:${n}`, async () => {
+      const { name, buf } = isLocal ? local.readSidecar(h, +n) : await engine.readSidecar(h, +n)
       const text = await toVtt(buf, legacyEncoding(langOfName(name)))
-      fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, text)
+      if (!isLocal) { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, text) }
       return text
     })
     send(req, res, 200, 'text/vtt; charset=utf-8', vtt, { 'cache-control': 'no-store', 'x-covered': 'full', 'access-control-expose-headers': 'x-covered' })

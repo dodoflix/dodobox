@@ -7,6 +7,7 @@ import { catalog } from './meta.js'
 import { DATA } from './paths.js'
 import { settings } from './state.js'
 import { VIDEO_EXT, nameHasTitle } from './sources.js'
+import { sidecarsFor, SUB_FILE } from './sidecar.js'
 import { sendRange, MIME } from './range.js'
 
 const FILE = path.join(DATA, 'local.json')
@@ -103,6 +104,37 @@ export const isLocal = h => /^l[0-9a-f]{16}$/.test(h)
 export function status (id) {
   const e = byId(id)
   return e && { hash: id, local: true, phase: 'done', peers: 0, speed: 0, fileIdx: 0, name: path.basename(e.path), length: e.size, downloaded: e.size, progress: 1, ctx: { type: e.type, id: e.mid, title: e.name, poster: e.poster, season: e.season, episode: e.episode } }
+}
+
+// Subtitle files beside a local video: in its folder, or in a Subs/Subtitles folder (one level of episode folders inside it).
+const SUBS_DIR = /^(subs?|subtitles?)$/i
+function sideFiles (e) {
+  const dir = path.dirname(e.path); const files = []
+  const take = (d, depth) => {
+    let items
+    try { items = fs.readdirSync(d, { withFileTypes: true }) } catch { return }
+    for (const it of items) {
+      const p = path.join(d, it.name)
+      if (it.isDirectory()) { if (depth < 2 && (depth > 0 || SUBS_DIR.test(it.name))) take(p, depth + 1); continue }
+      if (!it.isFile() || (!SUB_FILE.test(it.name) && !(depth === 0 && VIDEO_EXT.test(it.name)))) continue
+      try { files.push({ name: path.relative(dir, p), length: fs.statSync(p).size, path: p }) } catch {}
+    }
+  }
+  take(dir, 0)
+  return files
+}
+export function sidecars (id) {
+  const e = byId(id); if (!e) return []
+  const files = sideFiles(e)
+  const at = files.findIndex(f => f.path === e.path)
+  if (at < 0) return []
+  return sidecarsFor(files, at, { type: e.type, season: e.season, episode: e.episode }).map(s => ({ ...s, path: files[s.i].path }))
+}
+// A subtitle file's name and bytes; only files sidecars() lists can be read.
+export function readSidecar (id, i) {
+  const s = sidecars(id).find(x => x.i === i)
+  if (!s) throw Object.assign(new Error('unknown subtitle file'), { code: 404 })
+  return { name: s.name, buf: fs.readFileSync(s.path) }
 }
 
 export function serve (id, req, res) {

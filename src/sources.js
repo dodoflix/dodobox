@@ -41,6 +41,7 @@ const tierOf = q => (q >= 2160 ? 2160 : q >= 1080 ? 1080 : q >= 720 ? 720 : 480)
 const DUBS = { it: /\b(ita|italian)\b/i, fr: /\b(french|vff|vfq|truefrench|vostfr)\b/i, de: /\b(german|deutsch)\b/i, es: /\b(spanish|castellano|latino|esp)\b/i, ru: /\b(rus|russian)\b/i, tr: /\b(turkish|turkce)\b/i, pt: /\b(portuguese|dublado|brazilian)\b/i, hi: /\b(hindi|tamil|telugu)\b/i, pl: /\b(polish|lektor)\b/i, ko: /\bkorean\b/i, ja: /\bjap(anese)?\b/i, zh: /\bchinese\b/i }
 // Fansub groups list the subtitle languages built into a release: "[Multiple Subtitle] [ENG][POR-BR][SPA-LA][ARA][FRE]".
 const SUB_TAGS = { ENG: 'eng', JPN: 'jpn', JAP: 'jpn', 'POR-BR': 'pob', POR: 'por', 'SPA-LA': 'spa', SPA: 'spa', ESP: 'spa', ARA: 'ara', FRE: 'fre', FRA: 'fre', GER: 'ger', DEU: 'ger', ITA: 'ita', RUS: 'rus', TUR: 'tur', KOR: 'kor', CHI: 'chi', ZHO: 'chi', 'CHI-S': 'chi', 'CHI-T': 'chi', IND: 'ind', VIE: 'vie', THA: 'tha', POL: 'pol', DUT: 'dut', NLD: 'dut', SWE: 'swe', HIN: 'hin', HEB: 'heb', GRE: 'ell', ELL: 'ell' }
+const MULTI_SUB = /multi(?:ple)?[ ._-]?sub(?:title)?s?\b/i
 export const releaseSubLangs = name => new Set([...name.matchAll(/\[([A-Za-z]{3}(?:-[A-Za-z]{1,2})?)\]/g)].map(m => SUB_TAGS[m[1].toUpperCase()]).filter(Boolean))
 export const measured = new Map()
 const QUALITY_SCORE = { 2160: 130, 1440: 112, 1080: 100, 720: 80, 480: 30, 0: 20 }
@@ -83,6 +84,7 @@ export function score (r, ctx = {}) {
   }
   if (/\bremux\b|\bbd(25|50|66|100)\b|\bcomplete\.?(uhd\.)?bluray\b/i.test(r.title)) s += mode === 'lossless' ? 25 : mode === 'compact' ? -90 : -60
   if (ctx.sublang && ctx.sublang !== 'off' && ctx.sublang !== 'eng' && releaseSubLangs(r.title).has(ctx.sublang)) s += 35
+  else if (ctx.sublang && ctx.sublang !== 'off' && ctx.sublang !== 'eng' && MULTI_SUB.test(r.title)) s += 12 // several languages built in, this one not listed
   const m = measured.get(r.infoHash)
   if (m && Date.now() - m.at < 6 * 3600e3) s += m.bps ? Math.min(40, Math.log2(m.bps / 1e5 + 1) * 6) : -60
   if (/\b(cam|hdcam|ts|telesync|hdts|tc)\b/i.test(r.title)) s -= 300

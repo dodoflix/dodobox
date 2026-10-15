@@ -72,7 +72,7 @@ The download button on a movie, an episode, or "Download season" saves it to the
 
 ## Your own files
 
-Dodobox looks in your Videos and Movies folders (and `MEDIA_DIR`) and matches files such as `Movie.Name.2019.mkv` or `Show.S01E02.mkv` to posters and details. Matched files appear under "On your server" and play instantly. Add more folders in Settings.
+Dodobox looks in your Videos and Movies folders (and `MEDIA_DIR`) and matches files such as `Movie.Name.2019.mkv` or `Show.S01E02.mkv` to posters and details. Matched files appear under "On your server" and play instantly. Subtitle files beside a video (`Movie.en.srt`, or in a `Subs` folder) show up in the player's subtitle menu. Add more folders in Settings.
 
 ## Settings you may want
 
