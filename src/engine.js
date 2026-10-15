@@ -3,6 +3,7 @@ import WebTorrent from 'webtorrent'
 import fs from 'node:fs'
 import path from 'node:path'
 import { pickFile } from './sources.js'
+import { sidecarsFor, SUB_FILE } from './sidecar.js'
 import { sendRange, MIME } from './range.js'
 
 import { DATA } from './paths.js'
@@ -138,6 +139,10 @@ export function status (hash, silent, file) {
 
 export const library = () => Object.values(lib).sort((a, b) => b.added - a.added).flatMap(e => rowsOf(e).map(r => status(e.hash, true, r.fileIdx ?? undefined)).filter(Boolean))
 
+function pruneEmpty (dir) {
+  try { for (const d of fs.readdirSync(dir, { withFileTypes: true })) if (d.isDirectory()) pruneEmpty(path.join(dir, d.name)); fs.rmdirSync(dir) } catch { /* not empty, or already gone */ }
+}
+
 export async function remove (hash, file) {
   if (!lib[hash]) return false
   const e = lib[hash]
@@ -148,7 +153,10 @@ export async function remove (hash, file) {
     const at = e.extra.findIndex(x => x.fileIdx === k)
     if (at >= 0) { e.extra.splice(at, 1); t?.files[k]?.deselect(); save(); return true }
   }
+  const tops = t ? new Set(t.files.map(f => f.path.split(/[\\/]/)[0])) : []
   if (t) await new Promise(resolve => client.remove(hash, { destroyStore: true }, resolve))
+  // Removing the files leaves a pack's folders behind.
+  for (const top of tops) pruneEmpty(path.join(DL, top))
   delete lib[hash]
   save()
   return true
@@ -160,6 +168,28 @@ export function readablePrefix (hash, idx) {
   const pl = t.pieceLength; const first = Math.floor(f.offset / pl); const last = Math.floor((f.offset + f.length - 1) / pl)
   let p = first; while (p <= last && t.bitfield.get(p)) p++
   return p > last ? f.length : Math.max(0, p * pl - f.offset)
+}
+
+// Subtitle files inside the torrent that belong to the file being watched.
+export function sidecars (hash, file) {
+  const e = lib[hash]; const t = torrentOf(hash)
+  const row = e && rowFor(e, file)
+  if (!t?.ready || row?.fileIdx == null) return []
+  return sidecarsFor(t.files.map(f => ({ name: f.path, length: f.length })), row.fileIdx, row.ctx)
+}
+
+// A subtitle file's path and bytes. Reading asks the swarm for its pieces ahead of the video's, which is a few kilobytes.
+export function readSidecar (hash, idx, ms = 20000) {
+  const f = torrentOf(hash)?.files[idx]
+  if (!f || !SUB_FILE.test(f.name)) throw Object.assign(new Error('unknown subtitle file'), { code: 404 })
+  touch(hash)
+  return new Promise((resolve, reject) => {
+    const chunks = []; const s = f.createReadStream()
+    const timer = setTimeout(() => { s.destroy(); reject(Object.assign(new Error('subtitle file not downloaded yet'), { code: 409 })) }, ms)
+    s.on('data', c => chunks.push(c))
+    s.on('end', () => { clearTimeout(timer); resolve({ name: f.path, buf: Buffer.concat(chunks) }) })
+    s.on('error', e => { clearTimeout(timer); reject(e) })
+  })
 }
 
 export function filePath (hash, idx) {

@@ -142,16 +142,22 @@ export async function fetchSubtitle (url, enc) {
     let buf = Buffer.from(await r.arrayBuffer())
     if (buf[0] === 0x50 && buf[1] === 0x4b) buf = unzipFirst(buf)
     if (buf[0] === 0x1f && buf[1] === 0x8b) buf = zlib.gunzipSync(buf)
-    if (buf.length > 3e6) throw new Error('subtitle too large')
-    let text = decode(buf, enc)
-    // ASS/SSA and other formats go through ffmpeg (loaded lazily: transcode.js imports this module).
-    if (/^\s*\[Script Info\]/i.test(text)) text = await (await import('./transcode.js')).anyToVtt(buf)
-    const vtt = srtToVtt(text)
+    const vtt = await toVtt(buf, enc)
     fs.mkdirSync(CACHE, { recursive: true })
     fs.writeFileSync(f, vtt)
     return vtt
   })
 }
+
+// Subtitle file bytes in any common format (SRT, WebVTT, ASS/SSA) to WebVTT.
+export async function toVtt (buf, enc) {
+  if (buf.length > 3e6) throw new Error('subtitle too large')
+  let text = decode(buf, enc)
+  // ASS/SSA and other formats go through ffmpeg (loaded lazily: transcode.js imports this module).
+  if (/^\s*\[Script Info\]/i.test(text)) text = await (await import('./transcode.js')).anyToVtt(buf)
+  return srtToVtt(text)
+}
+export const legacyEncoding = lang => LEGACY[lang]
 
 // UTF-8 when valid; otherwise the encoding the provider reported (Turkish files are usually CP1254), else Windows-1252.
 export function decode (buf, enc) {

@@ -15,7 +15,7 @@ process.env.NO_DHT = '1'
 process.env.NO_MDNS = '1'
 process.env.HOME = tmp
 
-let seeder, srv, engine, base, hash
+let seeder, srv, engine, base, hash, packHash, packMagnet
 const get = (p, init) => fetch(base + p, init)
 
 before(async () => {
@@ -29,6 +29,16 @@ before(async () => {
   const t = await new Promise(r => seeder.seed(path.join(src, 'Show.S01E02.mkv'), { announce: [] }, r))
   hash = t.infoHash
   const magnet = `magnet:?xt=urn:btih:${hash}&x.pe=127.0.0.1:${seeder.address().port}`
+
+  // A pack with subtitle files next to the videos: one for the episode being watched, one for another episode.
+  const pack = path.join(tmp, 'Pack'); fs.mkdirSync(path.join(pack, 'Subs', 'Show.S01E05'), { recursive: true })
+  for (const n of [5, 6]) fs.copyFileSync(path.join(src, 'Show.S01E02.mkv'), path.join(pack, `Show.S01E0${n}.mkv`))
+  fs.writeFileSync(path.join(pack, 'Show.S01E05.en.srt'), '1\n00:00:01,000 --> 00:00:03,000\nHello sidecar\n')
+  fs.writeFileSync(path.join(pack, 'Show.S01E06.en.srt'), '1\n00:00:01,000 --> 00:00:03,000\nWrong episode\n')
+  fs.writeFileSync(path.join(pack, 'Subs', 'Show.S01E05', '2_Turkish.srt'), '1\n00:00:01,000 --> 00:00:03,000\nMerhaba\n')
+  const pt = await new Promise(r => seeder.seed(pack, { announce: [] }, r))
+  packHash = pt.infoHash
+  packMagnet = `magnet:?xt=urn:btih:${packHash}&x.pe=127.0.0.1:${seeder.address().port}`
 
   const { start } = await import('../server.js')
   engine = await import('../src/engine.js')
@@ -73,6 +83,19 @@ test('probe flags mkv/ac3 for transcoding and lists embedded subs', async () => 
   assert.equal(info.subs.length, 1)
 })
 
+test('subtitle files inside the torrent are listed for the episode and served as WebVTT', async (t) => {
+  engine.add({ hash: packHash, magnet: packMagnet, ctx: { type: 'series', id: 'tt2', title: 'Show', season: 1, episode: 5 } })
+  t.after(() => engine.remove(packHash))
+  const info = await until(async () => { const r = await get(`/api/info/${packHash}`); return r.ok && r.json() })
+  assert.deepEqual(info.sidecar.map(s => [s.name, s.lang]).sort(), [['2_Turkish.srt', 'tur'], ['Show.S01E05.en.srt', 'eng']])
+  const en = info.sidecar.find(s => s.lang === 'eng')
+  const r = await get(`/api/sub/file/${packHash}/${en.i}`)
+  assert.equal(r.status, 200)
+  const vtt = await r.text()
+  assert.match(vtt, /^WEBVTT/)
+  assert.match(vtt, /00:00:01\.000 --> 00:00:03\.000\nHello sidecar/)
+})
+
 test('HLS playlist and a segment decode to valid MPEG-TS H.264/AAC', async () => {
   const pl = await (await get(`/hls/${hash}/0/index.m3u8`)).text()
   assert.equal((pl.match(/seg\d+\.ts/g) || []).length, 3)
@@ -113,5 +136,5 @@ test('deleting from the library removes files', async () => {
   const dl = path.join(process.env.DATA_DIR, 'downloads')
   assert.ok(fs.readdirSync(dl).length > 0)
   assert.deepEqual(await (await get(`/api/library/${hash}`, { method: 'DELETE' })).json(), { ok: true })
-  assert.equal(fs.readdirSync(dl).length, 0)
+  assert.deepEqual(fs.readdirSync(dl, { recursive: true }), [])
 })
