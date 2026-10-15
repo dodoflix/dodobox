@@ -188,8 +188,8 @@ html.tv .poster:focus-visible .art { outline-width: 4px; transform: scale(1.06);
 .ep { display: grid; grid-template-columns: 2.6rem 11.5rem 1fr; gap: 1.1rem; align-items: center; padding: .7rem .8rem; border-radius: 12px; transition: background .2s; }
 .ep:hover, .ep:focus-visible { background: rgb(255 255 255 / .07); }
 .ep .n { font: 800 1.7rem/1 var(--display); color: var(--ink3); text-align: right; }
-.ep .th { position: relative; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden; background: radial-gradient(120% 90% at 25% 0%, hsl(var(--h, 30) 34% 24%), hsl(var(--h, 30) 28% 9%)); }
-/* The tinted tile with a big number is what shows until a picture arrives, and for ever when there is none. */
+.ep .th { position: relative; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden; background-image: linear-gradient(rgb(12 12 17 / .55), rgb(12 12 17 / .55)), var(--art, none), radial-gradient(120% 90% at 25% 0%, hsl(var(--h, 30) 34% 24%), hsl(var(--h, 30) 28% 9%)); background-size: cover; background-position: center; }
+/* An episode without its own picture shows the title's backdrop, darkened, with its number; the tint is what shows when there is no backdrop either. */
 .th .num { position: absolute; right: .45rem; bottom: -.35rem; font: 900 clamp(2.6rem, 5vw, 3.6rem)/1 var(--display); letter-spacing: -.02em; color: hsl(var(--h, 30) 40% 72% / .2); pointer-events: none; }
 .ep .th img { position: absolute; inset: 0; }
 .ep .th img { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .4s; }
