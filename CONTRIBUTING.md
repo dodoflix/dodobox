@@ -7,6 +7,8 @@ Bug reports, ideas and pull requests are welcome.
 ```sh
 npm install
 npm run watch   # restarts on server changes
+npm run desktop # the Electron app, from source
+npm run dist    # build installers for this OS into dist/
 npm test
 npm run lint
 ```

@@ -72,3 +72,42 @@ jobs:
           subject-name: ghcr.io/${{ github.repository }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
+
+  desktop:
+    needs: release-please
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+    if: needs.release-please.outputs.created == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            args: --linux
+          - os: windows-latest
+            args: --win
+          - os: macos-latest
+            args: --mac --arm64
+          - os: macos-15-intel
+            args: --mac --x64
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx electron-builder ${{ matrix.args }} --publish never
+      - name: Attach installers to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag }}
+        run: gh release upload "$TAG" dist/Dodobox-* --clobber --repo "$GITHUB_REPOSITORY"
