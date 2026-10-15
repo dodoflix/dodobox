@@ -1,6 +1,6 @@
 {
   "name": "dodobox",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Self-hosted streaming app: torrent playback, subtitles, profiles",
   "keywords": [

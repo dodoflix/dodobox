@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.2.0](https://github.com/dodoflix/dodobox/compare/v0.1.0...v0.2.0) (2026-10-15)
+
+
+### Features
+
+* update notices with one-click desktop update, and fewer requests ([#10](https://github.com/dodoflix/dodobox/issues/10)) ([2b6bfda](https://github.com/dodoflix/dodobox/commit/2b6bfda3b937ddaf3cad170514f85ded82cff955))
+
+
+### Bug fixes
+
+* redraw the app icon and add a monochrome menu-bar glyph ([#7](https://github.com/dodoflix/dodobox/issues/7)) ([b2a11db](https://github.com/dodoflix/dodobox/commit/b2a11db8d7d480e2cca9b18b64961c84ab0f9aed))
+
+
+### Performance
+
+* faster, lighter loading on slow links ([#8](https://github.com/dodoflix/dodobox/issues/8)) ([f77bb7f](https://github.com/dodoflix/dodobox/commit/f77bb7fb0a661aea878a1deafda5522cde3085e7))
+
 ## 0.1.0 (2026-10-15)
 
 
