@@ -1,0 +1,12 @@
+services:
+  dodobox:
+    build: .
+    restart: unless-stopped
+    # Host networking lets phones and TVs find "dodobox.local" and lets torrents connect.
+    network_mode: host
+    volumes:
+      - dodobox-data:/data
+      # Optional: your own movies and shows, played instantly.
+      # - /path/to/your/media:/media:ro
+volumes:
+  dodobox-data:

@@ -1,0 +1,47 @@
+// Internet speed of the machine running Dodobox. Source ranking uses it so a slow line is not handed a 60 GB remux.
+const probe = { down: 0, at: 0 }
+let peak = 0
+
+export async function measure () {
+  if (process.env.NO_SPEEDTEST) return
+  try {
+    const r = await fetch('https://speed.cloudflare.com/__down?bytes=25000000', { signal: AbortSignal.timeout(15000) })
+    const reader = r.body.getReader()
+    let t0 = 0; let bytes = 0
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (!t0) t0 = performance.now() // exclude connection setup
+      else bytes += value.length
+    }
+    const secs = (performance.now() - t0) / 1000
+    if (secs > 0.2 && bytes > 1e6) { probe.down = bytes * 8 / secs / 1e6; probe.at = Date.now() }
+  } catch {}
+}
+
+// Torrent throughput seen in practice also counts: it can exceed a short HTTP test.
+export const observe = bytesPerSec => { peak = Math.max(peak * 0.999, bytesPerSec * 8 / 1e6) }
+// Mbps, or 0 when unknown.
+export const downMbps = () => Math.max(probe.down, peak)
+
+export function start () {
+  measure()
+  setInterval(measure, 30 * 60e3).unref()
+}
+
+// Random bytes for the browser to time its own link to this server.
+const chunk = Buffer.alloc(256 * 1024).map(() => Math.floor(Math.random() * 256))
+export function sendTestBytes (res, bytes) {
+  bytes = Math.max(1e5, Math.min(8e6, bytes || 2e6))
+  res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-length': bytes, 'cache-control': 'no-store' })
+  let left = bytes
+  const write = () => {
+    while (left > 0) {
+      const part = left >= chunk.length ? chunk : chunk.subarray(0, left)
+      left -= part.length
+      if (!res.write(part)) return void res.once('drain', write)
+    }
+    res.end()
+  }
+  write()
+}

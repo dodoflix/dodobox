@@ -1,0 +1,9 @@
+node_modules
+data
+apps
+docs
+test
+.git
+.github
+.idea
+*.md

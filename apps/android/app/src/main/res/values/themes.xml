@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.Dodobox" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#0C0C11</item>
+        <item name="android:statusBarColor">#0C0C11</item>
+        <item name="android:navigationBarColor">#0C0C11</item>
+    </style>
+</resources>
