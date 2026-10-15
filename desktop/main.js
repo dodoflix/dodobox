@@ -64,29 +64,39 @@ async function boot () {
   tray.on('right-click', () => tray.popUpContextMenu(menu()))
 
   // The Windows installer and the Linux AppImage replace themselves. The portable exe, the .deb and the macOS builds (not signed) cannot,
-  // so for those the user is taken to the download page.
+  // so for those the user is taken to the download page. The page (src/update.js) and the dialogs below drive the same updater.
   const { autoUpdater } = updater
+  const updates = await import('../src/update.js')
   const RELEASES = 'https://github.com/dodoflix/dodobox/releases/latest'
   const selfUpdates = app.isPackaged && ((process.platform === 'win32' && !process.env.PORTABLE_EXECUTABLE_DIR) || (process.platform === 'linux' && !!process.env.APPIMAGE))
+  const idle = () => tray.setToolTip(`Dodobox is running on port ${port}`)
   let asked = ''
   autoUpdater.autoDownload = false
-  autoUpdater.on('error', e => console.error('[update]', e.message))
+  updates.useDriver({
+    self: selfUpdates,
+    download: () => autoUpdater.downloadUpdate(),
+    install: () => autoUpdater.quitAndInstall(),
+    check: () => autoUpdater.checkForUpdates().catch(() => {})
+  })
+  autoUpdater.on('error', e => { console.error('[update]', e.message); updates.set({ phase: 'error', error: e.message }) })
+  autoUpdater.on('download-progress', p => { updates.set({ progress: Math.round(p.percent) }); tray.setToolTip(`Downloading the update... ${Math.round(p.percent)}%`) })
   autoUpdater.on('update-available', async info => {
+    updates.set({ version: info.version, url: `https://github.com/dodoflix/dodobox/releases/tag/v${info.version}`, phase: 'available', error: null })
     if (asked === info.version) return
     asked = info.version
     const { response } = await dialog.showMessageBox({
       type: 'info', title: 'Dodobox update', message: `Dodobox ${info.version} is available`,
-      detail: `You have ${app.getVersion()}. ` + (selfUpdates ? 'Update now? Dodobox restarts when the download is done.' : 'Open the download page?'),
+      detail: `You have ${app.getVersion()}. ` + (selfUpdates ? 'Update now? Dodobox restarts when the download is done. You can also do it from the Dodobox page.' : 'Open the download page?'),
       buttons: [selfUpdates ? 'Update now' : 'Open download page', 'Later'], defaultId: 0, cancelId: 1
     })
     if (response !== 0) return
     if (!selfUpdates) return shell.openExternal(RELEASES)
-    tray.setToolTip('Downloading the update...')
-    autoUpdater.downloadUpdate().catch(e => { tray.setToolTip(`Dodobox is running on port ${port}`); dialog.showErrorBox('Update failed', e.message) })
+    updates.download().catch(e => dialog.showErrorBox('Update failed', e.message)).finally(idle)
   })
   autoUpdater.on('update-downloaded', async () => {
+    updates.set({ phase: 'ready', progress: 100 })
+    idle()
     const { response } = await dialog.showMessageBox({ type: 'info', title: 'Dodobox update', message: 'The update is ready', detail: 'Restart Dodobox to finish.', buttons: ['Restart now', 'Later'], defaultId: 0, cancelId: 1 })
-    tray.setToolTip(`Dodobox is running on port ${port}`)
     if (response === 0) autoUpdater.quitAndInstall()
   })
   const checkUpdates = () => { if (app.isPackaged) autoUpdater.checkForUpdates().catch(() => {}) }

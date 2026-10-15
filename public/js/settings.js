@@ -19,7 +19,7 @@ export async function settings (root) {
   const dirs = srv.mediaDirs
   root.innerHTML = `<div class="view page">
     <div class="page-h"><h1>${esc(me.name)}</h1></div>
-
+    <div class="cols"><div class="col">
     <div class="group"><h3>Playback</h3>
       <div class="set"><div class="l"><b>Language</b><span>Titles and descriptions are translated when a translation exists.</span></div>
         <select class="field" id="lang">${LANGUAGES.map(([c, , n]) => `<option value="${c}" ${c === me.settings.lang ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
@@ -43,6 +43,7 @@ export async function settings (root) {
       <div class="set"><div class="l"><b>Switch profile</b><span>Each person keeps their own progress and My List.</span></div><button class="btn btn-ghost sm" id="switch">${icon('user')}Switch</button></div>
     </div>
 
+    </div><div class="col">
     <div class="group"><h3>Connect a phone or TV</h3>
       <div class="connect"><img alt="QR code for ${esc(url)}" src="/api/qr.svg?text=${encodeURIComponent(url)}">
         <div><b>Scan with a phone camera, or type:</b><code>${esc(url)}</code>${srv.urls.slice(1).map(u => `<code class="dim" style="font-size:.95rem">${esc(u)}</code>`).join('')}
@@ -66,6 +67,7 @@ export async function settings (root) {
         <button class="switch" role="switch" id="tv" aria-checked="${isTV}" aria-label="TV layout"></button></div>
       <div class="set"><div class="l"><b>Dodobox ${esc(srv.version)}</b><span>Video encoder: ${esc(srv.encoder === 'libx264' ? 'software' : srv.encoder)}${srv.update ? ` · <a href="${esc(srv.update.url)}" target="_blank" rel="noreferrer">Version ${esc(srv.update.version)} is available</a>` : ''}</span></div></div>
     </div>
+    </div></div>
   </div>`
 
   upgradeSelects(root)
