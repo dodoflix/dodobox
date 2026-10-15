@@ -2,13 +2,11 @@
 import { execFileSync, execFile } from 'node:child_process'
 import fs from 'node:fs'
 import ffmpegStatic from 'ffmpeg-static'
-import ffprobeStatic from 'ffprobe-static'
 
 const works = bin => { try { execFileSync(bin, ['-version'], { stdio: 'ignore' }); return true } catch { return false } }
 const pick = (env, system, bundled) => env || (works(system) ? system : bundled)
 
 export const FFMPEG = pick(process.env.FFMPEG, 'ffmpeg', ffmpegStatic)
-export const FFPROBE = pick(process.env.FFPROBE, 'ffprobe', ffprobeStatic.path)
 
 const VAAPI_DEVICE = process.env.VAAPI_DEVICE || '/dev/dri/renderD128'
 
