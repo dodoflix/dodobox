@@ -33,7 +33,8 @@ export const rows = [
 /*from english*/ 'Dịch từ tiếng Anh',
 /*adult*/ 'Bộ lọc nội dung người lớn', 'Ẩn các tựa được đánh dấu là người lớn. Mặc định tắt.',
 /*best*/ 'Chất lượng dịch tốt nhất', 'Phụ đề tự động dịch dùng một công cụ dịch lớn hơn. Lần đầu sẽ tải khoảng 2 GB, và mỗi phụ đề sẽ tốt dần lên khi bạn xem.',
-/*install*/ 'Đã cài đặt và sẵn sàng', 'Đã cài đặt và sẵn sàng, đang dùng card đồ họa', 'Không thể cài đặt. Kiểm tra kết nối internet, rồi tắt và bật lại.'
+/*install*/ 'Đã cài đặt và sẵn sàng', 'Đã cài đặt và sẵn sàng, đang dùng card đồ họa', 'Không thể cài đặt. Kiểm tra kết nối internet, rồi tắt và bật lại.',
+/*ui2*/ 'Không thể tải thêm.', 'Mặc định', 'Đang phát', 'Đang đọc phụ đề...', 'Đang chờ tải thêm...', 'Ghi chú phát hành', 'Cập nhật ngay', 'Để sau', 'Đang tải bản cập nhật...', 'Bản cập nhật đã sẵn sàng', 'Dodobox sẽ khởi động lại để hoàn tất.', 'Khởi động lại để cập nhật', 'Cập nhật không thành công', 'Đóng', 'Đang khởi động lại Dodobox...', 'Trang này sẽ tự tải lại.', 'Đã xảy ra lỗi.', 'Tải trình cài đặt mới và chạy nó.', 'Tải bản phát hành mới, hoặc lấy mã nguồn mới và chạy npm install.', 'Hiện không tìm thấy nội dung nào phát được cho tiêu đề này'
 ]
 export const patterns = [
   'Chào $1, hãy biến nó thành của bạn', 'Mùa $1', 'Mùa $1 · Tập $2', 'Tiếp tục S$1 E$2', 'S$1 E$2$3', 'Phát sóng $1', '$1 giờ $2 phút', '$1 phút', '$1còn $2', '$1còn $2 phút',
@@ -43,5 +44,6 @@ export const patterns = [
   'Top 10 phim tại $1', 'Top 10 series tại $1', 'Phim $1 phổ biến', 'Series $1 phổ biến', 'Anime $1 phổ biến',
   'Đang chuẩn bị ngôn ngữ... $1%', 'Đang dịch... $1%',
   'Đang cải thiện chất lượng... $1%',
-  'Đang cài đặt... $1%'
+  'Đang cài đặt... $1%',
+  'Dodobox $1 đã có sẵn', 'Phiên bản $1 đã có sẵn', 'Bạn đang dùng phiên bản $1.', 'Kéo image mới và tạo lại container: $1', 'Chỉ phụ đề bắt buộc: $1'
 ]

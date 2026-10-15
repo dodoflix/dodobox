@@ -37,7 +37,7 @@ export async function settings (root) {
         ${seg('sourceMode', SOURCE_MODES, me.settings.sourceMode || 'balanced')}</div>
       <div class="set"><div class="l"><b>Adult content filter</b><span>Hide titles that are marked as adult. Off by default.</span></div>
         <button class="switch" role="switch" data-k="adultFilter" aria-checked="${!!me.settings.adultFilter}" aria-label="Adult content filter"></button></div>
-      <div class="set"><div class="l"><b>Best translation quality</b><span>Auto-translated subtitles use a larger translator. It downloads about 600 MB the first time, and each subtitle improves gradually while you watch.</span><span id="hqstat" class="dim"></span></div>
+      <div class="set"><div class="l"><b>Best translation quality</b><span>Auto-translated subtitles use a larger translator. It downloads about 2 GB the first time, and each subtitle improves gradually while you watch.</span><span id="hqstat" class="dim"></span></div>
         <button class="switch" role="switch" data-k="bestTranslation" aria-checked="${!!me.settings.bestTranslation}" aria-label="Best translation quality"></button></div>
     </div>
 

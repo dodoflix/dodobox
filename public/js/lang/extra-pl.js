@@ -33,7 +33,8 @@ export const rows = [
 /*from english*/ 'Przetłumaczone z angielskiego',
 /*adult*/ 'Filtr treści dla dorosłych', 'Ukrywa tytuły oznaczone jako dla dorosłych. Domyślnie wyłączone.',
 /*best*/ 'Najlepsza jakość tłumaczenia', 'Automatycznie tłumaczone napisy używają większego tłumacza. Za pierwszym razem pobiera około 2 GB, a każde napisy stopniowo się poprawiają podczas oglądania.',
-/*install*/ 'Zainstalowano i gotowe', 'Zainstalowano i gotowe, używa karty graficznej', 'Nie udało się zainstalować. Sprawdź połączenie z internetem, a potem wyłącz i włącz opcję.'
+/*install*/ 'Zainstalowano i gotowe', 'Zainstalowano i gotowe, używa karty graficznej', 'Nie udało się zainstalować. Sprawdź połączenie z internetem, a potem wyłącz i włącz opcję.',
+/*ui2*/ 'Nie udało się wczytać więcej.', 'Domyślne', 'Teraz odtwarzane', 'Odczytywanie napisów...', 'Oczekiwanie na dalszą część pobierania...', 'Informacje o wydaniu', 'Zaktualizuj teraz', 'Później', 'Pobieranie aktualizacji...', 'Aktualizacja jest gotowa', 'Dodobox uruchomi się ponownie, aby dokończyć.', 'Uruchom ponownie, aby zaktualizować', 'Aktualizacja się nie powiodła', 'Zamknij', 'Ponowne uruchamianie Dodobox...', 'Ta strona odświeży się sama.', 'Coś poszło nie tak.', 'Pobierz nowy instalator i uruchom go.', 'Pobierz nową wersję albo pobierz nowy kod źródłowy i uruchom npm install.', 'Na razie nie znaleziono nic do odtworzenia dla tego tytułu'
 ]
 export const patterns = [
   'Cześć $1, dostosuj to do siebie', 'Sezon $1', 'Sezon $1 · Odcinek $2', 'Wznów S$1 O$2', 'S$1 O$2$3', 'Premiera $1', '$1 godz. $2 min', '$1 min', '$1zostało $2', '$1zostało $2 min',
@@ -43,5 +44,6 @@ export const patterns = [
   'Top 10 filmów: $1', 'Top 10 seriali: $1', 'Popularne filmy: $1', 'Popularne seriale: $1', 'Popularne anime: $1',
   'Przygotowywanie języka... $1%', 'Tłumaczenie... $1%',
   'Poprawianie jakości... $1%',
-  'Instalowanie... $1%'
+  'Instalowanie... $1%',
+  'Dostępny jest Dodobox $1', 'Dostępna jest wersja $1', 'Masz wersję $1.', 'Pobierz nowy obraz i utwórz kontener ponownie: $1', 'Tylko wymuszone: $1'
 ]

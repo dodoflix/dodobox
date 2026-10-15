@@ -17,11 +17,11 @@ function paint (u) {
   const link = `<a href="${esc(u.url || '#')}" target="_blank" rel="noreferrer">Release notes</a>`
   const bar = `<div class="hair"><i style="width:${u.progress || 0}%"></i></div>`
   box.innerHTML = {
-    available: `<div class="t"><b>Dodobox ${esc(u.version)} is available</b><span>You have ${esc(u.current)}. ${u.canApply ? '' : esc(u.hint)} ${link}</span></div>
+    available: `<div class="t"><b>Dodobox ${esc(u.version)} is available</b><span><span>You have ${esc(u.current)}.</span> ${u.canApply ? '' : `<span>${esc(u.hint)}</span>`} ${link}</span></div>
       <div class="acts">${u.canApply ? '<button class="btn btn-ink sm" data-a="download">Update now</button>' : `<a class="btn btn-ink sm" href="${esc(u.url || '#')}" target="_blank" rel="noreferrer">Download</a>`}<button class="btn btn-quiet sm" data-a="hide">Later</button></div>`,
     downloading: `<div class="t"><b>Downloading the update...</b><span>${u.progress || 0}%</span></div>${bar}`,
     ready: `<div class="t"><b>The update is ready</b><span>Dodobox restarts to finish it.</span></div><div class="acts"><button class="btn btn-ink sm" data-a="install">Restart to update</button></div>`,
-    error: `<div class="t"><b>The update did not work</b><span>${esc(u.error || 'Something went wrong.')} ${link}</span></div><div class="acts">${u.canApply ? '<button class="btn btn-ink sm" data-a="download">Try again</button>' : ''}<button class="btn btn-quiet sm" data-a="hide">Close</button></div>`
+    error: `<div class="t"><b>The update did not work</b><span>${u.error ? esc(u.error) : '<span>Something went wrong.</span>'} ${link}</span></div><div class="acts">${u.canApply ? '<button class="btn btn-ink sm" data-a="download">Try again</button>' : ''}<button class="btn btn-quiet sm" data-a="hide">Close</button></div>`
   }[u.phase] || ''
 }
 

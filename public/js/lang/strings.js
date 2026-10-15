@@ -310,7 +310,27 @@ export const ROWS = [
   ['Auto-translated subtitles use a larger translator. It downloads about 2 GB the first time, and each subtitle improves gradually while you watch.', 'Otomatik çevrilen altyazılar daha büyük bir çevirmen kullanır. İlk seferde yaklaşık 2 GB indirir ve her altyazı siz izlerken yavaş yavaş iyileşir.', 'Los subtítulos traducidos automáticamente usan un traductor más grande. La primera vez descarga unos 2 GB y cada subtítulo mejora poco a poco mientras ves.', 'Les sous-titres traduits automatiquement utilisent un traducteur plus grand. Il télécharge environ 2 Go la première fois, et chaque sous-titre s\'améliore peu à peu pendant que vous regardez.', 'Automatisch übersetzte Untertitel nutzen einen größeren Übersetzer. Beim ersten Mal lädt er etwa 2 GB herunter, und jeder Untertitel wird während des Schauens nach und nach besser.'],
   ['Installed and ready', 'Kuruldu ve hazır', 'Instalado y listo', 'Installé et prêt', 'Installiert und bereit'],
   ['Installed and ready, using the graphics card', 'Kuruldu ve hazır, ekran kartı kullanılıyor', 'Instalado y listo, usando la tarjeta gráfica', 'Installé et prêt, utilise la carte graphique', 'Installiert und bereit, nutzt die Grafikkarte'],
-  ['Could not install. Check the internet connection, then switch it off and on.', 'Kurulamadı. İnternet bağlantısını kontrol edin, sonra kapatıp tekrar açın.', 'No se pudo instalar. Revisa la conexión a internet y luego apágalo y vuelve a encenderlo.', 'Installation impossible. Vérifiez la connexion internet, puis désactivez et réactivez l\'option.', 'Installation fehlgeschlagen. Prüfen Sie die Internetverbindung und schalten Sie die Option aus und wieder ein.']
+  ['Could not install. Check the internet connection, then switch it off and on.', 'Kurulamadı. İnternet bağlantısını kontrol edin, sonra kapatıp tekrar açın.', 'No se pudo instalar. Revisa la conexión a internet y luego apágalo y vuelve a encenderlo.', 'Installation impossible. Vérifiez la connexion internet, puis désactivez et réactivez l\'option.', 'Installation fehlgeschlagen. Prüfen Sie die Internetverbindung und schalten Sie die Option aus und wieder ein.'],
+  ['Couldn\'t load more.', 'Daha fazlası yüklenemedi.', 'No se pudo cargar más.', 'Impossible d\'en charger plus.', 'Weitere Inhalte konnten nicht geladen werden.'],
+  ['Default', 'Varsayılan', 'Predeterminado', 'Par défaut', 'Standard'],
+  ['Playing now', 'Şimdi oynatılıyor', 'Reproduciendo ahora', 'En cours de lecture', 'Läuft gerade'],
+  ['Reading subtitles...', 'Altyazılar okunuyor...', 'Leyendo los subtítulos...', 'Lecture des sous-titres...', 'Untertitel werden gelesen...'],
+  ['Waiting for more of the download...', 'İndirmenin devamı bekleniyor...', 'Esperando más descarga...', 'En attente de la suite du téléchargement...', 'Warte auf mehr vom Download...'],
+  ['Release notes', 'Sürüm notları', 'Notas de la versión', 'Notes de version', 'Versionshinweise'],
+  ['Update now', 'Şimdi güncelle', 'Actualizar ahora', 'Mettre à jour', 'Jetzt aktualisieren'],
+  ['Later', 'Sonra', 'Más tarde', 'Plus tard', 'Später'],
+  ['Downloading the update...', 'Güncelleme indiriliyor...', 'Descargando la actualización...', 'Téléchargement de la mise à jour...', 'Update wird heruntergeladen...'],
+  ['The update is ready', 'Güncelleme hazır', 'La actualización está lista', 'La mise à jour est prête', 'Das Update ist bereit'],
+  ['Dodobox restarts to finish it.', 'Dodobox bitirmek için yeniden başlar.', 'Dodobox se reinicia para terminar.', 'Dodobox redémarre pour terminer.', 'Dodobox startet zum Abschluss neu.'],
+  ['Restart to update', 'Güncellemek için yeniden başlat', 'Reiniciar para actualizar', 'Redémarrer pour mettre à jour', 'Zum Aktualisieren neu starten'],
+  ['The update did not work', 'Güncelleme işe yaramadı', 'La actualización no funcionó', 'La mise à jour a échoué', 'Das Update hat nicht funktioniert'],
+  ['Close', 'Kapat', 'Cerrar', 'Fermer', 'Schließen'],
+  ['Restarting Dodobox...', 'Dodobox yeniden başlatılıyor...', 'Reiniciando Dodobox...', 'Redémarrage de Dodobox...', 'Dodobox wird neu gestartet...'],
+  ['This page reloads by itself.', 'Bu sayfa kendiliğinden yenilenir.', 'Esta página se recarga sola.', 'Cette page se recharge toute seule.', 'Diese Seite lädt sich von selbst neu.'],
+  ['Something went wrong.', 'Bir şeyler ters gitti.', 'Algo salió mal.', 'Une erreur s\'est produite.', 'Etwas ist schiefgelaufen.'],
+  ['Download the new installer and run it.', 'Yeni yükleyiciyi indirip çalıştır.', 'Descarga el nuevo instalador y ejecútalo.', 'Téléchargez le nouvel installateur et lancez-le.', 'Lade das neue Installationsprogramm herunter und führe es aus.'],
+  ['Download the new release, or pull the new source and run npm install.', 'Yeni sürümü indir veya yeni kaynağı çekip npm install çalıştır.', 'Descarga la nueva versión, o trae el código nuevo y ejecuta npm install.', 'Téléchargez la nouvelle version, ou récupérez le nouveau code source et lancez npm install.', 'Lade die neue Version herunter oder hole den neuen Quellcode und führe npm install aus.'],
+  ['Nothing playable found for this title right now', 'Bu başlık için şu an oynatılabilir bir şey bulunamadı', 'No se encontró nada reproducible para este título ahora mismo', 'Rien de lisible trouvé pour ce titre pour le moment', 'Für diesen Titel wurde gerade nichts Abspielbares gefunden']
 ]
 
 // Patterns for text that carries numbers or names. $1, $2 refer to captured groups; the same order for every language.
@@ -353,5 +373,10 @@ export const PATTERNS = [
   [/^Translating\.\.\. (\d+)%$/, ['Çevriliyor... %$1', 'Traduciendo... $1 %', 'Traduction... $1 %', 'Übersetze... $1 %']],
   [/^Improving quality\.\.\. (\d+)%$/, ['Kalite iyileştiriliyor... %$1', 'Mejorando la calidad... $1 %', 'Amélioration de la qualité... $1 %', 'Qualität wird verbessert... $1 %']],
   [/^Installing\.\.\. (\d+)%$/, ['Kuruluyor... %$1', 'Instalando... $1 %', 'Installation... $1 %', 'Wird installiert... $1 %']],
+  [/^Dodobox (\S+) is available$/, ['Dodobox $1 kullanıma sunuldu', 'Dodobox $1 está disponible', 'Dodobox $1 est disponible', 'Dodobox $1 ist verfügbar']],
+  [/^Version (\S+) is available$/, ['$1 sürümü kullanıma sunuldu', 'La versión $1 está disponible', 'La version $1 est disponible', 'Version $1 ist verfügbar']],
+  [/^You have (\S+)\.$/, ['Sende $1 var.', 'Tienes la versión $1.', 'Vous avez la version $1.', 'Du hast Version $1.']],
+  [/^Pull the new image and recreate the container: (.+)$/, ['Yeni imajı çekip kapsayıcıyı yeniden oluştur: $1', 'Descarga la nueva imagen y recrea el contenedor: $1', 'Récupérez la nouvelle image et recréez le conteneur : $1', 'Lade das neue Image und erstelle den Container neu: $1']],
+  [/^Forced only: (.+)$/, ['Yalnızca zorunlu: $1', 'Solo forzados: $1', 'Forcés uniquement : $1', 'Nur erzwungen: $1']],
   [/^Tip: (.+)$/, null]
 ].filter(p => p[1])

@@ -33,7 +33,8 @@ export const rows = [
 /*from english*/ 'Vertaald uit het Engels',
 /*adult*/ 'Filter voor volwassen inhoud', 'Verbergt titels die als volwassen zijn gemarkeerd. Standaard uit.',
 /*best*/ 'Beste vertaalkwaliteit', 'Automatisch vertaalde ondertitels gebruiken een grotere vertaler. De eerste keer downloadt hij ongeveer 2 GB, en elke ondertitel wordt tijdens het kijken geleidelijk beter.',
-/*install*/ 'Geïnstalleerd en klaar', 'Geïnstalleerd en klaar, gebruikt de videokaart', 'Installeren mislukt. Controleer de internetverbinding en zet de optie uit en weer aan.'
+/*install*/ 'Geïnstalleerd en klaar', 'Geïnstalleerd en klaar, gebruikt de videokaart', 'Installeren mislukt. Controleer de internetverbinding en zet de optie uit en weer aan.',
+/*ui2*/ 'Kon niet meer laden.', 'Standaard', 'Wordt nu afgespeeld', 'Ondertitels worden gelezen...', 'Wachten op meer van de download...', 'Release-opmerkingen', 'Nu bijwerken', 'Later', 'Update wordt gedownload...', 'De update is klaar', 'Dodobox start opnieuw op om het af te ronden.', 'Opnieuw starten om bij te werken', 'De update is mislukt', 'Sluiten', 'Dodobox wordt opnieuw gestart...', 'Deze pagina wordt vanzelf vernieuwd.', 'Er is iets misgegaan.', 'Download het nieuwe installatieprogramma en voer het uit.', 'Download de nieuwe versie, of haal de nieuwe broncode op en voer npm install uit.', 'Er is nu niets afspeelbaars gevonden voor deze titel'
 ]
 export const patterns = [
   'Hoi $1, maak het van jou', 'Seizoen $1', 'Seizoen $1 · Aflevering $2', 'Hervat S$1 A$2', 'S$1 A$2$3', 'Verschijnt $1', '$1 u $2 min', '$1 min', '$1nog $2', '$1nog $2 min',
@@ -43,5 +44,6 @@ export const patterns = [
   'Top 10 films in $1', 'Top 10 series in $1', 'Populaire $1-films', 'Populaire $1-series', 'Populaire $1-anime',
   'Taal voorbereiden... $1%', 'Vertalen... $1%',
   'Kwaliteit verbeteren... $1%',
-  'Installeren... $1%'
+  'Installeren... $1%',
+  'Dodobox $1 is beschikbaar', 'Versie $1 is beschikbaar', 'Je hebt versie $1.', 'Haal de nieuwe image op en maak de container opnieuw aan: $1', 'Alleen geforceerd: $1'
 ]

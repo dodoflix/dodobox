@@ -18,24 +18,31 @@ export function newer (a, b) {
 const hint = () => driver ? (driver.self ? '' : 'Download the new installer and run it.')
   : fs.existsSync('/.dockerenv') ? `Pull the new image and recreate the container: docker pull ghcr.io/${REPO}:latest` : 'Download the new release, or pull the new source and run npm install.'
 
-async function run (current) {
+let found = null
+// Called once for each newly found version (the desktop app asks its question from here).
+export const onFound = fn => { found = fn }
+
+// Looks the latest release up now. Resolves true when it is newer than `current`.
+export async function lookup (current) {
   try {
     const r = await getJSON(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { accept: 'application/vnd.github+json' }, tries: 1 })
     const latest = String(r.tag_name || '').replace(/^v/, '')
-    if (!latest || !newer(latest, current)) return
+    if (!latest || !newer(latest, current)) return false
     const first = state.version !== latest
     Object.assign(state, { version: latest, url: r.html_url, phase: 'available' })
-    if (first) console.log(`\n  Update available: Dodobox ${latest} (you have ${current}). ${hint()}\n  ${r.html_url}\n`)
-  } catch { /* offline or rate limited: try again later */ }
+    if (first) { console.log(`\n  Update available: Dodobox ${latest} (you have ${current}). ${hint()}\n  ${r.html_url}\n`); found?.({ ...state }) }
+    return true
+  } catch { return false /* offline or rate limited: try again later */ }
 }
 
 export function watch (current) {
   if (process.env.NO_UPDATE_CHECK || process.env.DODOBOX_DESKTOP) return
-  setTimeout(() => run(current), 10e3).unref()
-  setInterval(() => run(current), 12 * 3600e3).unref()
+  setTimeout(() => lookup(current), 10e3).unref()
+  setInterval(() => lookup(current), 12 * 3600e3).unref()
 }
 
-// The desktop app: self is true when this build can replace itself. It reports what it finds with set().
+// The desktop app: self is true when this build can replace itself (then it reports what it finds with set()); other builds only
+// register themselves so the page says to download the installer.
 export function useDriver (d) { driver = d }
 export const set = patch => { Object.assign(state, patch) }
 
