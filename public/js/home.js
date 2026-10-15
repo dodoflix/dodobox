@@ -8,6 +8,13 @@ import { dragScroll } from './drag.js'
 import { tr } from './i18n.js'
 import { GENRES } from './genres.js'
 
+// Shelves show a short row; these have a full list to open.
+const shelfHref = id => {
+  const [kind, type, g] = id.split(':')
+  if (kind === 'genre') return `#/browse/${type}?genre=${enc(g)}`
+  const sort = { new: 'new', rated: 'rating' }[kind]
+  return sort ? `#/browse/${type}?all=1&sort=${sort}` : ''
+}
 const shelf = (title, body, { href, wide, id } = {}) => `<section class="shelf" ${id ? `id="${id}"` : ''}>
   <div class="shelf-h"><h2>${esc(title)}</h2>${href ? `<a href="${href}">See all</a>` : ''}</div>
   <div class="rail ${wide ? 'wide' : ''}">${body}</div></section>`
@@ -200,7 +207,7 @@ export async function home (root, only = '') {
 
   const picks = {}
   for (const t of order) {
-    cget(`/api/catalog?type=${t}`, undefined, NOW).then(list => {
+    cget(`/api/catalog?type=${t}&limit=15`, undefined, NOW).then(list => {
       if (dead) return
       const rail = $(`#s-${t} .rail`); rail.innerHTML = list.map(i => poster(i)).join(''); dragScroll(rail)
       picks[t] = list.filter(i => i.background || i.poster).slice(0, only ? 8 : 3)
@@ -238,7 +245,7 @@ export async function home (root, only = '') {
   }), { rootMargin: '700px 0px' })
   api(`/api/shelves?country=${region()}${only ? '&type=' + only : ''}`, { ref: { prio: SOON } }).then(specs => {
     if (dead) return
-    $('#s-more').innerHTML = specs.map(sp => `<section class="shelf" data-shelf="${esc(sp.id)}" ${sp.ranked ? 'data-ranked="1"' : ''}><div class="shelf-h"><h2>${esc(shelfTitle(sp.id))}</h2></div><div class="rail ${sp.ranked ? 'ranked' : ''}">${skeletons(8)}</div></section>`).join('')
+    $('#s-more').innerHTML = specs.map(sp => `<section class="shelf" data-shelf="${esc(sp.id)}" ${sp.ranked ? 'data-ranked="1"' : ''}><div class="shelf-h"><h2>${esc(shelfTitle(sp.id))}</h2>${shelfHref(sp.id) ? `<a href="${shelfHref(sp.id)}">See all</a>` : ''}</div><div class="rail ${sp.ranked ? 'ranked' : ''}">${skeletons(8)}</div></section>`).join('')
     $('#s-more').querySelectorAll('.shelf').forEach(el => lazy.observe(el))
   }).catch(() => {})
   root.querySelectorAll('.rail').forEach(dragScroll)

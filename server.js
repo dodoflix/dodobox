@@ -197,7 +197,7 @@ async function shelfItems (id, lang, safe) {
   else if (kind === 'airing') items = await catalog({ type: a, sort: 'airing', safe })
   else if (kind === 'genre') items = await catalog({ type: a, genre: b, safe })
   else throw Object.assign(new Error('unknown shelf'), { code: 404 })
-  return localizeItems(items.slice(0, kind === 'top' || kind === 'country' ? 10 : 20), lang)
+  return localizeItems(items.slice(0, kind === 'top' || kind === 'country' ? 10 : 15), lang)
 }
 
 // One sync job at a time, in a worker thread, at low priority.
@@ -305,7 +305,7 @@ const routes = [
   ['GET', /^\/api\/local$/, (req, res) => json(req, res, local.all().map(({ path: _p, ...e }) => e))],
   ['POST', /^\/api\/local\/rescan$/, async (req, res) => json(req, res, { count: await local.rescan() })],
 
-  ['GET', /^\/api\/catalog$/, async (req, res, _, q) => jsonCached(req, res, await localizeItems(await catalog({ type: q.get('type'), q: q.get('q'), genre: q.get('genre'), page: +q.get('page') || 1, sort: q.get('sort') || 'popular', safe: safeOf(req) }), req.headers['x-lang']))],
+  ['GET', /^\/api\/catalog$/, async (req, res, _, q) => jsonCached(req, res, await localizeItems((await catalog({ type: q.get('type'), q: q.get('q'), genre: q.get('genre'), page: +q.get('page') || 1, sort: q.get('sort') || 'popular', safe: safeOf(req) })).slice(0, Math.min(50, +q.get('limit') || 50)), req.headers['x-lang']))],
   ['GET', /^\/api\/meta\/(\w+)\/([^/]+)$/, async (req, res, [, type, id]) => jsonCached(req, res, await localizeMeta(await meta(type, decodeURIComponent(id)), req.headers['x-lang']), 300)],
   ['GET', /^\/api\/sources$/, async (req, res, _, q) => {
     const type = q.get('type'); const m = await meta(type, q.get('id'))
