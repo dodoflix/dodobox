@@ -37,7 +37,8 @@ export const rows = [
 /*ui2*/ 'Kon niet meer laden.', 'Standaard', 'Wordt nu afgespeeld', 'Ondertitels worden gelezen...', 'Wachten op meer van de download...', 'Release-opmerkingen', 'Nu bijwerken', 'Later', 'Update wordt gedownload...', 'De update is klaar', 'Dodobox start opnieuw op om het af te ronden.', 'Opnieuw starten om bij te werken', 'De update is mislukt', 'Sluiten', 'Dodobox wordt opnieuw gestart...', 'Deze pagina wordt vanzelf vernieuwd.', 'Er is iets misgegaan.', 'Download het nieuwe installatieprogramma en voer het uit.', 'Download de nieuwe versie, of haal de nieuwe broncode op en voer npm install uit.', 'Er is nu niets afspeelbaars gevonden voor deze titel',
 /*more*/ 'Opgeslagen', 'Geen afspeelbaar bestand gevonden in de torrent',
 /*more*/ 'niet gevonden', 'Naam vereist', 'Werk bij vanaf de computer waarop Dodobox draait',
-/*more*/ 'Kijkfeestje', 'Start een kijkfeestje', 'Partycode', 'Deelnemen', 'Je vrienden hebben ook Dodobox nodig. Deel de code met hen.', 'Je vrienden zoeken...', 'Code kopiëren', 'Code gekopieerd', 'Verlaat het kijkfeestje', 'Kijkt naar', 'Samen kijken', 'Dat is geen partycode', 'Je zit al in een kijkfeestje', 'Je zit niet in een kijkfeestje'
+/*more*/ 'Kijkfeestje', 'Start een kijkfeestje', 'Partycode', 'Deelnemen', 'Je vrienden hebben ook Dodobox nodig. Deel de code met hen.', 'Je vrienden zoeken...', 'Code kopiëren', 'Code gekopieerd', 'Verlaat het kijkfeestje', 'Kijkt naar', 'Samen kijken', 'Dat is geen partycode', 'Je zit al in een kijkfeestje', 'Je zit niet in een kijkfeestje',
+/*more*/ 'Haal een code om te delen en kijk alles samen, aflevering na aflevering.', 'of', 'Deelnemen met een code', 'Kies iets om te kijken en iedereen volgt.'
 ]
 export const patterns = [
   'Hoi $1, maak het van jou', 'Seizoen $1', 'Seizoen $1 · Aflevering $2', 'Hervat S$1 A$2', 'S$1 A$2$3', 'Verschijnt $1', '$1 u $2 min', '$1 min', '$1nog $2 u $3 min', '$1nog $2 min',

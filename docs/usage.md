@@ -48,7 +48,7 @@ Phones and laptops use plain HTTP on the local network, so "install as app" give
 
 ## Watch party
 
-Watch the same thing at the same time as friends who have Dodobox. In the player press the people icon, then Start a party, and send the code it shows. Friends open the profile menu, Watch party, type the code and press Join; when they see what you are watching they press Watch together. Anyone can pause, play or seek and everyone follows.
+Watch the same thing at the same time as friends who have Dodobox. Open the profile menu, Watch party, Start a party, and send the code it shows; nothing needs to be playing. The party stays open while you pick episodes: whoever presses play first sets what everyone watches, the others get a Join button, and moving on to the next episode of the same show takes everyone along. Friends open the profile menu, Watch party, type the code and press Join. Anyone can pause, play or seek and everyone follows. A small people badge next to your profile shows you are in a party and reopens it; the people icon in the player does the same.
 
 Each person's Dodobox plays the video itself (a party does not stream your copy), so everyone needs the title to be available to them. Friends start on the same version you chose, so the timing matches. The code is the only secret: it finds the party on the torrent network and encrypts what is sent, so keep it between friends. The party ends for you when you press Leave party or quit Dodobox. If two people cannot connect, one of them is probably behind a strict router; try again from another network. Dodobox has no login, so anyone on your home network can also see the code.
 

@@ -37,7 +37,8 @@ export const rows = [
 /*ui2*/ 'Nie udało się wczytać więcej.', 'Domyślne', 'Teraz odtwarzane', 'Odczytywanie napisów...', 'Oczekiwanie na dalszą część pobierania...', 'Informacje o wydaniu', 'Zaktualizuj teraz', 'Później', 'Pobieranie aktualizacji...', 'Aktualizacja jest gotowa', 'Dodobox uruchomi się ponownie, aby dokończyć.', 'Uruchom ponownie, aby zaktualizować', 'Aktualizacja się nie powiodła', 'Zamknij', 'Ponowne uruchamianie Dodobox...', 'Ta strona odświeży się sama.', 'Coś poszło nie tak.', 'Pobierz nowy instalator i uruchom go.', 'Pobierz nową wersję albo pobierz nowy kod źródłowy i uruchom npm install.', 'Na razie nie znaleziono nic do odtworzenia dla tego tytułu',
 /*more*/ 'Zapisane', 'Nie znaleziono pliku do odtworzenia w torrencie',
 /*more*/ 'nie znaleziono', 'Nazwa jest wymagana', 'Zaktualizuj z komputera, na którym działa Dodobox',
-/*more*/ 'Wspólny seans', 'Rozpocznij seans', 'Kod seansu', 'Dołącz', 'Znajomi też potrzebują Dodobox. Udostępnij im kod.', 'Szukamy twoich znajomych...', 'Kopiuj kod', 'Skopiowano kod', 'Opuść seans', 'Oglądają', 'Oglądaj razem', 'To nie jest kod seansu', 'Jesteś już w seansie', 'Nie jesteś w seansie'
+/*more*/ 'Wspólny seans', 'Rozpocznij seans', 'Kod seansu', 'Dołącz', 'Znajomi też potrzebują Dodobox. Udostępnij im kod.', 'Szukamy twoich znajomych...', 'Kopiuj kod', 'Skopiowano kod', 'Opuść seans', 'Oglądają', 'Oglądaj razem', 'To nie jest kod seansu', 'Jesteś już w seansie', 'Nie jesteś w seansie',
+/*more*/ 'Zdobądź kod do udostępnienia i oglądajcie razem wszystko, odcinek po odcinku.', 'lub', 'Dołącz z kodem', 'Wybierz, co oglądać, a wszyscy dołączą.'
 ]
 export const patterns = [
   'Cześć $1, dostosuj to do siebie', 'Sezon $1', 'Sezon $1 · Odcinek $2', 'Wznów S$1 O$2', 'S$1 O$2$3', 'Premiera $1', '$1 godz. $2 min', '$1 min', '$1zostało $2 godz. $3 min', '$1zostało $2 min',

@@ -37,7 +37,8 @@ export const rows = [
 /*ui2*/ 'Không thể tải thêm.', 'Mặc định', 'Đang phát', 'Đang đọc phụ đề...', 'Đang chờ tải thêm...', 'Ghi chú phát hành', 'Cập nhật ngay', 'Để sau', 'Đang tải bản cập nhật...', 'Bản cập nhật đã sẵn sàng', 'Dodobox sẽ khởi động lại để hoàn tất.', 'Khởi động lại để cập nhật', 'Cập nhật không thành công', 'Đóng', 'Đang khởi động lại Dodobox...', 'Trang này sẽ tự tải lại.', 'Đã xảy ra lỗi.', 'Tải trình cài đặt mới và chạy nó.', 'Tải bản phát hành mới, hoặc lấy mã nguồn mới và chạy npm install.', 'Hiện không tìm thấy nội dung nào phát được cho tiêu đề này',
 /*more*/ 'Đã lưu', 'Không tìm thấy tệp phát được trong torrent',
 /*more*/ 'không tìm thấy', 'Cần nhập tên', 'Hãy cập nhật từ máy tính đang chạy Dodobox',
-/*more*/ 'Xem chung', 'Bắt đầu phòng xem chung', 'Mã phòng', 'Tham gia', 'Bạn bè cũng cần có Dodobox. Hãy chia sẻ mã với họ.', 'Đang tìm bạn bè của bạn...', 'Sao chép mã', 'Đã sao chép mã', 'Rời phòng', 'Đang xem', 'Xem cùng', 'Đó không phải mã phòng', 'Bạn đã ở trong một phòng', 'Bạn không ở trong phòng nào'
+/*more*/ 'Xem chung', 'Bắt đầu phòng xem chung', 'Mã phòng', 'Tham gia', 'Bạn bè cũng cần có Dodobox. Hãy chia sẻ mã với họ.', 'Đang tìm bạn bè của bạn...', 'Sao chép mã', 'Đã sao chép mã', 'Rời phòng', 'Đang xem', 'Xem cùng', 'Đó không phải mã phòng', 'Bạn đã ở trong một phòng', 'Bạn không ở trong phòng nào',
+/*more*/ 'Lấy một mã để chia sẻ, rồi cùng xem bất cứ thứ gì, hết tập này đến tập khác.', 'hoặc', 'Tham gia bằng mã', 'Chọn nội dung bất kỳ, mọi người sẽ cùng xem.'
 ]
 export const patterns = [
   'Chào $1, hãy biến nó thành của bạn', 'Mùa $1', 'Mùa $1 · Tập $2', 'Tiếp tục S$1 E$2', 'S$1 E$2$3', 'Phát sóng $1', '$1 giờ $2 phút', '$1 phút', '$1còn $2 giờ $3 phút', '$1còn $2 phút',

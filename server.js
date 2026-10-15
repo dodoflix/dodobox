@@ -338,10 +338,11 @@ const routes = [
     req.on('close', () => { party.off('event', out); clearInterval(beat) })
   }],
   ['POST', /^\/api\/party\/start$/, async (req, res) => {
-    const b = await jbody(req); const item = cleanItem(b.item)
-    if (!item) return fail(req, res, 400, 'Bad title')
+    // With a title it starts there; without one it is a lobby that whoever presses play first fills.
+    const b = await jbody(req); const item = b.item ? cleanItem(b.item) : null
+    if (b.item && !item) return fail(req, res, 400, 'Bad title')
     const hash = /^[0-9a-f]{40}$/.test(b.hash || '') && engine.status(b.hash, true) ? b.hash : null
-    json(req, res, await party.join(newCode(), partyWho(req), { item, source: hash ? { infoHash: hash } : null, pos: Math.max(0, +b.pos || 0), paused: !!b.paused, at: Date.now() }))
+    json(req, res, await party.join(newCode(), partyWho(req), item && { item, source: hash ? { infoHash: hash } : null, pos: Math.max(0, +b.pos || 0), paused: !!b.paused, at: Date.now() }))
   }],
   ['POST', /^\/api\/party\/join$/, async (req, res) => { const b = await jbody(req); json(req, res, await party.join(b.code, partyWho(req))) }],
   ['POST', /^\/api\/party\/leave$/, (req, res) => { party.leave(); json(req, res, { ok: true }) }],

@@ -349,7 +349,11 @@ export const ROWS = [
   ['Watch together', 'Birlikte izle', 'Ver juntos', 'Regarder ensemble', 'Zusammen schauen'],
   ['That is not a party code', 'Bu bir parti kodu değil', 'Ese no es un código de sesión', 'Ce n\'est pas un code de session', 'Das ist kein Party-Code'],
   ['Already in a party', 'Zaten bir partidesin', 'Ya estás en una sesión', 'Vous êtes déjà dans une session', 'Du bist schon in einer Party'],
-  ['Not in a party', 'Bir partide değilsin', 'No estás en una sesión', 'Vous n\'êtes pas dans une session', 'Du bist in keiner Party']
+  ['Not in a party', 'Bir partide değilsin', 'No estás en una sesión', 'Vous n\'êtes pas dans une session', 'Du bist in keiner Party'],
+  ['Get a code to share, then watch anything together, episode after episode.', 'Paylaşmak için bir kod al, sonra her şeyi birlikte izleyin, bölüm bölüm.', 'Obtén un código para compartir y mira lo que quieras juntos, episodio tras episodio.', 'Obtenez un code à partager, puis regardez tout ensemble, épisode après épisode.', 'Hol dir einen Code zum Teilen und schaut alles zusammen, Folge für Folge.'],
+  ['or', 'veya', 'o', 'ou', 'oder'],
+  ['Join with a code', 'Kodla katıl', 'Unirse con un código', 'Rejoindre avec un code', 'Mit Code beitreten'],
+  ['Pick anything to watch and everyone follows.', 'İstediğini seç, herkes seninle izlesin.', 'Elige lo que quieras ver y todos te siguen.', 'Choisissez ce que vous voulez voir et tout le monde suit.', 'Such dir etwas aus, alle schauen mit.']
 ]
 
 // Patterns for text that carries numbers or names. $1, $2 refer to captured groups; the same order for every language.
