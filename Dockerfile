@@ -5,7 +5,7 @@ RUN npm ci --omit=dev
 COPY server.js ./
 COPY src ./src
 COPY public ./public
-RUN mkdir /data /media && chown node:node /data
+RUN mkdir -p /data /media && chown node:node /data
 ENV DATA_DIR=/data HOST=0.0.0.0 MEDIA_DIR=/media
 VOLUME /data
 EXPOSE 3000
