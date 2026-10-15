@@ -33,8 +33,12 @@ function mark (page, arg) {
   $('#top .icon-btn').classList.toggle('on', page === 'search')
 }
 
+// Pictures of the page being left stop downloading, so they do not hold up the next page's.
+const dropImages = () => { for (const im of main.querySelectorAll('img')) if (!im.complete) im.removeAttribute('src') }
+
 async function route () {
   const mine = ++seq
+  dropImages()
   const [path, query = ''] = location.hash.slice(1).split('?')
   const [, page = 'home', ...args] = path.split('/').map(decodeURIComponent)
   const q = new URLSearchParams(query)

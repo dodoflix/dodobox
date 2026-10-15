@@ -252,8 +252,18 @@ const routes = [
     send(req, res, 200, 'image/svg+xml', c.createSvgTag({ cellSize: 8, margin: 2, scalable: true }), { 'cache-control': 'max-age=86400' })
   }],
   ['GET', /^\/img$/, async (req, res, _, q) => {
-    const { buf, type } = await image(q.get('u'), +q.get('w') || 0)
-    res.writeHead(200, { 'content-type': type, 'cache-control': 'public, max-age=2592000, immutable' }).end(buf)
+    // Pages that were left stop asking: work that has not started yet is skipped.
+    const gone = new AbortController()
+    res.on('close', () => { if (!res.writableEnded) gone.abort() })
+    const opts = { webp: /image\/webp/.test(req.headers.accept || ''), signal: gone.signal }
+    let r
+    try { r = await image(q.get('u'), +q.get('w') || 0, opts) } catch (e) {
+      if (gone.signal.aborted) return
+      // Another request's cancellation took the shared resize job with it: ask again once.
+      if (!e.cancelled) throw e
+      r = await image(q.get('u'), +q.get('w') || 0, { ...opts, signal: undefined })
+    }
+    res.writeHead(200, { 'content-type': r.type, 'cache-control': 'public, max-age=2592000, immutable', vary: 'accept' }).end(r.buf)
   }],
 
   ['GET', /^\/api\/profiles$/, (req, res) => json(req, res, state.profiles())],

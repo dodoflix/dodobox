@@ -1,6 +1,6 @@
 import { cget, api } from './api.js'
 import { S, progress, inList, toggleList, ratingOf, rate } from './session.js'
-import { $, esc, icon, enc, mins, sized, fullWidth, hue, lowres, slowLink, toast } from './util.js'
+import { $, esc, icon, enc, mins, sized, fullWidth, hue, lowres, thumbW, toast } from './util.js'
 import { dragScroll } from './drag.js'
 import { mountTrailer, canTrailer } from './trailer.js'
 import { glow } from './ambient.js'
@@ -123,7 +123,7 @@ export async function title (root, type, id) {
       const d = v.released ? new Date(v.released).toLocaleDateString(document.documentElement.lang || undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''
       return `<div class="ep-row"><a class="ep" href="${watchHref(type, id, v.season, v.episode)}">
         <span class="n">${v.episode}</span>
-        <span class="th" style="--art:url('${esc(lowres(m.background || m.poster) || '')}')">${v.thumbnail ? `<img loading="lazy" alt="" src="${esc(sized(v.thumbnail, slowLink() ? 240 : 360))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}${r > 0.02 ? `<span class="prog"><i style="width:${Math.min(100, r * 100)}%"></i></span>` : ''}<span class="go">${icon('play')}</span>${r > 0.93 ? `<span class="ok">${icon('check')}</span>` : ''}</span>
+        <span class="th" style="--art:url('${esc(lowres(m.background || m.poster) || '')}')">${v.thumbnail ? `<img loading="lazy" alt="" src="${esc(sized(v.thumbnail, thumbW()))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}${r > 0.02 ? `<span class="prog"><i style="width:${Math.min(100, r * 100)}%"></i></span>` : ''}<span class="go">${icon('play')}</span>${r > 0.93 ? `<span class="ok">${icon('check')}</span>` : ''}</span>
         <span><span class="t" translate="no">${esc(v.title)}</span><br><span class="d">${future ? 'Airs ' + d : d}${p && r < 0.95 ? ` · ${mins(Math.max(60, p[1] - p[0]))} left` : ''}</span></span>
 </a><button class="dl" data-s="${v.season}" data-e="${v.episode}" aria-label="Download">${icon('down')}</button></div>`
     }).join('') || '<p class="dim">No episodes listed yet.</p>'
