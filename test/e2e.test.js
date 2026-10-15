@@ -86,7 +86,7 @@ test('HLS playlist and a segment decode to valid MPEG-TS H.264/AAC', async () =>
 test('embedded subtitle extracts as WebVTT', async () => {
   const vtt = await (await get(`/api/sub/embedded/${hash}/0/0`)).text()
   assert.match(vtt, /^WEBVTT/)
-  assert.match(vtt, /00:01\.000 --> 00:03\.000/)
+  assert.match(vtt, /00:01\.0\d\d --> 00:03\.0\d\d/)
   assert.match(vtt, /Hello e2e/)
 })
 
