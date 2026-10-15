@@ -34,10 +34,12 @@ export const rows = [
 /*adult*/ 'Filter konten dewasa', 'Menyembunyikan judul yang ditandai dewasa. Mati secara default.',
 /*best*/ 'Kualitas terjemahan terbaik', 'Subtitel yang diterjemahkan otomatis memakai penerjemah yang lebih besar. Pertama kali mengunduh sekitar 2 GB, dan setiap subtitel membaik perlahan saat Anda menonton.',
 /*install*/ 'Terpasang dan siap', 'Terpasang dan siap, memakai kartu grafis', 'Gagal memasang. Periksa koneksi internet, lalu matikan dan nyalakan lagi.',
-/*ui2*/ 'Tidak dapat memuat lebih banyak.', 'Bawaan', 'Sedang diputar', 'Membaca subtitel...', 'Menunggu unduhan lebih banyak...', 'Catatan rilis', 'Perbarui sekarang', 'Nanti', 'Mengunduh pembaruan...', 'Pembaruan siap', 'Dodobox dimulai ulang untuk menyelesaikannya.', 'Mulai ulang untuk memperbarui', 'Pembaruan gagal', 'Tutup', 'Memulai ulang Dodobox...', 'Halaman ini dimuat ulang sendiri.', 'Terjadi kesalahan.', 'Unduh penginstal baru lalu jalankan.', 'Unduh rilis baru, atau tarik kode sumber baru lalu jalankan npm install.', 'Tidak ada yang bisa diputar untuk judul ini saat ini'
+/*ui2*/ 'Tidak dapat memuat lebih banyak.', 'Bawaan', 'Sedang diputar', 'Membaca subtitel...', 'Menunggu unduhan lebih banyak...', 'Catatan rilis', 'Perbarui sekarang', 'Nanti', 'Mengunduh pembaruan...', 'Pembaruan siap', 'Dodobox dimulai ulang untuk menyelesaikannya.', 'Mulai ulang untuk memperbarui', 'Pembaruan gagal', 'Tutup', 'Memulai ulang Dodobox...', 'Halaman ini dimuat ulang sendiri.', 'Terjadi kesalahan.', 'Unduh penginstal baru lalu jalankan.', 'Unduh rilis baru, atau tarik kode sumber baru lalu jalankan npm install.', 'Tidak ada yang bisa diputar untuk judul ini saat ini',
+/*more*/ 'Tersimpan', 'Tidak ada berkas yang bisa diputar di dalam torrent',
+/*more*/ 'tidak ditemukan', 'Nama wajib diisi', 'Perbarui dari komputer tempat Dodobox berjalan'
 ]
 export const patterns = [
-  'Hai $1, buat jadi milikmu', 'Musim $1', 'Musim $1 · Episode $2', 'Lanjutkan S$1 E$2', 'S$1 E$2$3', 'Tayang $1', '$1 j $2 mnt', '$1 mnt', '$1sisa $2', '$1sisa $2 mnt',
+  'Hai $1, buat jadi milikmu', 'Musim $1', 'Musim $1 · Episode $2', 'Lanjutkan S$1 E$2', 'S$1 E$2$3', 'Tayang $1', '$1 j $2 mnt', '$1 mnt', '$1sisa $2 j $3 mnt', '$1sisa $2 mnt',
   'Tampilkan pilihan unggulan $1 dari $2', 'Putar $1', '$1 judul ditemukan', 'Mencari di: $1', '$1 terpakai', 'Batas $1', '$1 dari $2 terpakai. Unduhan terlama yang belum ditonton dihapus otomatis saat penuh.',
   'Otomatis memilih versi terbaik untuk koneksi dan layar Anda (internet server ini: sekitar $1 Mbps). Pilih level untuk memaksanya.', 'Otomatis memilih versi terbaik untuk koneksi dan layar Anda. Pilih level untuk memaksanya.',
   'Encoder video: perangkat lunak', 'Encoder video: $1', 'Tidak ada yang cocok dengan "$1". Periksa ejaan atau gunakan lebih sedikit kata.', 'Buffering · $1', 'Diputar di $1 · $2', '$1p untuk koneksi Anda', '$1 episode ditambahkan ke unduhan Anda', 'Unduhan $1/$2', 'Karena Anda menyukai $1', '$1 · sebagian',
@@ -45,5 +47,5 @@ export const patterns = [
   'Menyiapkan bahasa... $1%', 'Menerjemahkan... $1%',
   'Meningkatkan kualitas... $1%',
   'Memasang... $1%',
-  'Dodobox $1 tersedia', 'Versi $1 tersedia', 'Anda memiliki versi $1.', 'Tarik image baru lalu buat ulang container: $1', 'Hanya paksa: $1', 'Subtitel $1 tidak ditemukan'
+  'Dodobox $1 tersedia', 'Versi $1 tersedia', 'Anda memiliki versi $1.', 'Tarik image baru lalu buat ulang container: $1', 'Hanya paksa: $1', 'Subtitel $1 tidak ditemukan', 'Kode QR untuk $1'
 ]

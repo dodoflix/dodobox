@@ -34,10 +34,12 @@ export const rows = [
 /*adult*/ 'Filter för vuxeninnehåll', 'Döljer titlar som är markerade som vuxeninnehåll. Av som standard.',
 /*best*/ 'Bästa översättningskvalitet', 'Automatiskt översatta undertexter använder en större översättare. Den laddar ner cirka 2 GB första gången, och varje undertext blir gradvis bättre medan du tittar.',
 /*install*/ 'Installerat och klart', 'Installerat och klart, använder grafikkortet', 'Det gick inte att installera. Kontrollera internetanslutningen och stäng sedan av och slå på igen.',
-/*ui2*/ 'Kunde inte ladda mer.', 'Standard', 'Spelas nu', 'Läser undertexter...', 'Väntar på mer av nedladdningen...', 'Versionsanteckningar', 'Uppdatera nu', 'Senare', 'Laddar ned uppdateringen...', 'Uppdateringen är klar', 'Dodobox startar om för att slutföra.', 'Starta om för att uppdatera', 'Uppdateringen misslyckades', 'Stäng', 'Startar om Dodobox...', 'Den här sidan laddas om automatiskt.', 'Något gick fel.', 'Ladda ned det nya installationsprogrammet och kör det.', 'Ladda ned den nya versionen, eller hämta den nya källkoden och kör npm install.', 'Inget spelbart hittades för den här titeln just nu'
+/*ui2*/ 'Kunde inte ladda mer.', 'Standard', 'Spelas nu', 'Läser undertexter...', 'Väntar på mer av nedladdningen...', 'Versionsanteckningar', 'Uppdatera nu', 'Senare', 'Laddar ned uppdateringen...', 'Uppdateringen är klar', 'Dodobox startar om för att slutföra.', 'Starta om för att uppdatera', 'Uppdateringen misslyckades', 'Stäng', 'Startar om Dodobox...', 'Den här sidan laddas om automatiskt.', 'Något gick fel.', 'Ladda ned det nya installationsprogrammet och kör det.', 'Ladda ned den nya versionen, eller hämta den nya källkoden och kör npm install.', 'Inget spelbart hittades för den här titeln just nu',
+/*more*/ 'Sparad', 'Ingen spelbar fil hittades i torrenten',
+/*more*/ 'hittades inte', 'Namn krävs', 'Uppdatera från datorn där Dodobox körs'
 ]
 export const patterns = [
-  'Hej $1, gör det till ditt', 'Säsong $1', 'Säsong $1 · Avsnitt $2', 'Återuppta S$1 A$2', 'S$1 A$2$3', 'Sänds $1', '$1 h $2 min', '$1 min', '$1$2 kvar', '$1$2 min kvar',
+  'Hej $1, gör det till ditt', 'Säsong $1', 'Säsong $1 · Avsnitt $2', 'Återuppta S$1 A$2', 'S$1 A$2$3', 'Sänds $1', '$1 h $2 min', '$1 min', '$1$2 h $3 min kvar', '$1$2 min kvar',
   'Visa utvald titel $1 av $2', 'Spela $1', '$1 titlar hittades', 'Söker i: $1', '$1 använt', 'Gräns $1', '$1 av $2 använt. De äldsta osedda nedladdningarna tas bort automatiskt när det blir fullt.',
   'Auto väljer bästa version för din anslutning och skärm (den här serverns internet: cirka $1 Mbit/s). Välj en nivå för att tvinga den.', 'Auto väljer bästa version för din anslutning och skärm. Välj en nivå för att tvinga den.',
   'Videokodare: mjukvara', 'Videokodare: $1', 'Inget matchade "$1". Kontrollera stavningen eller använd färre ord.', 'Buffrar · $1', 'Spelar på $1 · $2', '$1p för din anslutning', '$1 avsnitt tillagda i dina nedladdningar', 'Nedladdning $1/$2', 'För att du gillade $1', '$1 · delvis',
@@ -45,5 +47,5 @@ export const patterns = [
   'Förbereder språket... $1 %', 'Översätter... $1 %',
   'Förbättrar kvaliteten... $1 %',
   'Installerar... $1 %',
-  'Dodobox $1 är tillgänglig', 'Version $1 är tillgänglig', 'Du har version $1.', 'Hämta den nya avbilden och skapa om containern: $1', 'Endast tvingade: $1', 'Inga $1-undertexter hittades'
+  'Dodobox $1 är tillgänglig', 'Version $1 är tillgänglig', 'Du har version $1.', 'Hämta den nya avbilden och skapa om containern: $1', 'Endast tvingade: $1', 'Inga $1-undertexter hittades', 'QR-kod för $1'
 ]

@@ -34,10 +34,12 @@ export const rows = [
 /*adult*/ 'Filter voor volwassen inhoud', 'Verbergt titels die als volwassen zijn gemarkeerd. Standaard uit.',
 /*best*/ 'Beste vertaalkwaliteit', 'Automatisch vertaalde ondertitels gebruiken een grotere vertaler. De eerste keer downloadt hij ongeveer 2 GB, en elke ondertitel wordt tijdens het kijken geleidelijk beter.',
 /*install*/ 'Geïnstalleerd en klaar', 'Geïnstalleerd en klaar, gebruikt de videokaart', 'Installeren mislukt. Controleer de internetverbinding en zet de optie uit en weer aan.',
-/*ui2*/ 'Kon niet meer laden.', 'Standaard', 'Wordt nu afgespeeld', 'Ondertitels worden gelezen...', 'Wachten op meer van de download...', 'Release-opmerkingen', 'Nu bijwerken', 'Later', 'Update wordt gedownload...', 'De update is klaar', 'Dodobox start opnieuw op om het af te ronden.', 'Opnieuw starten om bij te werken', 'De update is mislukt', 'Sluiten', 'Dodobox wordt opnieuw gestart...', 'Deze pagina wordt vanzelf vernieuwd.', 'Er is iets misgegaan.', 'Download het nieuwe installatieprogramma en voer het uit.', 'Download de nieuwe versie, of haal de nieuwe broncode op en voer npm install uit.', 'Er is nu niets afspeelbaars gevonden voor deze titel'
+/*ui2*/ 'Kon niet meer laden.', 'Standaard', 'Wordt nu afgespeeld', 'Ondertitels worden gelezen...', 'Wachten op meer van de download...', 'Release-opmerkingen', 'Nu bijwerken', 'Later', 'Update wordt gedownload...', 'De update is klaar', 'Dodobox start opnieuw op om het af te ronden.', 'Opnieuw starten om bij te werken', 'De update is mislukt', 'Sluiten', 'Dodobox wordt opnieuw gestart...', 'Deze pagina wordt vanzelf vernieuwd.', 'Er is iets misgegaan.', 'Download het nieuwe installatieprogramma en voer het uit.', 'Download de nieuwe versie, of haal de nieuwe broncode op en voer npm install uit.', 'Er is nu niets afspeelbaars gevonden voor deze titel',
+/*more*/ 'Opgeslagen', 'Geen afspeelbaar bestand gevonden in de torrent',
+/*more*/ 'niet gevonden', 'Naam vereist', 'Werk bij vanaf de computer waarop Dodobox draait'
 ]
 export const patterns = [
-  'Hoi $1, maak het van jou', 'Seizoen $1', 'Seizoen $1 · Aflevering $2', 'Hervat S$1 A$2', 'S$1 A$2$3', 'Verschijnt $1', '$1 u $2 min', '$1 min', '$1nog $2', '$1nog $2 min',
+  'Hoi $1, maak het van jou', 'Seizoen $1', 'Seizoen $1 · Aflevering $2', 'Hervat S$1 A$2', 'S$1 A$2$3', 'Verschijnt $1', '$1 u $2 min', '$1 min', '$1nog $2 u $3 min', '$1nog $2 min',
   'Uitgelichte titel $1 van $2 tonen', '$1 afspelen', '$1 titels gevonden', 'Zoeken in: $1', '$1 gebruikt', '$1 limiet', '$1 van $2 gebruikt. De oudste niet-bekeken downloads worden automatisch verwijderd als het vol is.',
   'Automatisch kiest de beste versie voor je verbinding en scherm (internet van deze server: ongeveer $1 Mbps). Kies een niveau om het af te dwingen.', 'Automatisch kiest de beste versie voor je verbinding en scherm. Kies een niveau om het af te dwingen.',
   'Video-encoder: software', 'Video-encoder: $1', 'Niets gevonden voor "$1". Controleer de spelling of gebruik minder woorden.', 'Bufferen · $1', 'Speelt af op $1 · $2', '$1p voor je verbinding', '$1 afleveringen toegevoegd aan je downloads', 'Download $1/$2', 'Omdat je $1 leuk vond', '$1 · gedeeltelijk',
@@ -45,5 +47,5 @@ export const patterns = [
   'Taal voorbereiden... $1%', 'Vertalen... $1%',
   'Kwaliteit verbeteren... $1%',
   'Installeren... $1%',
-  'Dodobox $1 is beschikbaar', 'Versie $1 is beschikbaar', 'Je hebt versie $1.', 'Haal de nieuwe image op en maak de container opnieuw aan: $1', 'Alleen geforceerd: $1', 'Geen $1 ondertitels gevonden'
+  'Dodobox $1 is beschikbaar', 'Versie $1 is beschikbaar', 'Je hebt versie $1.', 'Haal de nieuwe image op en maak de container opnieuw aan: $1', 'Alleen geforceerd: $1', 'Geen $1 ondertitels gevonden', 'QR-code voor $1'
 ]

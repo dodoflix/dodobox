@@ -37,15 +37,14 @@ export async function library (root) {
     $('#used').style.width = Math.min(100, st.used / st.cap * 100) + '%'
     const usedText = `${bytes(st.used)} of ${bytes(st.cap)} used. Oldest unwatched downloads are removed automatically when it fills up. Downloads you start yourself are kept.`
     $('#usedtxt').textContent = usedText
-    const label = c => (c.season != null ? `${c.title} · S${c.season} E${c.episode}` : c.title)
     const row = (c, body, acts) => `<div class="item"><a class="th" href="${watchHref(c)}" data-art="${esc(layered(c.poster, 240))}" style="--h:${hue(c.title)}" aria-label="Play"><b class="num" aria-hidden="true">${esc((c.title || '')[0] || '')}</b></a>
-      <div><span class="t" translate="no">${esc(label(c))}</span>${body}</div><div class="acts">${acts}</div></div>`
+      <div><span class="t"><span translate="no">${esc(c.title)}</span>${c.season != null ? ` · <span>S${c.season} E${c.episode}</span>` : ''}</span>${body}</div><div class="acts">${acts}</div></div>`
     const queued = q.queue.map(j => row({ ...j, title: j.title }, '<div class="d">Waiting to download</div>', `<button class="btn btn-quiet sm" data-q="${esc(j.key)}" aria-label="Remove from the queue">${icon('close')}</button>`))
     const failed = q.failed.map(j => row({ ...j, title: j.title }, '<div class="d err">Could not find a source for this one</div>', `<button class="btn btn-ghost sm" data-retry='${esc(JSON.stringify({ type: j.type, id: j.id, season: j.season, episode: j.episode }))}'>Try again</button><button class="btn btn-quiet sm" data-q="${esc(j.key)}" aria-label="Dismiss">${icon('close')}</button>`))
     const own = items.map(s => {
       const c = s.ctx
       const state = s.phase === 'done' ? 'Ready to watch' : s.phase === 'error' ? esc(s.error) : s.phase === 'metadata' ? 'Getting started...' : s.phase === 'paused' ? (s.pausedReason === 'watching' ? 'Paused while you watch' : 'Paused') : `${Math.round(s.progress * 100)}% · ${bytes(s.speed)}/s`
-      const body = `<div class="name">${esc(s.name || c.release || s.hash)}</div><div class="d">${state}${s.length ? ' · ' + bytes(s.length) : ''}${s.pinned ? ' · Saved' : ''}</div>${s.phase === 'done' ? '' : `<div class="bar"><i style="width:${s.progress * 100}%"></i></div>`}`
+      const body = `<div class="name">${esc(s.name || c.release || s.hash)}</div><div class="d"><span>${state}</span>${s.length ? ' · ' + bytes(s.length) : ''}${s.pinned ? ' · <span>Saved</span>' : ''}</div>${s.phase === 'done' ? '' : `<div class="bar"><i style="width:${s.progress * 100}%"></i></div>`}`
       return row({ ...c, title: c.title }, body, `<a class="btn btn-ghost sm" href="${watchHref(c)}">${icon('play')}Play</a><button class="btn btn-quiet sm" data-del="${s.key}" aria-label="Delete">${icon('trash')}</button>`)
     })
     // Polled while open: only touch the page when something actually changed (re-rendering resets hover and costs frames).
