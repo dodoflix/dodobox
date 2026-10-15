@@ -52,7 +52,7 @@ let chip = null
 function paintChip () {
   if (!chip) return
   chip.hidden = !status.active
-  chip.innerHTML = `${icon('party')}<b>${status.members.length}</b>`
+  chip.innerHTML = `${icon('party')}<span>${status.members.length}</span>`
   chip.classList.toggle('live', status.members.length > 1)
 }
 export async function initParty () {
@@ -83,25 +83,28 @@ function draw () {
   const s = status; const ctx = popCtx
   const here = ctx && same(ctx.item, s.now?.item)
   const keep = pop.querySelector('input')?.value
-  const head = `<header class="pp-h"><span class="pp-ico">${icon('party')}</span><h3>Watch party</h3>${s.active ? `<span class="pp-count">${s.members.length}</span>` : ''}<button class="icon-btn pp-x" data-a="close" aria-label="Close">${icon('close')}</button></header>`
+  const head = `<header class="pp-h"><h3>Watch party</h3><button class="icon-btn pp-x" data-a="close" aria-label="Close">${icon('close')}</button></header>`
   let body
   if (!s.active) {
-    body = `<section class="pp-start"><p>Get a code to share, then watch anything together, episode after episode.</p><button class="btn btn-ink" data-a="start">Start a party</button><p class="pp-note">Friends need Dodobox too. Share the code with them.</p></section>
+    body = `<p class="pp-lead">Get a code to share, then watch anything together, episode after episode.</p>
+      <button class="btn btn-ink" data-a="start">Start a party</button>
+      <p class="pp-note">Friends need Dodobox too. Share the code with them.</p>
       <div class="pp-or"><span>or</span></div>
-      <form class="pp-join"><label class="pp-l" for="pp-code">Join with a code</label><div class="pp-row"><input id="pp-code" class="field" name="code" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24"><button class="btn btn-ghost">Join</button></div></form>`
+      <form class="pp-join"><label for="pp-code">Join with a code</label><div class="pp-row"><input id="pp-code" class="field" name="code" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24"><button class="btn btn-ghost">Join</button></div></form>`
   } else {
     const n = s.now?.item
     const poster = n ? posterOf(n) : ''
     const now = n
-      ? `<div class="pp-now"><span class="pp-poster" style="--h:${hue(n.title)}">${poster ? `<img alt="" src="${esc(sized(poster, 160))}">` : ''}</span>
-          <div class="pp-meta"><span class="pp-l">Watching</span><b translate="no">${esc(n.title || '')}</b>${n.season != null ? `<span>S${n.season} E${n.episode}</span>` : ''}</div>
-          ${here ? '' : '<button class="btn btn-ink sm" data-a="go">Watch together</button>'}</div>`
+      ? `<section class="pp-now"><span class="pp-label">Watching</span>
+          <div class="pp-show"><span class="pp-poster" style="--h:${hue(n.title)}">${poster ? `<img alt="" src="${esc(sized(poster, 160))}">` : ''}</span>
+          <div class="pp-cap"><b translate="no">${esc(n.title || '')}</b>${n.season != null ? `<span>S${n.season} E${n.episode}</span>` : ''}</div></div>
+          ${here ? '' : '<button class="btn btn-ink sm" data-a="go">Watch together</button>'}</section>`
       : '<p class="pp-note">Pick anything to watch and everyone follows.</p>'
-    body = `<section class="pp-code"><span class="pp-l">Party code</span><div class="pp-codebox"><b translate="no">${esc(s.code)}</b><button class="icon-btn" data-a="copy" aria-label="Copy code">${icon('copy')}</button></div></section>
-      <ul class="pp-members">${s.members.map(m => `<li><span class="avatar" style="--c:${esc(m.color)}">${esc((m.name || '?')[0].toUpperCase())}</span><span translate="no">${esc(m.name)}</span>${m.you ? '<small>You</small>' : ''}</li>`).join('')}</ul>
+    body = `<section class="pp-code"><span class="pp-label">Party code</span><div class="pp-codeline"><b translate="no">${esc(s.code)}</b><button class="icon-btn" data-a="copy" aria-label="Copy code">${icon('copy')}</button></div></section>
+      <ul class="pp-members">${s.members.map(m => `<li><span class="avatar" style="--c:${esc(m.color)}">${esc((m.name || '?')[0].toUpperCase())}</span><span class="pp-name" translate="no">${esc(m.name)}</span>${m.you ? '<small>You</small>' : ''}</li>`).join('')}</ul>
       ${s.members.length < 2 ? '<p class="pp-note">Looking for your friends...</p>' : ''}
       ${now}
-      <button class="btn btn-ghost pp-leave" data-a="leave">Leave party</button>`
+      <button class="btn btn-quiet pp-leave" data-a="leave">Leave party</button>`
   }
   pop.innerHTML = head + body
   if (keep) pop.querySelector('input').value = keep
