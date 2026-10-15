@@ -79,7 +79,8 @@
       "identity": null,
       "extendInfo": {
         "LSUIElement": true
-      }
+      },
+      "icon": "desktop/build/icon-mac.png"
     },
     "win": {
       "target": [

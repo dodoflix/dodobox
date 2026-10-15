@@ -2,7 +2,8 @@ import { app, Menu, Tray, clipboard, dialog, nativeImage, shell } from 'electron
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const icon = path.join(path.dirname(fileURLToPath(import.meta.url)), 'build', 'icon.png')
+const build = path.join(path.dirname(fileURLToPath(import.meta.url)), 'build')
+const icon = path.join(build, 'icon.png')
 
 app.setName('Dodobox')
 app.setAppUserModelId('io.github.dodoflix.dodobox')
@@ -52,7 +53,8 @@ async function boot () {
     { type: 'separator' },
     { label: 'Quit', click: () => app.quit() }
   ])
-  tray = new Tray(nativeImage.createFromPath(icon).resize({ width: process.platform === 'darwin' ? 18 : 22 }))
+  // macOS wants a monochrome template image (the Template suffix and the @2x file are picked up by name).
+  tray = new Tray(process.platform === 'darwin' ? path.join(build, 'trayTemplate.png') : nativeImage.createFromPath(icon).resize({ width: process.platform === 'win32' ? 32 : 24 }))
   tray.setToolTip(`Dodobox is running on port ${port}`)
   tray.setContextMenu(menu())
   tray.on('click', openUi)
