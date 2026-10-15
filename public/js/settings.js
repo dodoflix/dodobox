@@ -20,7 +20,7 @@ export async function settings (root) {
   const url = srv.urls[0] || `http://localhost:${srv.port}`
   const dirs = srv.mediaDirs
   root.innerHTML = `<div class="view page">
-    <div class="page-h"><h1>${esc(me.name)}</h1></div>
+    <div class="page-h prof"><span class="avatar big" style="--c:${esc(me.color)}" aria-hidden="true">${esc(me.name[0].toUpperCase())}</span><h1 translate="no">${esc(me.name)}</h1><button class="btn btn-ghost sm" id="switch">${icon('user')}Switch profile</button></div>
     <div class="cols"><div class="col">
     <div class="group"><h3>Playback</h3>
       <div class="set"><div class="l"><b>Language</b><span>Titles and descriptions are translated when a translation exists.</span></div>
@@ -39,10 +39,6 @@ export async function settings (root) {
         <button class="switch" role="switch" data-k="adultFilter" aria-checked="${!!me.settings.adultFilter}" aria-label="Adult content filter"></button></div>
       <div class="set"><div class="l"><b>Best translation quality</b><span>Auto-translated subtitles use a larger translator. It downloads about 2 GB the first time, and each subtitle improves gradually while you watch.</span><span id="hqstat" class="dim"></span></div>
         <button class="switch" role="switch" data-k="bestTranslation" aria-checked="${!!me.settings.bestTranslation}" aria-label="Best translation quality"></button></div>
-    </div>
-
-    <div class="group"><h3>Profile</h3>
-      <div class="set"><div class="l"><b>Switch profile</b><span>Each person keeps their own progress and My List.</span></div><button class="btn btn-ghost sm" id="switch">${icon('user')}Switch</button></div>
     </div>
 
     </div><div class="col">

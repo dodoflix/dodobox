@@ -16,7 +16,7 @@ export async function library (root) {
   root.innerHTML = `<div class="view page">
     <div class="page-h"><h1>Library</h1></div>
     <div id="mine-shelves">
-      ${rail('Continue watching', me.recent.map(r => poster({ ...r, rating: null }, { href: watchHref(r), progress: r.pos / r.dur, sub: `${SE(r) ? SE(r) + ' · ' : ''}${mins(Math.max(60, r.dur - r.pos))} left` })), 'l-recent')}
+      ${rail('Continue watching', me.recent.map(r => poster({ ...r, rating: null }, { progress: r.pos / r.dur, sub: `${SE(r) ? SE(r) + ' · ' : ''}${mins(Math.max(60, r.dur - r.pos))} left` })), 'l-recent')}
       ${rail('My List', me.list.map(i => poster(i)), 'l-list')}
       ${rail('Loved', rated(2).map(i => poster(i)), 'l-loved')}
       ${rail('Liked', rated(1).map(i => poster(i)), 'l-liked')}
@@ -24,10 +24,11 @@ export async function library (root) {
     </div>
     <h2 class="sec-h">Downloads</h2>
     <div class="group flush"><div class="meter narrow"><i id="used" style="width:0"></i></div><p class="dim" id="usedtxt"></p></div>
-    <div class="list" id="dl"></div>
+    <div class="list dls" id="dl"></div>
     <div id="mine"></div></div>`
   root.querySelectorAll('.rail').forEach(dragScroll)
-  let dead = false; let lastHtml = ''
+  let dead = false; let lastHtml = ''; let all = false
+  const SHOWN = 6
 
   async function draw () {
     // Scoped to the page, so leaving it cancels a poll that is still on the wire.
@@ -39,20 +40,24 @@ export async function library (root) {
     $('#usedtxt').textContent = usedText
     const row = (c, body, acts) => `<div class="item"><a class="th" href="${watchHref(c)}" data-art="${esc(layered(c.poster, 240))}" style="--h:${hue(c.title)}" aria-label="Play"><b class="num" aria-hidden="true">${esc((c.title || '')[0] || '')}</b></a>
       <div><span class="t"><span translate="no">${esc(c.title)}</span>${c.season != null ? ` · <span>S${c.season} E${c.episode}</span>` : ''}</span>${body}</div><div class="acts">${acts}</div></div>`
-    const queued = q.queue.map(j => row({ ...j, title: j.title }, '<div class="d">Waiting to download</div>', `<button class="btn btn-quiet sm" data-q="${esc(j.key)}" aria-label="Remove from the queue">${icon('close')}</button>`))
-    const failed = q.failed.map(j => row({ ...j, title: j.title }, '<div class="d err">Could not find a source for this one</div>', `<button class="btn btn-ghost sm" data-retry='${esc(JSON.stringify({ type: j.type, id: j.id, season: j.season, episode: j.episode }))}'>Try again</button><button class="btn btn-quiet sm" data-q="${esc(j.key)}" aria-label="Dismiss">${icon('close')}</button>`))
+    const queued = q.queue.map(j => row({ ...j, title: j.title }, '<div class="d">Waiting to download</div>', `<button class="icon-btn" data-q="${esc(j.key)}" aria-label="Remove from the queue">${icon('close')}</button>`))
+    const failed = q.failed.map(j => row({ ...j, title: j.title }, '<div class="d err">Could not find a source for this one</div>', `<button class="btn btn-ghost sm" data-retry='${esc(JSON.stringify({ type: j.type, id: j.id, season: j.season, episode: j.episode }))}'>Try again</button><button class="icon-btn" data-q="${esc(j.key)}" aria-label="Dismiss">${icon('close')}</button>`))
     const own = items.map(s => {
       const c = s.ctx
       const state = s.phase === 'done' ? 'Ready to watch' : s.phase === 'error' ? esc(s.error) : s.phase === 'metadata' ? 'Getting started...' : s.phase === 'paused' ? (s.pausedReason === 'watching' ? 'Paused while you watch' : 'Paused') : `${Math.round(s.progress * 100)}% · ${bytes(s.speed)}/s`
       const body = `<div class="d"><span>${state}</span>${s.length ? ' · ' + bytes(s.length) : ''}${s.pinned ? ' · <span>Saved</span>' : ''}</div>${s.phase === 'done' ? '' : `<div class="bar"><i style="width:${s.progress * 100}%"></i></div>`}`
-      return row({ ...c, title: c.title }, body, `<a class="btn btn-ghost sm" href="${watchHref(c)}">${icon('play')}Play</a><button class="btn btn-quiet sm" data-del="${s.key}" aria-label="Delete">${icon('trash')}</button>`)
+      return row({ ...c, title: c.title }, body, `<a class="icon-btn" href="${watchHref(c)}" aria-label="Play">${icon('play')}</a><button class="icon-btn" data-del="${s.key}" aria-label="Delete">${icon('trash')}</button>`)
     })
     // Polled while open: only touch the page when something actually changed (re-rendering resets hover and costs frames).
-    const html = [...queued, ...failed, ...own].join('') || `<div class="empty left"><div class="eico">${icon('down')}</div><h2>Nothing downloaded</h2>Use the download button on any title or episode to keep it here for later.</div>`
+    const rows = [...queued, ...failed, ...own]
+    const shown = all ? rows : rows.slice(0, SHOWN)
+    const more = rows.length > SHOWN ? `<button class="btn btn-quiet sm more" data-more>${all ? 'Show fewer' : `Show all ${rows.length}`}</button>` : ''
+    const html = shown.join('') + more || `<div class="empty left"><div class="eico">${icon('down')}</div><h2>Nothing downloaded</h2>Use the download button on any title or episode to keep it here for later.</div>`
     if (html !== lastHtml) { lastHtml = html; $('#dl').innerHTML = html }
     return q.queue.length > 0 || items.some(s => s.phase === 'downloading' || s.phase === 'metadata')
   }
   $('#dl').onclick = async e => {
+    if (e.target.closest('[data-more]')) { all = !all; lastHtml = ''; return draw() }
     const del = e.target.closest('[data-del]')?.dataset.del
     const q = e.target.closest('[data-q]')?.dataset.q
     const retry = e.target.closest('[data-retry]')?.dataset.retry

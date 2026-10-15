@@ -1,5 +1,5 @@
 // First-run flows: once per device (layout tuning) and once per profile (language, subtitles, taste).
-import { $, esc, store, isTV, ua } from './util.js'
+import { $, esc, icon, store, isTV, ua } from './util.js'
 import { S, setSetting } from './session.js'
 import { focusFirst } from './nav.js'
 import { upgradeSelects } from './dropdown.js'
@@ -28,11 +28,17 @@ export function detectDevice () {
   return d
 }
 
-export function installTip (toast) {
+export function installTip () {
   if (store.get('device') !== 'phone' || store.get('tipShown') || matchMedia('(display-mode: standalone)').matches || navigator.standalone) return
   store.set('tipShown', true)
   const ios = /iPhone|iPad|iPod/.test(ua)
-  setTimeout(() => toast(ios ? 'Tip: tap Share, then Add to Home Screen, to open Dodobox like an app.' : 'Tip: open the browser menu and choose Add to Home screen.', { ms: 9000 }), 4000)
+  setTimeout(() => {
+    const el = document.createElement('div')
+    el.id = 'a2hs'; el.setAttribute('role', 'status')
+    el.innerHTML = `<span class="ico">${icon('phone')}</span><span class="t">${ios ? 'Tip: tap Share, then Add to Home Screen, to open Dodobox like an app.' : 'Tip: open the browser menu and choose Add to Home screen.'}</span><button class="icon-btn" aria-label="Close">${icon('close')}</button>`
+    el.querySelector('button').onclick = () => el.remove()
+    document.body.append(el)
+  }, 4000)
 }
 
 export async function profileOnboarding () {

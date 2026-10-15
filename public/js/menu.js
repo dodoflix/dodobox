@@ -11,7 +11,6 @@ function open (focus) {
   pop = document.createElement('div'); pop.className = 'pmenu'; pop.setAttribute('role', 'menu'); pop.dataset.modal = ''
   pop.innerHTML = `<div class="pm-head"><span class="avatar" style="--c:${esc(S.me.color)}">${esc(S.me.name[0].toUpperCase())}</span><b translate="no">${esc(S.me.name)}</b></div>
     <a role="menuitem" href="#/settings">${icon('gear')}Settings</a>
-    <a role="menuitem" href="#/library">${icon('film')}Library</a>
     <button role="menuitem" data-party>${icon('party')}Watch party</button>
     <button role="menuitem" data-switch>${icon('user')}Switch profile</button>`
   document.body.append(pop)

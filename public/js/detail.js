@@ -23,6 +23,10 @@ export async function title (root, type, id) {
   const target = flat ? { season: m.movie ? 1 : null, episode: m.movie ? 1 : null } : rec ? { season: rec.season, episode: rec.episode } : videos[0]
   const mine = local.some(e => e.type === type && e.mid === id)
   let season = rec?.season ?? seasons[0]
+  // A long season (an anime can pass a thousand episodes) shows one range at a time; the range with the episode to continue opens first.
+  const PAGE = 24
+  const startPage = () => { const i = rec && rec.season === season ? videos.filter(v => v.season === season).findIndex(v => v.episode === rec.episode) : -1; return i > 0 ? Math.floor(i / PAGE) : 0 }
+  let page = startPage()
   const inL = () => inList(type, id)
   const playLabel = rec ? (flat ? 'Resume' : `Resume S${rec.season} E${rec.episode}`) : flat ? 'Play' : 'Start watching'
 
@@ -37,11 +41,11 @@ export async function title (root, type, id) {
           <a class="btn btn-ink" id="play" data-autofocus href="${target ? watchHref(type, id, target.season, target.episode) : '#'}">${icon('play')}${playLabel}</a>
           ${m.trailer ? `<a class="btn btn-ghost" id="trailer" href="#/trailer/${type}/${enc(id)}">${icon('film')}Trailer</a>` : ''}<button class="btn btn-ghost" id="list">${inL() ? icon('check') + 'In My List' : icon('plus') + 'My List'}</button>
           ${flat ? `<button class="btn btn-ghost" id="dl" data-s="" data-e="">${icon('down')}Download</button>` : ''}
-        </div>
         <div class="rate" role="group" aria-label="Rate this title">
           <button data-r="-1" class="flip" aria-label="Not for me" title="Not for me">${icon('thumb')}</button>
           <button data-r="1" aria-label="I like this" title="I like this">${icon('thumb')}</button>
           <button data-r="2" aria-label="Love this" title="Love this">${icon('heart')}</button>
+        </div>
         </div>
         <div class="facts">
           ${(m.genres || []).length ? `<div><b>Genres</b> ${m.genres.map(g => `<span>${esc(g)}</span>`).join(', ')}</div>` : ''}
@@ -49,7 +53,7 @@ export async function title (root, type, id) {
         </div>
       </div>
     </section>
-    ${flat ? '' : `<h2 class="sec-h">Episodes</h2><div class="eps-bar">${seasons.length > 1 ? `<div class="tabs" id="seasons">${seasons.map(s => `<button class="chip ${s === season ? 'on' : ''}" data-s="${s}">Season ${s}</button>`).join('')}</div>` : '<span></span>'}<button class="btn btn-ghost sm" id="dlseason">${icon('down')}Download season</button></div><div class="eps" id="eps"></div>`}
+    ${flat ? '' : `<h2 class="sec-h">Episodes</h2><div class="eps-bar">${seasons.length > 1 ? `<div class="tabs" id="seasons">${seasons.map(s => `<button class="chip ${s === season ? 'on' : ''}" data-s="${s}">Season ${s}</button>`).join('')}</div>` : '<span></span>'}<button class="btn btn-ghost sm" id="dlseason">${icon('down')}Download season</button></div><div class="tabs ranges" id="ranges" hidden></div><div class="eps" id="eps"></div>`}
   </div>`
 
   // Finding a source takes several searches on the server, so it is only started for a title that is looked at for a moment (Play then starts sooner).
@@ -120,22 +124,29 @@ export async function title (root, type, id) {
   if (flat) return detailCleanup
 
   const draw = () => {
-    $('#eps').innerHTML = videos.filter(v => v.season === season).map(v => {
+    const list = videos.filter(v => v.season === season)
+    const pages = Math.ceil(list.length / PAGE)
+    if (page >= pages) page = 0
+    const rg = $('#ranges'); rg.hidden = pages < 2
+    rg.innerHTML = pages < 2 ? '' : Array.from({ length: pages }, (_, k) => `<button class="chip ${k === page ? 'on' : ''}" data-p="${k}">${list[k * PAGE].episode}-${list[Math.min(list.length, (k + 1) * PAGE) - 1].episode}</button>`).join('')
+    const on = rg.querySelector('.on'); if (on) rg.scrollLeft = on.offsetLeft - rg.clientWidth / 2 + on.offsetWidth / 2
+    $('#eps').innerHTML = list.slice(page * PAGE, (page + 1) * PAGE).map(v => {
       const p = progress(type, id, v.season, v.episode); const r = p ? p[0] / p[1] : 0
       const future = v.released && new Date(v.released) > new Date()
       const d = v.released ? new Date(v.released).toLocaleDateString(document.documentElement.lang || undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''
       return `<div class="ep-row"><a class="ep" href="${watchHref(type, id, v.season, v.episode)}">
         <span class="n">${v.episode}</span>
         <span class="th" ${m.background || m.poster ? `data-art="url('${esc(sized(m.background || m.poster, thumbW()))}')"` : ''} style="--h:${hue(m.name)}"><b class="num" aria-hidden="true">${v.episode}</b>${v.thumbnail ? `<img alt="" data-src="${esc(sized(v.thumbnail, thumbW()))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}${r > 0.02 ? `<span class="prog"><i style="width:${Math.min(100, r * 100)}%"></i></span>` : ''}<span class="go">${icon('play')}</span>${r > 0.93 ? `<span class="ok">${icon('check')}</span>` : ''}</span>
-        <span><span class="t" translate="no">${esc(v.title)}</span><br><span class="d">${future ? 'Airs ' + d : d}${p && r < 0.95 ? ` · ${mins(Math.max(60, p[1] - p[0]))} left` : ''}</span></span>
+        <span><span class="t" translate="no">${esc(v.title)}</span><br><span class="d">${future ? 'Airs ' + d : d}${p && r < 0.95 ? `${d ? ' · ' : ''}${mins(Math.max(60, p[1] - p[0]))} left` : ''}</span></span>
 </a><button class="dl" data-s="${v.season}" data-e="${v.episode}" aria-label="Download">${icon('down')}</button></div>`
     }).join('') || '<p class="dim">No episodes listed yet.</p>'
   }
   draw(); paintDl()
-  dragScroll($('#seasons'))
+  dragScroll($('#seasons')); dragScroll($('#ranges'))
+  $('#ranges')?.addEventListener('click', e => { const b = e.target.closest('[data-p]'); if (b) { page = +b.dataset.p; draw(); paintDl() } })
   $('#seasons')?.addEventListener('click', e => {
     const b = e.target.closest('[data-s]'); if (!b) return
-    season = +b.dataset.s; draw(); paintDl()
+    season = +b.dataset.s; page = startPage(); draw(); paintDl()
     $('#seasons').querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c === b))
   })
   return detailCleanup
