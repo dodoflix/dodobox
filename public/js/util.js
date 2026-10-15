@@ -16,6 +16,15 @@ export const store = {
   set (k, v) { try { localStorage.setItem(k, JSON.stringify(v)) } catch {} }
 }
 
+// What the page keeps in this browser is versioned like the server's data folder: when a key's shape changes, add a step here
+// (STORE_STEPS[i] upgrades from version i + 1; it must cope with a key that is missing) and each device upgrades itself on its next visit.
+const STORE_STEPS = []
+let storeVersion = store.get('dbx-schema', 1)
+if (storeVersion <= STORE_STEPS.length) {
+  for (const step of STORE_STEPS.slice(storeVersion - 1)) { try { step(store) } catch { break } storeVersion++ }
+  store.set('dbx-schema', storeVersion)
+}
+
 // A trailer is a video stream: only on a link the browser reports as at least 5 Mbps.
 export const canTrailer = () => (matchMedia('(hover: hover) and (pointer: fine)').matches || isTV) && !slowLink() && (navigator.connection?.downlink ?? 10) >= 5 && navigator.onLine
 export const sized = (src, w) => (src && src.startsWith('/img?') ? `${src}&w=${w}` : src)

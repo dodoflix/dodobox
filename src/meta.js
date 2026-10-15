@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import './data.js'
 import { DATA } from './paths.js'
 import { proxied } from './images.js'
 import { getJSON, fetchRetry } from './http.js'
