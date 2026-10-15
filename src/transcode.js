@@ -1,34 +1,66 @@
 // ffmpeg glue: probing, on-demand HLS for formats browsers can't play natively, embedded subtitles.
 import { spawn, execFile } from 'node:child_process'
 import { srtToVtt } from './subs.js'
-import { FFMPEG, FFPROBE, ENCODERS, encoder } from './bin.js'
+import { FFMPEG, ENCODERS, encoder } from './bin.js'
 
 export const SEG = 6
 const DIRECT_V = new Set(['h264', 'vp8', 'vp9', 'av1'])
 const DIRECT_A = new Set(['aac', 'mp3', 'opus', 'vorbis'])
 const TEXT_SUBS = new Set(['subrip', 'ass', 'ssa', 'webvtt', 'mov_text', 'text'])
 
+// ffmpeg's own report of a file (what it prints for `ffmpeg -i`) as { format, duration, streams }, so no separate ffprobe binary has to ship.
+// Each stream is { type, codec, pix_fmt, width, height, lang, title, default }.
+const topLevel = s => { const out = []; let depth = 0; let at = 0; for (let i = 0; i < s.length; i++) { const c = s[i]; if (c === '(' || c === '[') depth++; else if (c === ')' || c === ']') depth--; else if (c === ',' && !depth) { out.push(s.slice(at, i).trim()); at = i + 1 } } out.push(s.slice(at).trim()); return out }
+export function parseProbe (text) {
+  const lines = text.split(/\r?\n/)
+  const format = (text.match(/^Input #0, ([^,]+(?:,[^,]+)*?), (?:from|to) /m) || [])[1] || ''
+  const d = text.match(/^\s*Duration: (\d+):(\d+):(\d+(?:\.\d+)?)/m)
+  const duration = d ? +d[1] * 3600 + +d[2] * 60 + +d[3] : 0
+  const streams = []
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^\s+Stream #0:\d+(?:\[0x[0-9a-f]+\])?(?:\(([^)]*)\))?: (Video|Audio|Subtitle|Data|Attachment): (.*)$/)
+    if (!m) continue
+    const [, lang, kind, rest] = m
+    const parts = topLevel(rest)
+    const s = { type: kind.toLowerCase(), codec: (parts[0].match(/^[\w.-]+/) || [''])[0], lang: lang || undefined, default: /\(default\)/.test(rest) }
+    if (kind === 'Video') {
+      s.pix_fmt = (parts[1]?.match(/^\w+/) || [''])[0]
+      const dim = parts.map(p => p.match(/^(\d+)x(\d+)/)).find(Boolean)
+      if (dim) { s.width = +dim[1]; s.height = +dim[2] }
+    }
+    // Stream metadata follows, indented one level deeper than the stream line.
+    const indent = lines[i].match(/^\s*/)[0].length
+    for (let j = i + 1; j < lines.length && lines[j].match(/^\s*/)[0].length > indent; j++) {
+      const t = lines[j].match(/^\s+title\s*:\s?(.*)$/)
+      if (t) { s.title = t[1]; break }
+    }
+    streams.push(s)
+  }
+  return { format, duration, streams }
+}
+
 const probes = new Map()
 export function probe (url, key, name = '') {
   if (!probes.has(key)) {
     const p = new Promise((resolve, reject) => {
-      execFile(FFPROBE, ['-v', 'error', '-probesize', '5000000', '-analyzeduration', '5000000', '-show_format', '-show_streams', '-of', 'json', url], { maxBuffer: 1e7, timeout: 120000 }, (err, out) => {
-        if (err) return reject(err)
-        const j = JSON.parse(out)
-        const v = j.streams.find(s => s.codec_type === 'video')
-        const audio = j.streams.filter(s => s.codec_type === 'audio').map((s, i) => ({ i, codec: s.codec_name, lang: s.tags?.language, title: s.tags?.title, default: s.disposition?.default === 1 }))
+      // With no output file ffmpeg prints what it found and exits with an error, which is expected here.
+      execFile(FFMPEG, ['-hide_banner', '-nostdin', '-probesize', '5000000', '-analyzeduration', '5000000', '-i', url], { maxBuffer: 1e7, timeout: 120000 }, (err, out, text) => {
+        if (!/^Input #0/m.test(text || '')) return reject(err || new Error('ffmpeg could not read the file'))
+        const f = parseProbe(text)
+        const v = f.streams.find(s => s.type === 'video')
+        const audio = f.streams.filter(s => s.type === 'audio').map((s, i) => ({ i, codec: s.codec, lang: s.lang, title: s.title, default: s.default }))
         // The index is the track's place among all subtitle tracks (ffmpeg's 0:s:n), including picture-based ones that are not offered.
-        const subs = j.streams.filter(s => s.codec_type === 'subtitle').map((s, i) => ({ i, codec: s.codec_name, lang: s.tags?.language, title: s.tags?.title }))
+        const subs = f.streams.filter(s => s.type === 'subtitle').map((s, i) => ({ i, codec: s.codec, lang: s.lang, title: s.title }))
           .filter(s => TEXT_SUBS.has(s.codec))
-        // ffprobe calls both Matroska and WebM "matroska,webm"; only a real .webm is browser-safe, .mkv is not.
-        const fmt = j.format.format_name
+        // Both Matroska and WebM report "matroska,webm"; only a real .webm is browser-safe, .mkv is not.
+        const fmt = f.format
         const containerOk = /mp4/.test(fmt) || (fmt === 'matroska,webm' && /\.webm$/i.test(name))
         resolve({
-          duration: parseFloat(j.format.duration) || 0,
+          duration: f.duration,
           height: v?.height || 0,
           // Resolution class by width, since widescreen films are often cropped to fewer lines (1920x800 is still 1080p).
           tier: !v ? 0 : v.width >= 3200 || v.height >= 2000 ? 2160 : v.width >= 1800 || v.height >= 1000 ? 1080 : v.width >= 1200 || v.height >= 680 ? 720 : 480,
-          direct: !!(containerOk && v && DIRECT_V.has(v.codec_name) && v.pix_fmt === 'yuv420p' && (!audio.length || DIRECT_A.has((audio.find(a => a.default) || audio[0]).codec))),
+          direct: !!(containerOk && v && DIRECT_V.has(v.codec) && v.pix_fmt === 'yuv420p' && (!audio.length || DIRECT_A.has((audio.find(a => a.default) || audio[0]).codec))),
           audio, subs
         })
       })

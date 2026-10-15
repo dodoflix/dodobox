@@ -5,6 +5,7 @@ import { srtToVtt, allowedSubUrl, sameShow, plausible } from '../src/subs.js'
 import { playlist } from '../src/transcode.js'
 import { upstream } from '../src/images.js'
 import * as updates from '../src/update.js'
+import { parseProbe } from '../src/transcode.js'
 import { ENCODERS } from '../src/bin.js'
 const { newer } = updates
 
@@ -296,6 +297,36 @@ test('lookup finds a newer release by itself and reports a version once', async 
     assert.equal(await updates.lookup('9.9.9'), false)
   } finally { globalThis.fetch = real; console.log = log }
   assert.deepEqual(seen, ['9.9.9'])
+})
+
+test('ffmpeg\'s file report is read as streams: codecs, languages, titles, defaults, size and duration', () => {
+  const r = parseProbe(`Input #0, matroska,webm, from 'x.mkv':
+  Metadata:
+    title           : Some: Movie
+  Duration: 01:02:03.50, start: 0.000000, bitrate: 5000 kb/s
+  Stream #0:0(jpn): Video: hevc (Main 10), yuv420p10le(tv, bt709/unknown/unknown), 1920x1036, SAR 1:1 DAR 480:259, 23.98 fps, 23.98 tbr, 1k tbn (default)
+    Metadata:
+      title           : Video track
+  Stream #0:1(fre): Audio: opus, 48000 Hz, 5.1, fltp (default) (forced)
+    Metadata:
+      title           : Francais: dub, v2
+  Stream #0:2[0x1100](eng): Audio: ac3, 48000 Hz, stereo, fltp, 192 kb/s
+  Stream #0:3(eng): Subtitle: subrip (srt) (default)
+    Metadata:
+      title           : English, SDH
+  Stream #0:4: Attachment: none
+    Metadata:
+      filename        : font.ttf
+`)
+  assert.equal(r.format, 'matroska,webm')
+  assert.equal(r.duration, 3723.5)
+  assert.deepEqual(r.streams.map(s => [s.type, s.codec, s.lang, s.default, s.title]), [
+    ['video', 'hevc', 'jpn', true, 'Video track'], ['audio', 'opus', 'fre', true, 'Francais: dub, v2'], ['audio', 'ac3', 'eng', false, undefined],
+    ['subtitle', 'subrip', 'eng', true, 'English, SDH'], ['attachment', 'none', undefined, false, undefined]])
+  assert.deepEqual([r.streams[0].pix_fmt, r.streams[0].width, r.streams[0].height], ['yuv420p10le', 1920, 1036])
+  const mp4 = parseProbe('Input #0, mov,mp4,m4a,3gp,3g2,mj2, from \'a.mp4\':\n  Duration: 00:00:03.04, start: 0.0, bitrate: 1 kb/s\n  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 640x360 [SAR 1:1 DAR 16:9], 24 fps, 24 tbr (default)\n')
+  assert.deepEqual([mp4.format, mp4.streams[0].codec, mp4.streams[0].pix_fmt, mp4.streams[0].width, mp4.streams[0].lang], ['mov,mp4,m4a,3gp,3g2,mj2', 'h264', 'yuv420p', 640, 'und'])
+  assert.deepEqual(parseProbe(''), { format: '', duration: 0, streams: [] })
 })
 
 test('the encoder level covers the frame size, so 1440p and 2160p do not fail to start', () => {

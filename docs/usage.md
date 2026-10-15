@@ -84,7 +84,7 @@ Dodobox looks in your Videos and Movies folders (and `MEDIA_DIR`) and matches fi
 | `MEDIA_DIR` | none | An extra folder of your own media |
 | `DODOBOX_ENCODER` | automatic | Force `libx264` if a graphics-card encoder misbehaves |
 | `OPEN` | unset | Set to `1` to open a browser on start (the start scripts do) |
-| `FFMPEG`, `FFPROBE` | automatic | Paths to ffmpeg and ffprobe. A system install is used when present, else the bundled build |
+| `FFMPEG` | automatic | Path to ffmpeg. A system install is used when present, else the bundled build |
 | `VAAPI_DEVICE` | `/dev/dri/renderD128` | Device used by the VAAPI hardware encoder |
 | `MAX_TRANSCODES` | `3` | Video segments encoded at the same time |
 | `MIN_LOCAL_BYTES` | `30000000` | Smallest file counted as a video when scanning your own folders |
