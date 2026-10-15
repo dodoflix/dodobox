@@ -1,4 +1,4 @@
-import { cget, NOW, LATER } from './api.js'
+import { cget, newPage, NOW, LATER } from './api.js'
 import { $, esc, icon, poster, skeletons, enc, store } from './util.js'
 import { calm } from './ambient.js'
 import { dragScroll } from './drag.js'
@@ -73,6 +73,7 @@ export async function search (root, q) {
   }
   async function run (term) {
     const mine = ++seq
+    newPage() // the previous term's requests no longer matter
     if (term.length < 2) return idle()
     res.innerHTML = sections.map(([, n], k) => `<div class="sr" data-k="${k}"><h2 class="sec-h">${n}</h2><div class="rail">${skeletons(8)}</div></div>`).join('')
     history.replaceState(null, '', `#/search?q=${enc(term)}`)

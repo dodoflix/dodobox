@@ -1,7 +1,7 @@
 import { $, $$, esc, isTV, toast } from './util.js'
 import { initAmbient } from './ambient.js'
 import { S, tryRestore, pickProfile } from './session.js'
-import { api } from './api.js'
+import { api, newPage } from './api.js'
 import { showPicker } from './profiles.js'
 import { focusFirst, usingKeys, onBack } from './nav.js'
 import { home } from './home.js'
@@ -58,6 +58,7 @@ async function route () {
   if (player) { player(); player = null }
 
   scrolls.set(lastPage, scrollY)
+  newPage()
   cleanup?.(); cleanup = null
   mark(page, args[0])
   document.title = 'Dodobox'
