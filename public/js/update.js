@@ -15,7 +15,7 @@ function paint (u) {
   if (!u || u.phase === 'idle' || hidden(u)) { box?.remove(); box = null; return }
   if (!box) { box = document.createElement('div'); box.id = 'upd'; box.setAttribute('role', 'status'); document.body.append(box) }
   const link = `<a href="${esc(u.url || '#')}" target="_blank" rel="noreferrer">Release notes</a>`
-  const bar = `<div class="hair"><i style="width:${u.progress || 0}%"></i></div>`
+  const bar = `<div class="hair"><i style="--p:${(u.progress || 0) / 100}"></i></div>`
   box.innerHTML = {
     available: `<div class="t"><b>Dodobox ${esc(u.version)} is available</b><span><span>You have ${esc(u.current)}.</span> ${u.canApply ? '' : `<span>${esc(u.hint)}</span>`} ${link}</span></div>
       <div class="acts">${u.canApply ? '<button class="btn btn-ink sm" data-a="download">Update now</button>' : `<a class="btn btn-ink sm" href="${esc(u.url || '#')}" target="_blank" rel="noreferrer">Download</a>`}<button class="btn btn-quiet sm" data-a="hide">Later</button></div>`,

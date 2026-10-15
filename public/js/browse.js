@@ -68,7 +68,7 @@ export async function search (root, q) {
   let seq = 0; let t
   const sections = [['movie', 'Movies'], ['series', 'Series'], ['anime', 'Anime']]
   function idle () {
-    res.innerHTML = recent.length ? `<h2 class="sec-h" style="margin-top:.5rem">Recent</h2><div class="recent">${recent.map(r => `<button class="chip" translate="no" data-q="${esc(r)}">${esc(r)}</button>`).join('')}</div>` : `<div class="empty"><div class="eico">${icon('search')}</div><h2>Find something to watch</h2>Search any title. Results include movies, series and anime.</div>`
+    res.innerHTML = recent.length ? `<h2 class="sec-h tight">Recent</h2><div class="recent">${recent.map(r => `<button class="chip" translate="no" data-q="${esc(r)}">${esc(r)}</button>`).join('')}</div>` : `<div class="empty"><div class="eico">${icon('search')}</div><h2>Find something to watch</h2>Search any title. Results include movies, series and anime.</div>`
   }
   async function run (term) {
     const mine = ++seq

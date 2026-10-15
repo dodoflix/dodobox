@@ -684,9 +684,9 @@ export async function watch (type, id, season, episode) {
     upShown = true
     const box = $('#up', root); box.hidden = false
     const auto = S.me.settings.autoNext !== false
-    box.innerHTML = `<b>Up next</b><div>${esc(next.title)}<div class="dim" style="font-size:.88rem">Season ${next.season} · Episode ${next.episode}</div></div>
+    box.innerHTML = `<b>Up next</b><div>${esc(next.title)}<div class="dim small">Season ${next.season} · Episode ${next.episode}</div></div>
       ${auto ? '<div class="hair"><i style="--t:' + Math.max(4, Math.min(8, v.duration - v.currentTime)) + 's"></i></div>' : ''}
-      <div class="actions" style="margin:0"><button class="btn btn-ink sm" id="upgo" data-autofocus>${icon('play')}Play now</button><button class="btn btn-quiet sm" id="upx">Not now</button></div>`
+      <div class="actions flush"><button class="btn btn-ink sm" id="upgo" data-autofocus>${icon('play')}Play now</button><button class="btn btn-quiet sm" id="upx">Not now</button></div>`
     $('#upgo', root).onclick = () => go(next); $('#upx', root).onclick = () => { box.hidden = true; clearTimeout(upT); upShown = 'dismissed' }
     if (auto) upT = setTimeout(() => { if (!dead && !$('#up', root).hidden) go(next) }, Math.max(4, Math.min(8, v.duration - v.currentTime)) * 1000)
   }

@@ -40,7 +40,7 @@ export function showPicker ({ dismissable = false } = {}) {
       root.innerHTML = `<div class="picker" data-modal>
         <h1>${first ? 'Who\'s watching?' : edit ? 'Edit profile' : 'New profile'}</h1>
         <form class="new-form">
-          <span class="pf" style="--c:${color};width:7rem"><span class="circle" id="prev">${esc((edit?.name || 'A')[0].toUpperCase())}</span></span>
+          <span class="pf wide" style="--c:${color}"><span class="circle" id="prev">${esc((edit?.name || 'A')[0].toUpperCase())}</span></span>
           <input class="field" name="name" placeholder="Name" maxlength="24" autocomplete="off" value="${esc(edit?.name || '')}" data-autofocus required>
           <div class="swatches">${COLORS.map(c => `<button type="button" style="--c:${c}" data-c="${c}" class="${c === color ? 'on' : ''}" aria-label="Color ${c}"></button>`).join('')}</div>
           <div class="actions"><button class="btn btn-ink" type="submit">${edit ? 'Save' : first ? 'Start watching' : 'Create'}</button>

@@ -23,7 +23,7 @@ export async function library (root) {
       ${rail('Watch history', (me.history || []).map(h => poster(h, { sub: h.finished ? 'Watched' : SE(h) || h.year })), 'l-history')}
     </div>
     <h2 class="sec-h">Downloads</h2>
-    <div class="group" style="margin:0;max-width:none;padding:0 var(--pad)"><div class="meter" style="max-width:36rem"><i id="used" style="width:0"></i></div><p class="dim" id="usedtxt" style="margin:.5rem 0 0"></p></div>
+    <div class="group flush"><div class="meter narrow"><i id="used" style="width:0"></i></div><p class="dim" id="usedtxt"></p></div>
     <div class="list" id="dl"></div>
     <div id="mine"></div></div>`
   root.querySelectorAll('.rail').forEach(dragScroll)
@@ -44,11 +44,11 @@ export async function library (root) {
     const own = items.map(s => {
       const c = s.ctx
       const state = s.phase === 'done' ? 'Ready to watch' : s.phase === 'error' ? esc(s.error) : s.phase === 'metadata' ? 'Getting started...' : s.phase === 'paused' ? (s.pausedReason === 'watching' ? 'Paused while you watch' : 'Paused') : `${Math.round(s.progress * 100)}% · ${bytes(s.speed)}/s`
-      const body = `<div class="name">${esc(s.name || c.release || s.hash)}</div><div class="d"><span>${state}</span>${s.length ? ' · ' + bytes(s.length) : ''}${s.pinned ? ' · <span>Saved</span>' : ''}</div>${s.phase === 'done' ? '' : `<div class="bar"><i style="width:${s.progress * 100}%"></i></div>`}`
+      const body = `<div class="d"><span>${state}</span>${s.length ? ' · ' + bytes(s.length) : ''}${s.pinned ? ' · <span>Saved</span>' : ''}</div>${s.phase === 'done' ? '' : `<div class="bar"><i style="width:${s.progress * 100}%"></i></div>`}`
       return row({ ...c, title: c.title }, body, `<a class="btn btn-ghost sm" href="${watchHref(c)}">${icon('play')}Play</a><button class="btn btn-quiet sm" data-del="${s.key}" aria-label="Delete">${icon('trash')}</button>`)
     })
     // Polled while open: only touch the page when something actually changed (re-rendering resets hover and costs frames).
-    const html = [...queued, ...failed, ...own].join('') || `<div class="empty" style="padding:2rem 0;text-align:left;margin:0"><div class="eico" style="margin-left:0">${icon('down')}</div><h2>Nothing downloaded</h2>Use the download button on any title or episode to keep it here for later.</div>`
+    const html = [...queued, ...failed, ...own].join('') || `<div class="empty left"><div class="eico">${icon('down')}</div><h2>Nothing downloaded</h2>Use the download button on any title or episode to keep it here for later.</div>`
     if (html !== lastHtml) { lastHtml = html; $('#dl').innerHTML = html }
     return q.queue.length > 0 || items.some(s => s.phase === 'downloading' || s.phase === 'metadata')
   }

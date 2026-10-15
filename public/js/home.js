@@ -218,7 +218,7 @@ export async function home (root, only = '') {
       add(Array.from({ length: only ? 8 : 3 }, (_, n) => n).flatMap(n => order.map(o => picks[o]?.[n]).filter(Boolean)))
     }).catch(() => {
       if (dead) return
-      $(`#s-${t} .rail`).innerHTML = `<p class="dim" style="padding:0 var(--pad)">Couldn't load this right now. It will retry when you come back.</p>`
+      $(`#s-${t} .rail`).innerHTML = `<p class="dim pad-x">Couldn't load this right now. It will retry when you come back.</p>`
     })
   }
   cget('/api/local', 60e3, LATER).then(local => {
