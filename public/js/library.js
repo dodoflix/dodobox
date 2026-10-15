@@ -1,6 +1,6 @@
-import { api, cget } from './api.js'
+import { api, cget, LATER } from './api.js'
 import { S } from './session.js'
-import { $, esc, icon, bytes, poster, enc, mins, layered } from './util.js'
+import { $, esc, icon, bytes, poster, enc, mins, layered, hue } from './util.js'
 import { calm } from './ambient.js'
 import { dragScroll } from './drag.js'
 
@@ -30,13 +30,15 @@ export async function library (root) {
   let dead = false; let lastHtml = ''
 
   async function draw () {
-    const [items, st, q] = await Promise.all([api('/api/library'), api('/api/storage'), api('/api/downloads')])
-    if (dead) return
+    // Scoped to the page, so leaving it cancels a poll that is still on the wire.
+    const get = path => api(path, { ref: { prio: LATER } })
+    const [items, st, q] = await Promise.all([get('/api/library'), get('/api/storage'), get('/api/downloads')])
+    if (dead) return false
     $('#used').style.width = Math.min(100, st.used / st.cap * 100) + '%'
     const usedText = `${bytes(st.used)} of ${bytes(st.cap)} used. Oldest unwatched downloads are removed automatically when it fills up. Downloads you start yourself are kept.`
     $('#usedtxt').textContent = usedText
     const label = c => (c.season != null ? `${c.title} · S${c.season} E${c.episode}` : c.title)
-    const row = (c, body, acts) => `<div class="item"><a class="th" href="${watchHref(c)}" style="background-image:${esc(layered(c.poster, 240))}" aria-label="Play"></a>
+    const row = (c, body, acts) => `<div class="item"><a class="th" href="${watchHref(c)}" data-art="${esc(layered(c.poster, 240))}" style="--h:${hue(c.title)}" aria-label="Play"><b class="num" aria-hidden="true">${esc((c.title || '')[0] || '')}</b></a>
       <div><span class="t" translate="no">${esc(label(c))}</span>${body}</div><div class="acts">${acts}</div></div>`
     const queued = q.queue.map(j => row({ ...j, title: j.title }, '<div class="d">Waiting to download</div>', `<button class="btn btn-quiet sm" data-q="${esc(j.key)}" aria-label="Remove from the queue">${icon('close')}</button>`))
     const failed = q.failed.map(j => row({ ...j, title: j.title }, '<div class="d err">Could not find a source for this one</div>', `<button class="btn btn-ghost sm" data-retry='${esc(JSON.stringify({ type: j.type, id: j.id, season: j.season, episode: j.episode }))}'>Try again</button><button class="btn btn-quiet sm" data-q="${esc(j.key)}" aria-label="Dismiss">${icon('close')}</button>`))
@@ -49,6 +51,7 @@ export async function library (root) {
     // Polled while open: only touch the page when something actually changed (re-rendering resets hover and costs frames).
     const html = [...queued, ...failed, ...own].join('') || `<div class="empty" style="padding:2rem 0;text-align:left;margin:0"><div class="eico" style="margin-left:0">${icon('down')}</div><h2>Nothing downloaded</h2>Use the download button on any title or episode to keep it here for later.</div>`
     if (html !== lastHtml) { lastHtml = html; $('#dl').innerHTML = html }
+    return q.queue.length > 0 || items.some(s => s.phase === 'downloading' || s.phase === 'metadata')
   }
   $('#dl').onclick = async e => {
     const del = e.target.closest('[data-del]')?.dataset.del
@@ -58,12 +61,21 @@ export async function library (root) {
     if (q) { await api(`/api/downloads/${encodeURIComponent(q)}`, { method: 'DELETE' }); draw() }
     if (retry) { await api('/api/download', { method: 'POST', body: JSON.parse(retry) }); draw() }
   }
-  await draw()
-  const t = setInterval(() => draw().catch(() => {}), 4000)
+  // One poll at a time, the next one scheduled after the last finished: quickly while something downloads, rarely when nothing does,
+  // and not at all in a hidden tab (it refreshes as soon as the tab is shown again).
+  let t
+  const loop = async moving => {
+    if (dead) return
+    clearTimeout(t)
+    t = setTimeout(async () => { loop(await draw().catch(() => false)) }, document.hidden ? 60e3 : moving ? 4000 : 30e3)
+  }
+  const onShow = () => { if (!document.hidden && !dead) { clearTimeout(t); draw().then(loop, () => loop(false)) } }
+  document.addEventListener('visibilitychange', onShow)
+  loop(await draw())
   cget('/api/local', 30e3).then(local => {
     if (dead || !local.length) return
     const seen = new Set(); const uniq = local.filter(e => { const k = e.type + e.mid; return seen.has(k) ? false : (seen.add(k), true) })
     $('#mine').innerHTML = `<h2 class="sec-h">Your files</h2><div class="grid">${uniq.map(e => poster({ type: e.type, id: e.mid, name: e.name, poster: e.poster, year: e.year })).join('')}</div>`
   }).catch(() => {})
-  return () => { dead = true; clearInterval(t) }
+  return () => { dead = true; clearTimeout(t); document.removeEventListener('visibilitychange', onShow) }
 }

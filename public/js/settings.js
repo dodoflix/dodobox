@@ -11,7 +11,9 @@ const SUBS = [['off', 'Off'], ...LANGUAGES.map(([, c, n]) => [c, n]), ['pob', 'P
 const CAPS = [20, 40, 100, 250, 500, 1000]
 const seg = (name, opts, cur) => `<div class="seg" data-seg="${name}">${opts.map(([v, l]) => `<button data-v="${v}" class="${String(v) === String(cur) ? 'on' : ''}">${l}</button>`).join('')}</div>`
 
+let stopPolling = () => {}
 export async function settings (root) {
+  stopPolling() // a redraw of the page replaces the previous one's follow-up calls
   calm()
   const [srv, g, st] = await Promise.all([api('/api/server'), api('/api/settings'), api('/api/storage')])
   const me = S.me
@@ -19,7 +21,7 @@ export async function settings (root) {
   const dirs = srv.mediaDirs
   root.innerHTML = `<div class="view page">
     <div class="page-h"><h1>${esc(me.name)}</h1></div>
-
+    <div class="cols"><div class="col">
     <div class="group"><h3>Playback</h3>
       <div class="set"><div class="l"><b>Language</b><span>Titles and descriptions are translated when a translation exists.</span></div>
         <select class="field" id="lang">${LANGUAGES.map(([c, , n]) => `<option value="${c}" ${c === me.settings.lang ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
@@ -43,6 +45,7 @@ export async function settings (root) {
       <div class="set"><div class="l"><b>Switch profile</b><span>Each person keeps their own progress and My List.</span></div><button class="btn btn-ghost sm" id="switch">${icon('user')}Switch</button></div>
     </div>
 
+    </div><div class="col">
     <div class="group"><h3>Connect a phone or TV</h3>
       <div class="connect"><img alt="QR code for ${esc(url)}" src="/api/qr.svg?text=${encodeURIComponent(url)}">
         <div><b>Scan with a phone camera, or type:</b><code>${esc(url)}</code>${srv.urls.slice(1).map(u => `<code class="dim" style="font-size:.95rem">${esc(u)}</code>`).join('')}
@@ -64,8 +67,9 @@ export async function settings (root) {
     <div class="group"><h3>This device</h3>
       <div class="set"><div class="l"><b>TV layout</b><span>Larger text and remote-control navigation. Turned on automatically on most smart TVs.</span></div>
         <button class="switch" role="switch" id="tv" aria-checked="${isTV}" aria-label="TV layout"></button></div>
-      <div class="set"><div class="l"><b>Dodobox ${esc(srv.version)}</b><span>Video encoder: ${esc(srv.encoder === 'libx264' ? 'software' : srv.encoder)}</span></div></div>
+      <div class="set"><div class="l"><b>Dodobox ${esc(srv.version)}</b><span>Video encoder: ${esc(srv.encoder === 'libx264' ? 'software' : srv.encoder)}${srv.update ? ` · <a href="${esc(srv.update.url)}" target="_blank" rel="noreferrer">Version ${esc(srv.update.version)} is available</a>` : ''}</span></div></div>
     </div>
+    </div></div>
   </div>`
 
   upgradeSelects(root)
@@ -81,13 +85,18 @@ export async function settings (root) {
     if (t.dataset.k) setSetting(t.dataset.k, t.value)
     if (t.dataset.g) { await api('/api/settings', { method: 'PUT', body: { [t.dataset.g]: +t.value } }) }
   }
+  // The translator install is followed with a few calls spaced further and further apart, only while this page is open; it gives up after a while.
+  let dead = false; let pollT; let polls = 0
   async function hqStatus (start) {
-    const el = $('#hqstat'); if (!el || !root.contains(el)) return
+    clearTimeout(pollT)
+    const el = $('#hqstat'); if (dead || !el || !root.contains(el)) return
+    if (start !== false) polls = 0
     let r = await api('/api/translate/better', start ? { method: 'POST' } : {}).catch(() => null)
     if (r?.state === 'idle' && start === undefined && me.settings.bestTranslation) r = await api('/api/translate/better', { method: 'POST' }).catch(() => null)
     const on = !!S.me.settings.bestTranslation
     el.textContent = !on || !r ? '' : r.state === 'ready' ? (r.device === 'gpu' ? 'Installed and ready, using the graphics card' : 'Installed and ready') : r.state === 'installing' || r.state === 'idle' ? `Installing... ${Math.round((r.pct || 0) * 100)}%` : 'Could not install. Check the internet connection, then switch it off and on.'
-    if (on && r && (r.state === 'installing' || r.state === 'idle')) setTimeout(() => hqStatus(false), 1000)
+    // 'idle' right after switching on means the install is about to start; if it stays idle it is not going to, so stop asking.
+    if (on && r && (r.state === 'installing' || (r.state === 'idle' && polls < 4)) && ++polls < 60) pollT = setTimeout(() => hqStatus(false), Math.min(8000, 1000 + polls * 500))
   }
   if (me.settings.bestTranslation) hqStatus()
   root.onclick = async e => {
@@ -107,4 +116,6 @@ export async function settings (root) {
     await api('/api/settings', { method: 'PUT', body: { mediaDirs: [...new Set([...dirs, d])] } })
     settings(root)
   }
+  stopPolling = () => { dead = true; clearTimeout(pollT) }
+  return () => stopPolling()
 }

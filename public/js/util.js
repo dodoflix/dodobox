@@ -16,7 +16,8 @@ export const store = {
   set (k, v) { try { localStorage.setItem(k, JSON.stringify(v)) } catch {} }
 }
 
-export const canTrailer = () => (matchMedia('(hover: hover) and (pointer: fine)').matches || isTV) && !slowLink() && navigator.onLine
+// A trailer is a video stream: only on a link the browser reports as at least 5 Mbps.
+export const canTrailer = () => (matchMedia('(hover: hover) and (pointer: fine)').matches || isTV) && !slowLink() && (navigator.connection?.downlink ?? 10) >= 5 && navigator.onLine
 export const sized = (src, w) => (src && src.startsWith('/img?') ? `${src}&w=${w}` : src)
 // A slow link (the browser's own hint, or what recent images actually took) gets smaller pictures and no trailers.
 export const slowLink = () => {
@@ -80,7 +81,7 @@ export function poster (i, { progress, sub, href } = {}) {
   remember(i)
   const link = href || `#/title/${i.type}/${enc(i.id)}`
   return `<a class="poster" href="${link}">
-    <div class="art"><div class="ph" translate="no" style="--h:${hue(i.name)}"><b>${esc(initial(i.name))}</b><span>${esc(i.name)}</span></div>${i.poster ? `${lowres(i.poster) ? `<img class="lq in" loading="lazy" decoding="async" alt="" src="${esc(lowres(i.poster))}" onerror="this.remove()">` : ''}<img decoding="async" alt="" data-src="${esc(sized(i.poster, posterW()))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}</div>
+    <div class="art"><div class="ph" translate="no" style="--h:${hue(i.name)}"><b>${esc(initial(i.name))}</b><span>${esc(i.name)}</span></div>${i.poster ? `<img decoding="async" alt="" data-src="${esc(sized(i.poster, posterW()))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}</div>
     ${i.rating ? `<span class="badge">${icon('star')}${i.rating.toFixed(1)}</span>` : ''}
     <div class="cap" translate="no">${esc(i.name)}</div><div class="sub">${esc(sub ?? i.year ?? '')}</div>
     ${progress != null ? `<div class="prog"><i style="width:${Math.min(100, progress * 100)}%"></i></div>` : ''}

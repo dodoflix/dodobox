@@ -1,10 +1,11 @@
 // Hover preview: rest the pointer on a poster and a small card plays the trailer.
 import { cget } from './api.js'
 import { S, toggleList, inList } from './session.js'
-import { esc, icon, enc, sized, isTV, known, hue, lowres, slowLink, peekW } from './util.js'
+import { esc, icon, enc, sized, isTV, known, hue, lowres, canTrailer, peekW } from './util.js'
 import { mountTrailer } from './trailer.js'
 
 const fine = matchMedia('(hover: hover) and (pointer: fine)')
+const played = new Map()
 let card = null; let trailer = null; let showT; let hideT; let trailerT; let current = null
 
 const parse = a => { const m = (a.getAttribute('href') || '').match(/^#\/(?:title|watch)\/(\w+)\/([^/]+)/); return m && { type: m[1], id: decodeURIComponent(m[2]) } }
@@ -40,9 +41,11 @@ async function open (poster) {
     if (l) { toggleList(m).then(() => { l.innerHTML = inList(m.type, m.id) ? icon('check') + 'In list' : icon('plus') + 'My List' }); return }
     if (!e.target.closest('a')) location.hash = `#/title/${m.type}/${enc(m.id)}`
   })
-  if (m.trailer && navigator.onLine && !slowLink()) {
+  // A trailer is a new player page and a video stream every time, so it starts only when the pointer really rests, only on a good link,
+  // at a small size, and not again for the same title within a minute (the card still shows the picture).
+  if (m.trailer && canTrailer() && Date.now() - (played.get(m.trailer) || 0) > 60e3) {
     const mine = card
-    trailerT = setTimeout(() => { if (card === mine) trailer = mountTrailer(mine.querySelector('.pv'), m.trailer, { width: 1280, onFail: () => { trailer = null } }) }, 700)
+    trailerT = setTimeout(() => { if (card === mine) { played.set(m.trailer, Date.now()); trailer = mountTrailer(mine.querySelector('.pv'), m.trailer, { width: 640, onFail: () => { trailer = null } }) } }, 1500)
   }
 }
 

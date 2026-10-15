@@ -72,7 +72,7 @@ async function route () {
     else if (page === 'search') cleanup = await (await import('./browse.js')).search(main, q)
     else if (page === 'title') cleanup = await (await import('./detail.js')).title(main, args[0], args[1])
     else if (page === 'library') cleanup = await (await import('./library.js')).library(main)
-    else if (page === 'settings') await (await import('./settings.js')).settings(main)
+    else if (page === 'settings') cleanup = await (await import('./settings.js')).settings(main)
     else cleanup = await home(main)
   } catch (e) {
     if (mine !== seq) return
@@ -111,6 +111,7 @@ async function boot () {
   await route()
   // Offline caching and the hover preview start once the page is up, so they never compete with it.
   import('./preview.js').then(m => m.initPreview())
+  import('./update.js').then(m => m.initUpdates())
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) setTimeout(() => navigator.serviceWorker.register('/sw.js').catch(() => {}), 4000)
 }
 boot()

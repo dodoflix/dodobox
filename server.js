@@ -24,6 +24,7 @@ import * as better from './src/translate-hq.js'
 import { translateSubtitle, translateBetter, stopBetter, targets as translateTargets, modelLang } from './src/translate.js'
 import { once } from './src/http.js'
 import { DATA } from './src/paths.js'
+import * as updates from './src/update.js'
 import { probe, playlist, segment, warm, embeddedSub, anyToVtt, SEG } from './src/transcode.js'
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url))
@@ -43,6 +44,7 @@ const send = (req, res, code, type, body, extra = {}) => {
 const json = (req, res, data, code = 200) => send(req, res, code, 'application/json', JSON.stringify(data), { 'cache-control': 'no-store' })
 const safeOf = req => req.headers['x-adult-filter'] === '1'
 const jsonCached = (req, res, data, maxAge = 180) => send(req, res, 200, 'application/json', JSON.stringify(data), { 'cache-control': `private, max-age=${maxAge}, stale-while-revalidate=${maxAge * 5}`, vary: 'x-lang, x-adult-filter, accept-encoding' })
+const isLocal = req => /^(::1|127\.0\.0\.1|::ffff:127\.0\.0\.1)$/.test(req.socket.remoteAddress || '')
 const fail = (req, res, code, msg) => json(req, res, { error: msg }, code)
 const body = req => new Promise((resolve, reject) => {
   const chunks = []; let n = 0
@@ -255,8 +257,17 @@ const routes = [
   ['GET', /^\/api\/health$/, (req, res) => json(req, res, { app: 'dodobox', version: VERSION })],
   ['GET', /^\/api\/server$/, async (req, res) => json(req, res, {
     version: VERSION, port, urls: lanAddresses().map(a => `http://${a}:${port}`), mdns: `http://dodobox.local:${port}`,
-    encoder: await encoder(), internetMbps: Math.round(speed.downMbps()), mediaDirs: local.dirs(), localCount: local.all().length
+    encoder: await encoder(), internetMbps: Math.round(speed.downMbps()), mediaDirs: local.dirs(), localCount: local.all().length, update: updates.info()
   })],
+  // Updates: anyone can see that one exists, only a request from the computer Dodobox runs on can start it.
+  ['GET', /^\/api\/update$/, (req, res) => json(req, res, updates.view(VERSION, isLocal(req)))],
+  ['POST', /^\/api\/update\/(download|install|check)$/, async (req, res, [, what]) => {
+    if (!isLocal(req)) return fail(req, res, 403, 'Update from the computer Dodobox runs on')
+    if (what === 'download') updates.download().catch(() => {})
+    else if (what === 'install') updates.install()
+    else updates.check()
+    json(req, res, updates.view(VERSION, true))
+  }],
   ['GET', /^\/api\/speedtest$/, (req, res, _, q) => speed.sendTestBytes(res, +q.get('bytes'))],
   ['GET', /^\/api\/qr\.svg$/, (req, res, _, q) => {
     const c = qr(0, 'M'); c.addData(String(q.get('text') || '').slice(0, 300)); c.make()
@@ -513,6 +524,7 @@ export function start (listenPort = process.env.PORT === undefined ? 3000 : +pro
       downloads.init(play)
       refreshTrackers(); setInterval(refreshTrackers, 12 * 3600e3).unref()
       speed.start()
+      updates.watch(VERSION)
       setTimeout(warmCatalog, 3000).unref(); setInterval(warmCatalog, 2 * 3600e3).unref()
       encoder().then(e => console.log(`  Video encoder: ${e}`))
       resolve(server)

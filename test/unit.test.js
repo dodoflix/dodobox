@@ -4,6 +4,8 @@ import { releaseSubLangs, showVerdict, animeShowName, isAnimePack, matchAnimeEpi
 import { srtToVtt, allowedSubUrl, sameShow, plausible } from '../src/subs.js'
 import { playlist } from '../src/transcode.js'
 import { upstream } from '../src/images.js'
+import * as updates from '../src/update.js'
+const { newer } = updates
 
 test('anime episode matching', () => {
   assert.ok(matchAnimeEpisode('[GroupA] Sousou no Frieren - 03 (1080p) [7EF3F175].mkv', 3))
@@ -242,4 +244,30 @@ test('picture hosts that resize are asked for about the width needed', () => {
   assert.equal(upstream('https://s4.anilist.co/file/anilistcdn/media/anime/cover/extraLarge/bx21-x.jpg', 200), 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx21-x.jpg')
   assert.equal(upstream('https://s4.anilist.co/file/anilistcdn/media/anime/cover/extraLarge/bx21-x.jpg', 400), 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/extraLarge/bx21-x.jpg')
   assert.equal(upstream('https://example.com/a.jpg', 240), 'https://example.com/a.jpg')
+})
+
+test('release versions compare by number, not by text', () => {
+  assert.ok(newer('0.2.0', '0.1.9') && newer('1.0.0', '0.9.9') && newer('0.10.0', '0.9.0') && newer('v0.1.1', '0.1.0'))
+  assert.ok(!newer('0.1.0', '0.1.0') && !newer('0.1.0', '0.2.0') && !newer('0.9.0', '0.10.0'))
+  assert.ok(!newer('0.2.0-beta.1', '0.2.0'))
+})
+
+test('an update can be started only where the build can replace itself, and only in order', async () => {
+  assert.equal(updates.view('0.1.0', true).canApply, false)
+  assert.throws(() => updates.download(), { message: 'nothing to download' })
+  let installed = 0
+  updates.useDriver({ self: true, download: async () => {}, install: () => { installed++ }, check: () => {} })
+  updates.set({ version: '0.2.0', url: 'u', phase: 'available' })
+  assert.equal(updates.view('0.1.0', true).canApply, true)
+  assert.equal(updates.view('0.1.0', false).canApply, false, 'a phone on the network cannot start it')
+  assert.throws(() => updates.install(), { message: 'no update is ready' })
+  await updates.download()
+  assert.equal(updates.view('0.1.0', true).phase, 'downloading')
+  updates.set({ phase: 'ready' })
+  updates.install()
+  assert.equal(installed, 1)
+  updates.useDriver({ self: false, download: async () => {}, install: () => {}, check: () => {} })
+  updates.set({ phase: 'available' })
+  assert.equal(updates.view('0.1.0', true).canApply, false)
+  assert.match(updates.view('0.1.0', true).hint, /installer/)
 })
