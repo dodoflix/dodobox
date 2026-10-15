@@ -31,6 +31,7 @@
   --r: 2px; --r-tag: 4px; --r-thumb: 6px; --r-field: 10px; --r-row: 12px; --r-panel: 16px; --r-pill: 999px;
   --fs-xs: .75rem; --fs-s: .875rem; --fs-m: .9375rem; --fs-l: 1.125rem; --fd-s: 1.15rem; --fd-m: 1.4rem;
   --z-shell: 30; --z-float: 90; --z-layer: 100; --z-onboard: 110; --z-modal: 120; --z-popover: 150; --z-toast: 200;
+  --fade-w: 2.5rem; --bleed: .75rem;
   --ease: cubic-bezier(.16, 1, .3, 1);
   --display: "Shoulders", "Script Sans", "Arial Narrow", Impact, "Noto Sans CJK SC", "PingFang SC", "Hiragino Sans", "Yu Gothic", "Malgun Gothic", sans-serif;
   --text: "Figtree", "Script Sans", system-ui, -apple-system, "Segoe UI", "Noto Sans", "Noto Sans CJK SC", "PingFang SC", "Hiragino Sans", "Yu Gothic", "Malgun Gothic", "Noto Sans Arabic", "Noto Sans Hebrew", sans-serif;
@@ -67,7 +68,7 @@ html.tv :focus-visible { outline-width: 4px; box-shadow: 0 0 0 10px rgb(var(--gl
 #top { position: fixed; z-index: var(--z-shell); top: 0; left: 0; right: 0; height: calc(3.5rem + var(--safe-t)); padding: var(--safe-t) var(--pad) 0; display: flex; align-items: center; gap: 1rem; background: linear-gradient(rgb(var(--ground-rgb) / .85), transparent); transition: background .3s, backdrop-filter .3s; }
 #top.solid { background: rgb(var(--ground-rgb) / .82); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 1px 0 var(--line); }
 .logo { font: 900 1.5rem/1 var(--display); letter-spacing: .14em; margin-right: .5rem; }
-#nav { display: flex; flex: 1; justify-content: space-between; max-width: 90rem; margin-right: auto; }
+#nav { display: flex; flex: 1; justify-content: center; gap: clamp(.1rem, 1.6vw, 1.75rem); }
 #nav a { position: relative; padding: .5rem .9rem; color: var(--ink2); font-weight: 650; border-radius: var(--r-pill); transition: color .2s; }
 #nav a:hover { color: var(--ink); }
 #nav a.on { color: var(--ink); }
@@ -98,7 +99,7 @@ main { min-height: 100vh; min-height: 100svh; padding-bottom: calc(4rem + var(--
 .btn .i { width: 1.25rem; height: 1.25rem; }
 .chip { display: inline-flex; align-items: center; min-height: 2.2rem; padding: 0 1rem; border-radius: var(--r-pill); border: 1px solid var(--line); background: transparent; color: var(--ink2); font-weight: 650; font-size: var(--fs-m); white-space: nowrap; transition: color .2s, border-color .2s; }
 .chip:hover { color: var(--ink); border-color: rgb(255 255 255 / .3); }
-.tabs { display: flex; gap: .5rem; overflow-x: auto; padding: .35rem var(--pad); scrollbar-width: none; }
+.tabs { display: flex; gap: .5rem; overflow-x: auto; margin: 0 calc(var(--pad) - var(--bleed)); padding: .35rem var(--bleed); scrollbar-width: none; }
 .tabs::-webkit-scrollbar { display: none; }
 .meta { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem 1rem; color: var(--ink2); font-weight: 650; }
 .meta > span { display: inline-flex; align-items: center; gap: .32rem; line-height: 1; }
@@ -136,7 +137,7 @@ h1.title { font: 900 clamp(3rem, min(8.2vw, 11vh), 6.5rem)/1 var(--display); tex
 .shelf-h h2 { font: 800 1.6rem/1.1 var(--display); text-transform: uppercase; letter-spacing: .04em; margin: 0; }
 .shelf-h a { color: var(--ink3); font-weight: 650; font-size: var(--fs-m); }
 .shelf-h a:hover { color: var(--ink); }
-.rail { display: grid; grid-auto-flow: column; grid-auto-columns: var(--pw); gap: var(--gap); overflow-x: auto; padding: .9rem var(--pad) 1.5rem; scrollbar-width: none; overscroll-behavior-x: contain; }
+.rail { display: grid; grid-auto-flow: column; grid-auto-columns: var(--pw); gap: var(--gap); overflow-x: auto; margin: 0 calc(var(--pad) - var(--bleed)); padding: .9rem var(--bleed) 1.5rem; scrollbar-width: none; overscroll-behavior-x: contain; }
 .rail::-webkit-scrollbar { display: none; }
 .rail.wide { grid-auto-columns: calc(var(--pw) * 1.9); }
 .poster { display: block; position: relative; min-width: 0; }
@@ -483,7 +484,7 @@ html.lock, html.lock body { overflow: hidden; }
 
 /* Browse: type switch (phones only; desktop and TV use the top navigation) and a genre strip that looks different from it */
 .typeseg { display: none; }
-.genres { display: flex; gap: 1.1rem; overflow-x: auto; padding: .5rem var(--pad) .9rem; scrollbar-width: none; cursor: grab; -webkit-overflow-scrolling: touch; }
+.genres { display: flex; gap: 1.1rem; overflow-x: auto; margin: 0 calc(var(--pad) - var(--bleed)); padding: .5rem var(--bleed) .9rem; scrollbar-width: none; cursor: grab; -webkit-overflow-scrolling: touch; }
 .genres::-webkit-scrollbar { display: none; }
 .genres.dragging, .rail.dragging { cursor: grabbing; }
 .genres .g { flex: none; position: relative; padding: .45rem 0; color: var(--ink3); font-weight: 650; font-size: var(--fs-m); transition: color .2s; }
@@ -524,7 +525,7 @@ html.lock, html.lock body { overflow: hidden; }
 @media (max-width: 700px) { .ob-row select.field { width: 100%; } }
 
 .pl-menu.ep-menu { width: min(36rem, calc(100vw - 2rem)); max-height: 70vh; }
-.ep-menu .tabs { padding: .1rem .2rem .5rem; }
+.ep-menu .tabs { margin: 0; padding: .1rem .2rem .5rem; }
 .ep-menu .chip { display: inline-flex; width: auto; justify-content: flex-start; gap: 0; min-height: 2.2rem; padding: 0 1rem; border: 1px solid var(--line); border-radius: var(--r-pill); color: var(--ink2); font-size: var(--fs-m); }
 .ep-menu .chip.on, .ep-menu .chip.on:hover { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
 .ep-menu .eps { grid-template-columns: minmax(0, 1fr); padding: 0; }
@@ -605,7 +606,7 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 .rate button.on[data-r="2"] .i { fill: currentColor; }
 .rate button.on[data-r="1"] .i, .rate button.on[data-r="-1"] .i { fill: currentColor; }
 .eps-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-right: var(--pad); }
-.eps-bar .tabs { min-width: 0; flex: 1; }
+.eps-bar .tabs { min-width: 0; flex: 1; margin-right: 0; }
 .eps-bar .btn { flex: none; }
 .ep-row { display: flex; align-items: center; gap: .5rem; }
 .ep-row .ep { flex: 1; min-width: 0; }
@@ -616,7 +617,7 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 .dl .pct { font-size: var(--fs-xs); font-weight: 750; font-variant-numeric: tabular-nums; color: rgb(var(--glow)); }
 #dl[data-state="done"] { color: rgb(var(--glow)); }
 #dl .pct { font-size: var(--fs-s); margin-right: .1rem; }
-@media (max-width: 700px) { .eps-bar { flex-wrap: wrap; padding-right: 0; } .eps-bar .btn { margin: 0 var(--pad); } }
+@media (max-width: 700px) { .eps-bar { flex-wrap: wrap; padding-right: 0; } .eps-bar .tabs { margin-right: calc(var(--pad) - var(--bleed)); } .eps-bar .btn { margin: 0 var(--pad); } }
 
 /* Browse sorting */
 .sortrow { display: flex; align-items: center; gap: .7rem; padding: .2rem var(--pad) .4rem; color: var(--ink3); font-size: var(--fs-m); font-weight: 650; }
@@ -744,3 +745,13 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 .qs-box input::-webkit-search-cancel-button { display: none; }
 @media (max-width: 380px) { .ctrls .cbtn { width: 2.4rem; } }
 @media (max-width: 380px), (max-height: 500px) { .ctrls { gap: 0; } }
+
+/* Strips that scroll sideways stay inside the text column and dissolve at an end only while there is more to scroll to.
+   The scroll position drives --fl / --fr (browsers without scroll-driven animations just cut at the column edge). */
+@property --fl { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --fr { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@keyframes strip-ends { 0% { --fl: 0px; --fr: var(--fade-w); } 6% { --fl: var(--fade-w); } 94% { --fr: var(--fade-w); } 100% { --fl: var(--fade-w); --fr: 0px; } }
+@supports (animation-timeline: scroll()) {
+  .rail, .genres, .tabs { animation: strip-ends linear both; animation-timeline: scroll(self inline); -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--fl), #000 calc(100% - var(--fr)), transparent); mask-image: linear-gradient(90deg, transparent, #000 var(--fl), #000 calc(100% - var(--fr)), transparent); }
+  .ep-menu .tabs { animation: none; -webkit-mask-image: none; mask-image: none; }
+}
