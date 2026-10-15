@@ -48,7 +48,7 @@ Phones and laptops use plain HTTP on the local network, so "install as app" give
 
 ## Subtitles
 
-Subtitles are searched in your language and English and ranked by how closely each file matches the version playing. Built-in tracks appear while the video is still downloading, greyed out ("after more download") until enough of the start has arrived.
+Subtitles are searched in your language and English and ranked by how closely each file matches the version playing. Built-in tracks appear while the video is still downloading, greyed out ("after more download") until enough of the start has arrived. Subtitle files that come in the same download (next to the video or in a `Subs` folder) are listed too, under their file name.
 
 **Auto sync** (switch in the subtitle menu) fixes online subtitles that are a few seconds off, run at a different frame rate, or are cut differently. It compares when speech happens in short stretches of the downloaded audio with when the subtitle appears, at low priority, and keeps checking while you watch. Built-in subtitles are already in sync and are left alone. Timing -0.5/+0.5 works on top.
 

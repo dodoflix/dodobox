@@ -8,7 +8,7 @@ import { Bonjour } from 'bonjour-service'
 import { fileURLToPath } from 'node:url'
 import { catalog, meta, animeImdb } from './src/meta.js'
 import { findSources, measured, score, refreshTrackers, showVerdict } from './src/sources.js'
-import { listSubtitles, allowedSubUrl, fetchSubtitle, srtToVtt, decode } from './src/subs.js'
+import { listSubtitles, allowedSubUrl, fetchSubtitle, srtToVtt, decode, toVtt, legacyEncoding } from './src/subs.js'
 import * as engine from './src/engine.js'
 import * as local from './src/local.js'
 import * as downloads from './src/downloads.js'
@@ -23,6 +23,7 @@ import { syncInWorker, parseCues, shiftVtt } from './src/sync.js'
 import * as better from './src/translate-hq.js'
 import { translateSubtitle, translateBetter, stopBetter, targets as translateTargets, modelLang } from './src/translate.js'
 import { once } from './src/http.js'
+import { langOfName } from './src/sidecar.js'
 import { DATA } from './src/paths.js'
 import * as updates from './src/update.js'
 import { probe, playlist, segment, warm, embeddedSub, anyToVtt, SEG } from './src/transcode.js'
@@ -205,7 +206,7 @@ async function shelfItems (id, lang, safe) {
 // One sync job at a time, in a worker thread, at low priority.
 const syncCache = new Map()
 let syncChain = Promise.resolve()
-const SUB_PATH = /^\/api\/sub(\?|\/embedded\/|\/translate\?)/
+const SUB_PATH = /^\/api\/sub(\?|\/embedded\/|\/file\/|\/translate\?)/
 const translating = new Map() // translations being made: where each one is, for the progress display
 const UI_LANGS = ['tr', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'nl', 'pl', 'ja', 'ko', 'zh', 'ar', 'id', 'sv', 'hi', 'vi', 'el', 'he']
 async function localText (srcPath) {
@@ -328,7 +329,7 @@ const routes = [
   ['GET', /^\/api\/info\/(\w+)$/, async (req, res, [, h]) => {
     const s = statusOf(h)
     if (!s || s.fileIdx == null) return fail(req, res, 409, 'not ready')
-    json(req, res, { ...s, ...await probe(rawUrl(h, s.fileIdx), `${h}:${s.fileIdx}`, s.name || '') })
+    json(req, res, { ...s, ...await probe(rawUrl(h, s.fileIdx), `${h}:${s.fileIdx}`, s.name || ''), sidecar: local.isLocal(h) ? [] : engine.sidecars(h, s.fileIdx) })
   }],
   ['GET', /^\/raw\/(\w+)\/(\d+)$/, (req, res, [, h, i]) => local.isLocal(h) ? local.serve(h, req, res) : engine.serve(h, +i, req, res)],
   // Safari hands HLS to AirPlay by URL, so only subtitles inside the stream reach a TV; with `sl` or `sub` the playlist becomes a master playlist with a WebVTT rendition.
@@ -448,6 +449,18 @@ const routes = [
       embeddedCache.set(key, vtt); if (embeddedCache.size > 24) embeddedCache.delete(embeddedCache.keys().next().value)
     }
     send(req, res, 200, 'text/vtt; charset=utf-8', vtt, { 'cache-control': 'no-store', 'x-covered': to ? String(to) : 'full', 'access-control-expose-headers': 'x-covered' })
+  }],
+  // A subtitle file that came inside the torrent.
+  ['GET', /^\/api\/sub\/file\/(\w+)\/(\d+)$/, async (req, res, [, h, n]) => {
+    if (local.isLocal(h) || !statusOf(h)) return fail(req, res, 404, 'unknown source')
+    const file = path.join(DATA, 'subs', `side-${h}-${n}.vtt`)
+    const vtt = (fs.existsSync(file) && fs.readFileSync(file, 'utf8')) || await once(`side:${h}:${n}`, async () => {
+      const { name, buf } = await engine.readSidecar(h, +n)
+      const text = await toVtt(buf, legacyEncoding(langOfName(name)))
+      fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, text)
+      return text
+    })
+    send(req, res, 200, 'text/vtt; charset=utf-8', vtt, { 'cache-control': 'no-store', 'x-covered': 'full', 'access-control-expose-headers': 'x-covered' })
   }],
   ['POST', /^\/api\/sub\/convert$/, async (req, res) => {
     const buf = await body(req)

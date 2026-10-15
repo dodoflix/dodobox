@@ -458,7 +458,9 @@ export async function watch (type, id, season, episode) {
   }
   const translationTargets = () => [...LANGUAGES.filter(l => l[0] !== 'en'), ...(S.me.settings.sublang === 'pob' ? [['pt', 'pob']] : [])]
   const loadSubs = async () => {
-    const embedded = (info.subs || []).map(s => ({ lang: s.lang, label: `${LANG(s.lang || 'und')}${s.title ? ' · ' + s.title : ''}`, hint: 'Built in', embedded: true, src: `/api/sub/embedded/${hash}/${st.fileIdx}/${s.i}` }))
+    // Tracks inside the video, and subtitle files that came in the same download: both match this release's timing.
+    const embedded = [...(info.subs || []).map(s => ({ lang: s.lang, label: `${LANG(s.lang || 'und')}${s.title ? ' · ' + s.title : ''}`, hint: 'Built in', embedded: true, src: `/api/sub/embedded/${hash}/${st.fileIdx}/${s.i}` })),
+      ...(info.sidecar || []).map(s => ({ lang: s.lang, label: LANG(s.lang), hint: s.name.slice(0, 42), forced: s.forced, embedded: true, src: `/api/sub/file/${hash}/${s.i}` }))]
     const targets = translationTargets()
     const supported = await cget('/api/translate/langs').catch(() => [])
     const soon = targets.filter(([c2]) => supported.includes(c2)).map(([, c3]) => ({ lang: c3, label: 'Auto-translated', hint: 'Getting started...', pending: true, manualOnly: true, src: '' }))
