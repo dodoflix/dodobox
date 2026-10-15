@@ -7,7 +7,8 @@ import qr from 'qrcode-generator'
 import { Bonjour } from 'bonjour-service'
 import { fileURLToPath } from 'node:url'
 import { catalog, meta, animeImdb } from './src/meta.js'
-import { findSources, measured, score, refreshTrackers, showVerdict } from './src/sources.js'
+import { findSources, measured, score, refreshTrackers, showVerdict, magnetFor } from './src/sources.js'
+import { party, newCode, cleanItem } from './src/party.js'
 import { listSubtitles, allowedSubUrl, fetchSubtitle, srtToVtt, decode, toVtt, legacyEncoding } from './src/subs.js'
 import * as engine from './src/engine.js'
 import * as local from './src/local.js'
@@ -59,6 +60,7 @@ let port
 const rawUrl = (hash, idx) => `http://127.0.0.1:${port}/raw/${hash}/${idx}`
 const statusOf = (h, silent, file) => local.isLocal(h) ? local.status(h) : engine.status(h, silent, file)
 const pid = req => req.headers['x-profile'] || ''
+const partyWho = req => { const p = state.profile(pid(req)); return { name: p?.name || 'Guest', color: p?.color || '#888' } }
 // Older versions saved translated titles; put the original back once, quietly, so every language shows the right one.
 const repaired = new Set()
 async function repairNames (id) {
@@ -97,7 +99,8 @@ async function play (b) {
     if (have && !exclude.includes(have.hash)) { if (b.pin) engine.pin(have.hash); return engine.status(have.hash, false, have.file) }
   }
   const list = (await findSources(item, ctxOf(b))).filter(s => !exclude.includes(s.infoHash))
-  const first = b.infoHash ? list.find(s => s.infoHash === b.infoHash) : list[0]
+  // The version a watch party is on is accepted even when this server's own search does not list it (the page asked for it after the user said yes).
+  const first = b.infoHash ? list.find(s => s.infoHash === b.infoHash) || (party.status().now?.source?.infoHash === b.infoHash ? { infoHash: b.infoHash, magnet: magnetFor(b.infoHash), seeders: 1, size: 0, quality: 0 } : undefined) : list[0]
   if (!first) throw Object.assign(new Error('Nothing playable found for this title right now'), { code: 404 })
   const start = pick => engine.add({ hash: pick.infoHash, magnet: pick.magnet, ctx: { type: item.type, id: item.id, title: m.name, poster: m.poster, season: item.season, episode: item.episode, release: pick.release }, fileIdx: pick.fileIdx, pinned: !!b.pin })
   // Seeder counts say little about real speed, so the best few versions race for a moment.
@@ -324,6 +327,26 @@ const routes = [
     const list = await findSources({ type, id: m.id, title: m.name, altTitles: m.altTitles, year: m.year, movie: m.movie, runtimeMin: runtimeOf(m), season: +q.get('season'), episode: +q.get('episode') }, ctxOf({ prefer: q.get('prefer'), display: q.get('display'), mode: q.get('mode'), audio: q.get('audio') }))
     json(req, res, list.map(({ magnet, ...s }) => ({ ...s, measuredBps: measured.get(s.infoHash)?.bps })))
   }],
+  // Watch party: the page asks, this server talks to the other members (src/party.js) and tells the page what they do.
+  ['GET', /^\/api\/party$/, (req, res) => json(req, res, party.status())],
+  ['GET', /^\/api\/party\/events$/, (req, res) => {
+    res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', 'x-accel-buffering': 'no' })
+    const out = e => res.write(`data: ${JSON.stringify(e)}\n\n`)
+    out({ type: 'status', ...party.status() })
+    party.on('event', out)
+    const beat = setInterval(() => res.write(': keep\n\n'), 20000)
+    req.on('close', () => { party.off('event', out); clearInterval(beat) })
+  }],
+  ['POST', /^\/api\/party\/start$/, async (req, res) => {
+    // With a title it starts there; without one it is a lobby that whoever presses play first fills.
+    const b = await jbody(req); const item = b.item ? cleanItem(b.item) : null
+    if (b.item && !item) return fail(req, res, 400, 'Bad title')
+    const hash = /^[0-9a-f]{40}$/.test(b.hash || '') && engine.status(b.hash, true) ? b.hash : null
+    json(req, res, await party.join(newCode(), partyWho(req), item && { item, source: hash ? { infoHash: hash } : null, pos: Math.max(0, +b.pos || 0), paused: !!b.paused, at: Date.now() }))
+  }],
+  ['POST', /^\/api\/party\/join$/, async (req, res) => { const b = await jbody(req); json(req, res, await party.join(b.code, partyWho(req))) }],
+  ['POST', /^\/api\/party\/leave$/, (req, res) => { party.leave(); json(req, res, { ok: true }) }],
+  ['POST', /^\/api\/party\/send$/, async (req, res) => { const b = await jbody(req); party.send(b.k, b); json(req, res, { ok: true }) }],
   ['POST', /^\/api\/play$/, async (req, res) => { const b = await jbody(req); b.mode ||= modeOf(req); b.audio ||= audioOf(req); b.sublang ||= sublangOf(req); json(req, res, await play(b)) }],
   ['GET', /^\/api\/status\/(\w+)$/, (req, res, [, h], q) => { const s = statusOf(h, false, q.get('file')); if (s) speed.observe(s.speed); s ? json(req, res, s) : fail(req, res, 404, 'unknown source') }],
   ['GET', /^\/api\/info\/(\w+)$/, async (req, res, [, h]) => {
@@ -549,6 +572,7 @@ export function start (listenPort = process.env.PORT === undefined ? 3000 : +pro
 
 export async function stop () {
   try { bonjour?.unpublishAll(); bonjour?.destroy() } catch {}
+  party.leave()
   state.flush()
   server.closeAllConnections()
   await new Promise(r => server.close(r))

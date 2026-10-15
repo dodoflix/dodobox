@@ -36,7 +36,9 @@ export const rows = [
 /*install*/ 'Instalado e pronto', 'Instalado e pronto, usando a placa de vídeo', 'Não foi possível instalar. Verifique a conexão com a internet e depois desligue e ligue de novo.',
 /*ui2*/ 'Não foi possível carregar mais.', 'Padrão', 'Reproduzindo agora', 'Lendo as legendas...', 'Aguardando mais do download...', 'Notas da versão', 'Atualizar agora', 'Mais tarde', 'Baixando a atualização...', 'A atualização está pronta', 'O Dodobox reinicia para concluir.', 'Reiniciar para atualizar', 'A atualização não funcionou', 'Fechar', 'Reiniciando o Dodobox...', 'Esta página recarrega sozinha.', 'Algo deu errado.', 'Baixe o novo instalador e execute-o.', 'Baixe a nova versão, ou obtenha o novo código-fonte e execute npm install.', 'Nada reproduzível encontrado para este título no momento',
 /*more*/ 'Salvo', 'Nenhum arquivo reproduzível encontrado no torrent',
-/*more*/ 'não encontrado', 'Nome obrigatório', 'Atualize pelo computador em que o Dodobox está rodando'
+/*more*/ 'não encontrado', 'Nome obrigatório', 'Atualize pelo computador em que o Dodobox está rodando',
+/*more*/ 'Sessão em grupo', 'Iniciar uma sessão', 'Código da sessão', 'Entrar', 'Seus amigos também precisam do Dodobox. Compartilhe o código com eles.', 'Procurando seus amigos...', 'Copiar código', 'Código copiado', 'Sair da sessão', 'Assistindo', 'Assistir juntos', 'Esse não é um código de sessão', 'Você já está em uma sessão', 'Você não está em uma sessão',
+/*more*/ 'Gere um código para compartilhar e assistam a tudo juntos, episódio após episódio.', 'ou', 'Entrar com um código', 'Escolha o que assistir e todos acompanham.'
 ]
 export const patterns = [
   'Olá $1, deixe com a sua cara', 'Temporada $1', 'Temporada $1 · Episódio $2', 'Continuar T$1 E$2', 'T$1 E$2$3', 'Estreia em $1', '$1 h $2 min', '$1 min', '$1faltam $2 h $3 min', '$1faltam $2 min',
@@ -47,5 +49,5 @@ export const patterns = [
   'Preparando o idioma... $1%', 'Traduzindo... $1%',
   'Melhorando a qualidade... $1%',
   'Instalando... $1%',
-  'O Dodobox $1 está disponível', 'A versão $1 está disponível', 'Você tem a versão $1.', 'Baixe a nova imagem e recrie o contêiner: $1', 'Somente forçadas: $1', 'Nenhuma legenda em $1 encontrada', 'Código QR para $1'
+  'O Dodobox $1 está disponível', 'A versão $1 está disponível', 'Você tem a versão $1.', 'Baixe a nova imagem e recrie o contêiner: $1', 'Somente forçadas: $1', 'Nenhuma legenda em $1 encontrada', 'Código QR para $1', '$1 entrou na sessão', '$1 saiu da sessão', '$1 está assistindo a $2'
 ]

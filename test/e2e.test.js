@@ -96,6 +96,20 @@ test('subtitle files inside the torrent are listed for the episode and served as
   assert.match(vtt, /00:00:01\.000 --> 00:00:03\.000\nHello sidecar/)
 })
 
+test('watch party endpoints: idle by default, bad requests refused, events stream', async () => {
+  assert.equal((await (await get('/api/party')).json()).active, false)
+  const post = (p, body) => get(p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  assert.equal((await post('/api/party/join', { code: 'nope' })).status, 400)
+  assert.equal((await post('/api/party/send', { k: 'pl', pos: 1 })).status, 409)
+  assert.equal((await post('/api/party/start', { item: { type: 'game', id: 'x' } })).status, 400)
+  assert.equal((await (await post('/api/party/leave', {})).json()).ok, true)
+  const sse = await get('/api/party/events')
+  assert.equal(sse.headers.get('content-type'), 'text/event-stream')
+  const reader = sse.body.getReader()
+  assert.match(new TextDecoder().decode((await reader.read()).value), /"type":"status"/)
+  await reader.cancel()
+})
+
 test('HLS playlist and a segment decode to valid MPEG-TS H.264/AAC', async () => {
   const pl = await (await get(`/hls/${hash}/0/index.m3u8`)).text()
   assert.equal((pl.match(/seg\d+\.ts/g) || []).length, 3)
