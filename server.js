@@ -41,7 +41,6 @@ const send = (req, res, code, type, body, extra = {}) => {
   res.writeHead(code, { 'content-type': type, ...h, ...extra }).end(b)
 }
 const json = (req, res, data, code = 200) => send(req, res, code, 'application/json', JSON.stringify(data), { 'cache-control': 'no-store' })
-// Catalog-like answers the browser may reuse for a few minutes (and refresh quietly after), per language.
 const safeOf = req => req.headers['x-adult-filter'] === '1'
 const jsonCached = (req, res, data, maxAge = 180) => send(req, res, 200, 'application/json', JSON.stringify(data), { 'cache-control': `private, max-age=${maxAge}, stale-while-revalidate=${maxAge * 5}`, vary: 'x-lang, x-adult-filter, accept-encoding' })
 const fail = (req, res, code, msg) => json(req, res, { error: msg }, code)
@@ -73,28 +72,24 @@ async function repairNames (id) {
 const needProfile = req => { const p = state.profile(pid(req)); if (!p) throw Object.assign(new Error('Choose a profile first'), { code: 401 }); return p }
 
 const runtimeOf = m => parseInt(String(m.runtime || '').match(/\d+/)?.[0], 10) || 0
-// What the ranking knows about this viewer: the line's speed, a forced resolution, and the screen size.
 const MODES = ['balanced', 'compact', 'lossless']
 const ctxOf = b => ({ sublang: b.sublang, audio: b.audio, mbps: speed.downMbps(), prefer: b.prefer || 'auto', display: +b.display || 0, mode: MODES.includes(b.mode) ? b.mode : 'balanced' })
 const modeOf = req => state.profile(pid(req))?.settings.sourceMode
 const audioOf = req => state.profile(pid(req))?.settings.lang
 const sublangOf = req => state.profile(pid(req))?.settings.sublang
 
-// Local file, then an existing download, then the best torrent that is not on the exclude list.
 async function play (b) {
   const m = await meta(b.type, b.id)
   const flat = b.type === 'movie' || m.movie
   const item = { type: b.type, id: b.id, title: m.name, altTitles: m.altTitles, year: m.year, movie: m.movie, runtimeMin: runtimeOf(m), season: flat ? null : +b.season, episode: flat ? null : +b.episode }
   const exclude = b.exclude || []
-  // Versions the viewer gave up on stop downloading, unless they already finished (those may be reused later).
   for (const h of exclude) if (engine.status(h, true)?.phase !== 'done') await engine.remove(h)
   if (!b.infoHash) {
     const loc = local.find(item)
     if (loc) return local.status(loc.id)
     const ctx0 = { type: item.type, id: item.id, season: item.season, episode: item.episode }
     let have = engine.findEntry(ctx0)
-    // An earlier version of the search could pick another show's release for an anime episode ("One Piece Log" for
-    // "One Piece"); such a download is dropped instead of being reused for ever.
+    // An earlier search could pick another show's release for an anime episode ("One Piece Log" for "One Piece"); such a download is dropped.
     if (have && item.type === 'anime' && showVerdict(engine.status(have.hash, true, have.file)?.name || '', [item.title, ...(item.altTitles || [])]) === 'other') { await engine.remove(have.hash, have.file); have = null }
     if (have && !exclude.includes(have.hash)) { if (b.pin) engine.pin(have.hash); return engine.status(have.hash, false, have.file) }
   }
@@ -102,8 +97,7 @@ async function play (b) {
   const first = b.infoHash ? list.find(s => s.infoHash === b.infoHash) : list[0]
   if (!first) throw Object.assign(new Error('Nothing playable found for this title right now'), { code: 404 })
   const start = pick => engine.add({ hash: pick.infoHash, magnet: pick.magnet, ctx: { type: item.type, id: item.id, title: m.name, poster: m.poster, season: item.season, episode: item.episode, release: pick.release }, fileIdx: pick.fileIdx, pinned: !!b.pin })
-  // Seeder counts say little about real speed, so the few best-ranked versions download side by side for a moment and
-  // the one that actually delivers wins. Downloads queued in bulk and versions chosen by hand skip the race.
+  // Seeder counts say little about real speed, so the best few versions race for a moment.
   const rivals = b.infoHash || b.pin ? [first] : list.filter(s => s.seeders > 0 && !s.wrongSeason && score(s, ctxOf(b)) >= score(first, ctxOf(b)) - 45).slice(0, 3)
   const pick = rivals.length > 1 ? await race(rivals, start) : first
   const e = start(pick)
@@ -111,7 +105,6 @@ async function play (b) {
   return engine.status(e.hash, false)
 }
 
-// Start every rival, watch what each really downloads, keep the fastest and drop the rest.
 async function race (rivals, start) {
   const t0 = Date.now()
   rivals.forEach(r => start(r))
@@ -122,7 +115,6 @@ async function race (rivals, start) {
     const t = Date.now() - t0
     const seen = rivals.map(r => ({ r, ...speedOf(r) }))
     const fast = seen.find(x => x.bps >= 1.2e6 || x.got >= 3e6)
-    // The top-ranked version wins outright as soon as it is clearly healthy; otherwise wait for a fair comparison.
     if (t >= 2500 && fast && (fast.r === rivals[0] || t >= 4500)) winner = seen.filter(x => x.bps >= 1.2e6 || x.got >= 3e6).sort((a, b) => (b.got + b.bps * 3) - (a.got + a.bps * 3))[0].r
   }
   const seen = rivals.map(r => ({ r, ...speedOf(r) }))
@@ -133,7 +125,6 @@ async function race (rivals, start) {
 }
 
 const embeddedCache = new Map()
-// "Because you liked X": genres of what the viewer liked, minus anything already seen, listed or disliked.
 const picksCache = new Map()
 async function picksFor (id, lang, safe) {
   const k = `${id}:${lang}:${safe ? 1 : 0}`; const hit = picksCache.get(k)
@@ -155,19 +146,15 @@ async function picksFor (id, lang, safe) {
   return out
 }
 
-// Home page shelves beyond the first three: weekly charts (global and per country), new and top rated, genres the
-// viewer leans toward, airing anime. The client lists them from /api/shelves and loads each one as it scrolls into view.
 const TYPES = ['movie', 'series', 'anime']
 const FALLBACK_GENRES = { movie: ['Action', 'Comedy', 'Sci-Fi', 'Thriller', 'Drama', 'Horror'], series: ['Drama', 'Crime', 'Comedy', 'Sci-Fi', 'Mystery', 'Fantasy'], anime: ['Action', 'Fantasy', 'Romance', 'Slice of Life', 'Isekai', 'Comedy'] }
 function shelvesFor (p, country, only) {
   const want = (p.settings.interests || []).filter(t => TYPES.includes(t))
   const order = only ? [only] : [...want, ...TYPES.filter(t => !want.includes(t))]
-  // Genres of what they liked first (by how often), then a daily rotation so the page is not identical every visit.
   const liked = {}
   for (const r of Object.values(p.ratings)) if (r.v > 0) for (const g of r.genres || []) liked[`${r.type}:${g}`] = (liked[`${r.type}:${g}`] || 0) + 1
   const day = Math.floor(Date.now() / 864e5)
   const genre = t => Object.entries(liked).filter(([k]) => k.startsWith(t + ':')).sort((a, b) => b[1] - a[1]).map(([k]) => k.slice(t.length + 1)).concat(FALLBACK_GENRES[t].map((g, i, a) => a[(i + day) % a.length]))
-  // A type page (Movies, Series, Anime) is the same idea for one type, with more genre shelves.
   if (only) {
     const gs = [...new Set(genre(only))].slice(0, 7)
     const ids = [`top:${only}`, only !== 'anime' && country && `country:${only}:${country}`, `new:${only}`, `genre:${only}:${gs[0]}`, `rated:${only}`, only === 'anime' && 'airing:anime', ...gs.slice(1).map(g => `genre:${only}:${g}`)].filter(Boolean)
@@ -202,8 +189,7 @@ async function shelfItems (id, lang, safe) {
   return localizeItems(items.slice(0, kind === 'top' || kind === 'country' ? 10 : 20), lang)
 }
 
-// Automatic subtitle sync (see src/sync.js). One job at a time, in a worker thread, at low priority, and only for a
-// finished file or the start of one that is arriving; results are kept per file and subtitle.
+// One sync job at a time, in a worker thread, at low priority.
 const syncCache = new Map()
 let syncChain = Promise.resolve()
 const SUB_PATH = /^\/api\/sub(\?|\/embedded\/|\/translate\?)/
@@ -215,15 +201,13 @@ async function localText (srcPath) {
   if (!r.ok) throw Object.assign(new Error('subtitle not ready'), { code: 409 })
   return r.text()
 }
-// Where a file lives on disk and how much of it (in seconds of film) can be read right now.
 async function readable (h, i) {
   const s = statusOf(h, true, i)
   if (!s) throw Object.assign(new Error('unknown source'), { code: 404 })
   const file = local.isLocal(h) ? local.byId(h)?.path : engine.filePath(h, i)
   if (!file) return null
   const info = await probe(rawUrl(h, i), `${h}:${i}`, s.name || '')
-  // Only the start of a still-downloading file is used, read straight from disk: asking the torrent for pieces ahead
-  // would take bandwidth from playback. A few minutes of the film (whole verified pieces from the start) are plenty.
+  // Read from disk: asking the torrent for pieces ahead would take bandwidth from playback.
   const done = s.phase === 'done'
   const prefix = done ? s.length : engine.readablePrefix(h, i)
   return { file, done, duration: info.duration, available: done ? info.duration : info.duration * (s.length ? prefix / s.length : 0) * 0.85 }
@@ -239,7 +223,6 @@ async function subtitleSync (h, i, src) {
   if (!r || r.available < 150) return { pending: true }
   const { file, done, available } = r
   const hit = syncCache.get(key)
-  // A result from the start of the file is redone once much more of it can be read (more windows, drift, splices).
   const fresh = hit && (done ? !hit.partial : !hit.partial || available < hit.available * 1.6)
   if (fresh) return hit.res ? { ...hit.res, partial: hit.partial } : { none: true }
   return once('sync:' + key, () => (syncChain = syncChain.catch(() => {}).then(async () => {
@@ -249,7 +232,6 @@ async function subtitleSync (h, i, src) {
     return res ? { ...res, partial: !done } : { none: true }
   })))
 }
-// A fresh look at one stretch of the film while it plays: has the offset moved since the last answer?
 async function subtitleProbe (h, i, src, { at, ratio, expected }) {
   const r = await readable(h, i)
   if (!r || r.available < 150) return { pending: true }
@@ -274,7 +256,6 @@ const routes = [
     res.writeHead(200, { 'content-type': type, 'cache-control': 'public, max-age=2592000, immutable' }).end(buf)
   }],
 
-  // Profiles and per-profile state
   ['GET', /^\/api\/profiles$/, (req, res) => json(req, res, state.profiles())],
   ['POST', /^\/api\/profiles$/, async (req, res) => { const b = await jbody(req); json(req, res, state.createProfile(b.name, b.color), 201) }],
   ['PATCH', /^\/api\/profiles\/(\w+)$/, async (req, res, [, id]) => json(req, res, state.updateProfile(id, await jbody(req)) || {})],
@@ -283,7 +264,6 @@ const routes = [
     needProfile(req)
     repairNames(pid(req))
     const me = state.me(pid(req)); const lang = req.headers['x-lang']
-    // Saved titles are stored in English and shown in the viewer's language.
     json(req, res, { ...me, list: await localizeItems(me.list, lang), recent: await localizeItems(me.recent, lang), history: await localizeItems(me.history, lang), ratings: Object.fromEntries((await localizeItems(Object.values(me.ratings), lang)).map(r => [`${r.type}:${r.id}`, r])) })
   }],
   ['PATCH', /^\/api\/me$/, async (req, res) => { needProfile(req); state.updateProfile(pid(req), await jbody(req)); json(req, res, state.me(pid(req))) }],
@@ -294,7 +274,6 @@ const routes = [
   ['GET', /^\/api\/shelf$/, async (req, res, _, q) => jsonCached(req, res, await shelfItems(q.get('id') || '', req.headers['x-lang'], safeOf(req)), 600)],
   ['PUT', /^\/api\/list$/, async (req, res) => { needProfile(req); const b = await jbody(req); json(req, res, state.setList(pid(req), b.item, !!b.on)) }],
 
-  // Server-wide settings and storage
   ['GET', /^\/api\/settings$/, (req, res) => json(req, res, state.settings())],
   ['PUT', /^\/api\/settings$/, async (req, res) => {
     const s = state.setSettings(await jbody(req))
@@ -305,7 +284,6 @@ const routes = [
   ['GET', /^\/api\/local$/, (req, res) => json(req, res, local.all().map(({ path: _p, ...e }) => e))],
   ['POST', /^\/api\/local\/rescan$/, async (req, res) => json(req, res, { count: await local.rescan() })],
 
-  // Catalog and playback
   ['GET', /^\/api\/catalog$/, async (req, res, _, q) => jsonCached(req, res, await localizeItems(await catalog({ type: q.get('type'), q: q.get('q'), genre: q.get('genre'), page: +q.get('page') || 1, sort: q.get('sort') || 'popular', safe: safeOf(req) }), req.headers['x-lang']))],
   ['GET', /^\/api\/meta\/(\w+)\/([^/]+)$/, async (req, res, [, type, id]) => jsonCached(req, res, await localizeMeta(await meta(type, decodeURIComponent(id)), req.headers['x-lang']), 300)],
   ['GET', /^\/api\/sources$/, async (req, res, _, q) => {
@@ -321,9 +299,7 @@ const routes = [
     json(req, res, { ...s, ...await probe(rawUrl(h, s.fileIdx), `${h}:${s.fileIdx}`, s.name || '') })
   }],
   ['GET', /^\/raw\/(\w+)\/(\d+)$/, (req, res, [, h, i]) => local.isLocal(h) ? local.serve(h, req, res) : engine.serve(h, +i, req, res)],
-  // Safari plays HLS natively and hands it to AirPlay by URL, so only subtitles that are part of the stream reach a TV
-  // or the iPhone full-screen player. With `sl` (language) or `sub` (an /api/sub path) the playlist becomes a master
-  // playlist that carries one WebVTT rendition next to the video.
+  // Safari hands HLS to AirPlay by URL, so only subtitles inside the stream reach a TV; with `sl` or `sub` the playlist becomes a master playlist with a WebVTT rendition.
   ['GET', /^\/hls\/(\w+)\/(\d+)\/index\.m3u8$/, async (req, res, [, h, i], q) => {
     const info = await probe(rawUrl(h, i), `${h}:${i}`)
     const qs = new URLSearchParams([...q].filter(([k]) => k === 'a' || k === 'h')).toString()
@@ -365,7 +341,6 @@ const routes = [
       if (!pick) return fail(req, res, 404, 'no subtitle')
       text = await fetchSubtitle(pick.url, pick.enc)
     }
-    // Subtitles the viewer's player already synced are synced here too, so a TV shows the same timing.
     const known = syncCache.get(`${h}:${i}:${explicit || ''}`)?.res
     if (known && known.confidence >= 0.35) text = shiftVtt(text, known)
     // Align cue times with the stream's own timestamps (segments start at 0).
@@ -379,35 +354,30 @@ const routes = [
     res.writeHead(200, { 'content-type': 'video/mp2t', 'content-length': data.length, 'cache-control': 'max-age=3600' }).end(data)
   }],
 
-  // Subtitles
   ['GET', /^\/api\/subs$/, async (req, res, _, q) => {
     const type = q.get('type'); const m = await meta(type, q.get('id')).catch(() => null)
     const titles = m ? [m.name, ...(m.altTitles || [])] : []
     const langs = (q.get('langs') || '').split(',').filter(l => /^[a-z]{3}$/.test(l))
-    // Most subtitle files are filed under the series' IMDb id; anime episodes map onto it when it is the first season.
+    // Most subtitle files are filed under the series' catalog id; anime episodes map onto it when it is the first season.
     const imdb = type === 'anime' && m && !m.movie ? await animeImdb(m) : null
     json(req, res, await listSubtitles({ type, id: q.get('id'), season: q.get('season'), episode: q.get('episode'), titles, imdb: imdb && !imdb.later ? imdb.id : null }, langs, q.get('release') || '').catch(() => []))
   }],
-  // Subtitles translated from English into the viewer's language, on the server, for every browser and TV alike.
   ['GET', /^\/api\/translate\/langs$/, async (req, res) => { const t = await translateTargets().catch(() => []); json(req, res, UI_LANGS.filter(c => t.includes(modelLang(c)))) }],
   ['GET', /^\/api\/sub\/translate$/, async (req, res, _, q) => {
     const to = q.get('to') || ''
     if (!UI_LANGS.includes(to)) return fail(req, res, 400, 'unsupported language')
     const key = `${q.get('src')}|${to}`
     if (!translating.has(key)) translating.set(key, { stage: 'starting', pct: 0 })
-    // The viewer picked something else (or left): stop the work for them.
     const gone = new AbortController()
     res.on('close', () => { if (!res.writableEnded) gone.abort() })
     try {
       const vtt = await localText(q.get('src') || ''); const report = p => translating.set(key, p)
-      // hq: the better engine, if the viewer turned it on. The answer improves over time, so it is not cached and says how far it is.
       if (q.get('hq') !== '1') return send(req, res, 200, 'text/vtt; charset=utf-8', await translateSubtitle(vtt, to, report, gone.signal), { 'cache-control': 'max-age=86400' })
       const r = await translateBetter(vtt, to, +q.get('at') || 0, report, gone.signal)
       send(req, res, 200, 'text/vtt; charset=utf-8', r.vtt, { 'cache-control': 'no-store', 'x-hq-done': r.done.toFixed(3), ...(r.prep != null && { 'x-hq-prep': r.prep.toFixed(3) }) })
     } catch (e) { if (!gone.signal.aborted) throw e } finally { setTimeout(() => translating.delete(key), 3000).unref() }
   }],
   ['POST', /^\/api\/sub\/translate\/stop$/, async (req, res) => { const b = await jbody(req); if (UI_LANGS.includes(b.to)) stopBetter(await localText(b.src || ''), b.to); json(req, res, { ok: true }) }],
-  // The optional better translator: where its installation is, and a way to start (or retry) it right when it is switched on.
   ['GET', /^\/api\/translate\/better$/, (req, res) => json(req, res, better.status())],
   ['POST', /^\/api\/translate\/better$/, (req, res) => { better.ensure(true); json(req, res, better.status()) }],
   ['GET', /^\/api\/sub\/translate\/status$/, (req, res, _, q) => json(req, res, translating.get(`${q.get('src')}|${q.get('to')}`) || { stage: 'idle', pct: 0 })],
@@ -422,8 +392,6 @@ const routes = [
     if (!allowedSubUrl(url)) return fail(req, res, 400, 'subtitle host not allowed')
     send(req, res, 200, 'text/vtt; charset=utf-8', await fetchSubtitle(url, q.get('enc')), { 'cache-control': 'max-age=86400' })
   }],
-  // Built-in subtitles are served as soon as enough of the file has arrived (covering the start of the video), then
-  // refreshed by the player as the download grows; `x-covered` says how many seconds the answer reaches.
   ['GET', /^\/api\/sub\/embedded\/(\w+)\/(\d+)\/(\d+)$/, async (req, res, [, h, i, n]) => {
     const s = statusOf(h, true)
     if (!s) return fail(req, res, 404, 'unknown source')
@@ -438,7 +406,7 @@ const routes = [
     const key = `${h}:${i}:${n}:${Math.floor(to / 120)}`
     let vtt = embeddedCache.get(key)
     if (!vtt) {
-      // Reading a whole film for one track takes a while on a big file, so a finished one is kept on disk, and a repeat request joins the running read.
+      // A finished track is kept on disk (reading a whole film is slow); repeat requests share one read.
       const file = path.join(DATA, 'subs', `emb-${h}-${i}-${n}.vtt`)
       vtt = (!to && fs.existsSync(file) && fs.readFileSync(file, 'utf8')) || await once('emb:' + key, async () => {
         const t = await embeddedSub(r?.file || rawUrl(h, i), +n, to)

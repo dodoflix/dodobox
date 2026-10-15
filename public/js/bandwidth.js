@@ -1,4 +1,3 @@
-// How fast this device can pull video from the server, and how big its screen really is.
 import { store } from './util.js'
 
 let mbps = store.get('bw', 0)

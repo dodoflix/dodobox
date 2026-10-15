@@ -17,7 +17,6 @@ export const snap = w => WIDTHS.find(x => x >= w) || WIDTHS.at(-1)
 export const proxied = u => u && HOSTS.test(safeHost(u)) ? `/img?u=${encodeURIComponent(u)}` : u
 const safeHost = u => { try { const x = new URL(u); return x.protocol === 'https:' ? x.hostname : '' } catch { return '' } }
 
-// w: optional target width. Resized copies are small JPEGs cached next to the original, so phones don't pull 1900 px backdrops.
 export async function image (u, w) {
   if (!HOSTS.test(safeHost(u))) throw Object.assign(new Error('image host not allowed'), { code: 400 })
   const f = path.join(DIR, crypto.createHash('sha1').update(u).digest('hex'))

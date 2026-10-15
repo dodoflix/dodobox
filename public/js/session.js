@@ -34,7 +34,6 @@ export function recordProgress (b) {
   api('/api/progress', { method: 'PUT', body: b }).catch(() => {})
 }
 
-// Resolves once the server has the value, so callers can safely reload afterwards.
 export async function setSetting (k, v) {
   S.me.settings[k] = v
   if (k === 'lang') setLang(v)
@@ -43,7 +42,6 @@ export async function setSetting (k, v) {
 }
 
 export const ratingOf = (t, id) => S.me.ratings?.[`${t}:${id}`]?.v || 0
-// value: 2 loved, 1 liked, -1 disliked; choosing the same value again clears it.
 export async function rate (item, value) {
   const k = `${item.type}:${item.id}`
   const next = ratingOf(item.type, item.id) === value ? 0 : value

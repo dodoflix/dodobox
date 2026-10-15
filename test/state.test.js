@@ -47,7 +47,7 @@ test('settings are validated and persisted to disk', () => {
 test('local filenames are parsed into titles', () => {
   const p = local.parseName
   assert.deepEqual(p('/m/Breaking.Bad.S01E02.720p.mkv'), { kind: 'episode', title: 'Breaking Bad', season: 1, episode: 2 })
-  assert.deepEqual(p('/m/[SubsPlease] Sousou no Frieren - 03 (1080p) [7EF3F175].mkv'), { kind: 'anime', title: 'Sousou no Frieren', season: 1, episode: 3 })
+  assert.deepEqual(p('/m/[GroupA] Sousou no Frieren - 03 (1080p) [7EF3F175].mkv'), { kind: 'anime', title: 'Sousou no Frieren', season: 1, episode: 3 })
   assert.deepEqual(p('/m/The.Matrix.1999.1080p.BluRay.x264/matrix.mkv'), { kind: 'movie', title: 'The Matrix', year: 1999 })
   assert.deepEqual(p('/m/Dune (2021)/Dune.mkv'), { kind: 'movie', title: 'Dune', year: 2021 })
   assert.deepEqual(p('/m/Show Name 2x05 title.mkv'), { kind: 'episode', title: 'Show Name', season: 2, episode: 5 })

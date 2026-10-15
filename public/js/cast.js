@@ -1,4 +1,4 @@
-// Google Cast (Chromecast, Android TV, Google TV). The sender SDK loads from Google on demand, only in browsers that support it.
+// Cast to TVs and dongles. The sender SDK loads on demand, only in browsers that support it.
 let ready
 export function loadCast () {
   if (ready) return ready
@@ -20,7 +20,6 @@ export function loadCast () {
   return ready
 }
 
-// Starts casting; returns a small controller for the player UI.
 export async function castTo ({ url, contentType, title, subtitle, image, startAt }) {
   const ctx = cast.framework.CastContext.getInstance()
   await ctx.requestSession()

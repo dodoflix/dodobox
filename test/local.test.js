@@ -1,4 +1,3 @@
-// Own-files path: scan, match, status, range, direct-play probe, HLS fallback for mkv.
 import test, { before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'

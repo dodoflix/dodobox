@@ -6,7 +6,6 @@ import { focusFirst } from './nav.js'
 const COLORS = ['#f2a65a', '#e5646e', '#6fb7e9', '#7ad3a0', '#b58cf0', '#f0d264']
 const layer = () => $('#layer')
 
-// "Who's watching?" Resolves once a profile is chosen. With no profiles it goes straight to creating one.
 export function showPicker ({ dismissable = false } = {}) {
   return new Promise(resolve => {
     const root = layer()

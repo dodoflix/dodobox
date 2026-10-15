@@ -1,6 +1,4 @@
-// Mouse drag-to-scroll for horizontal rails and chip rows (touch already scrolls natively; wheel and trackpad do too).
-// One pair of window listeners serves every rail (a page has dozens, and pages come and go): only the rail being dragged
-// is tracked. Per-rail window listeners piled up with every navigation and slowed every pointer move.
+// Mouse drag-to-scroll for horizontal rails. One pair of window listeners serves every rail: per-rail listeners piled up with each navigation and slowed pointer moves.
 let active = null
 addEventListener('pointermove', e => {
   if (!active) return
@@ -26,6 +24,5 @@ export function dragScroll (el) {
   // A drag must not count as a click on the card under the cursor.
   el.addEventListener('click', e => { if (state.moved) { e.preventDefault(); e.stopPropagation(); state.moved = false } }, true)
   el.addEventListener('dragstart', e => e.preventDefault())
-  // Plain mouse wheel scrolls rails sideways when the page is not the intended target.
   el.addEventListener('wheel', e => { if (e.shiftKey && Math.abs(e.deltaY) > Math.abs(e.deltaX)) { el.scrollLeft += e.deltaY; e.preventDefault() } }, { passive: false })
 }

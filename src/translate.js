@@ -1,6 +1,4 @@
-// Subtitle translation, on the server, for every device: English subtitles are translated into the viewer's language with
-// the open-source engine and models behind Firefox Translations (Bergamot, MPL-2.0). It runs as WebAssembly in a worker
-// thread, needs no GPU and no account, and the roughly 20 MB model for a language is downloaded once and kept.
+// Server-side subtitle translation with the open-source Bergamot engine and public models (MPL-2.0) as WebAssembly in a worker thread; the ~20 MB model per language is downloaded once and kept.
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
@@ -14,11 +12,9 @@ const REGISTRY = 'https://firefox.settings.services.mozilla.com/v1/buckets/main/
 const FILES = 'https://firefox-settings-attachments.cdn.mozilla.net/'
 const DIR = path.join(DATA, 'translate')
 const ENGINE_SRC = new URL('../node_modules/@browsermt/bergamot-translator/worker/', import.meta.url)
-// Our interface language codes to the models' (everything else is the same code).
 const MODEL_LANG = { zh: 'zh-Hans', no: 'nb' }
 export const modelLang = code => MODEL_LANG[code] || code
 
-// ---------- models ----------
 let reg = null
 async function registry () {
   if (reg && Date.now() - reg.at < 12 * 3600e3) return reg.data
@@ -37,7 +33,6 @@ async function registry () {
 
 const newer = (a, b) => { const x = a.split('.').map(Number); const y = b.split('.').map(Number); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); return false }
 
-// Languages English can be translated into.
 export async function targets () { return [...new Set((await registry()).map(r => r.toLang))] }
 export const canTranslateTo = async code => (await targets()).includes(modelLang(code))
 
@@ -50,7 +45,6 @@ export function pickSet (records) {
   return null
 }
 
-// report({ stage: 'model', pct }) while model files are downloaded (nothing is reported when they are already on disk).
 async function modelBuffers (code, report = () => {}) {
   const to = modelLang(code)
   // The newest version that has every file it needs: all from that one version (a language can still carry an older
@@ -82,7 +76,6 @@ async function modelBuffers (code, report = () => {}) {
   return { model, shortlist, vocabs }
 }
 
-// ---------- engine ----------
 // The package's worker script is written for browsers and (with a shim) Node; as CommonJS next to its WebAssembly it
 // runs unchanged in a worker thread. The files are copied beside the downloaded models, once.
 function engineFile () {
@@ -94,11 +87,9 @@ function engineFile () {
   return path.join(dir, 'translator-worker.cjs')
 }
 
-// Marian settings. The engine's defaults are Firefox's: greedy decoding (beam 1), chosen for speed on any laptop.
-// A wider beam (5) reads clearly better than greedy on dialogue (a whole film takes about 14 s instead of 7).
+// Beam 5 reads clearly better than the engine's greedy default on dialogue (a film takes about 14 s instead of 7).
 const SETTINGS = { 'beam-size': +process.env.TRANSLATE_BEAM || 5 }
 
-// A pool of workers (the engine itself is single-threaded): the lines of a subtitle are shared between them.
 const SIZE = Math.min(4, Math.max(1, os.availableParallelism() - 1))
 let pool = null; let idle
 async function spawn () {
@@ -118,7 +109,6 @@ async function ready (code, report) {
   const need = workers.filter(w => !w.loaded.has(code))
   if (need.length) {
     const buffers = await modelBuffers(code, report)
-    // Each worker takes its own copy of the model memory.
     await Promise.all(need.map(w => w.call('loadTranslationModel', { from: 'en', to: modelLang(code) }, { model: buffers.model.slice(0), shortlist: buffers.shortlist.slice(0), vocabs: buffers.vocabs.map(v => v.slice(0)), config: SETTINGS }).then(() => w.loaded.add(code))))
   }
   return workers
@@ -144,7 +134,6 @@ async function translateAll (code, texts, report = () => {}, j = {}) {
   return out
 }
 
-// ---------- subtitles ----------
 const plain = t => t.replace(/<[^>]*>/g, '')
 const ENDS = /[.!?\u2026"\u201d)\]\u266a]\s*$/
 const DASH = /^\s*[-\u2013\u2014]\s*/
@@ -165,8 +154,7 @@ function timeOf (line, end) {
   return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1]
 }
 
-// A sentence often runs over two or three subtitles; translating the fragments one by one reads badly. Neighbours that
-// belong together are translated as one sentence and the result is shared back out by length.
+// A sentence often spans two or three subtitles: neighbours that belong together are translated as one sentence and shared back out by length.
 export function plan (cues) {
   const units = []
   for (let i = 0; i < cues.length; i++) {
@@ -191,7 +179,6 @@ const wrap = t => {
   for (let i = 0; i < t.length; i++) if (t[i] === ' ' && (best < 0 || Math.abs(i - mid) < Math.abs(best - mid))) best = i
   return best > 0 ? t.slice(0, best) + '\n' + t.slice(best + 1) : t
 }
-// Shares translated words out to the subtitles of one sentence, in proportion to how long each was.
 export function share (translated, weights) {
   if (weights.length === 1) return [translated]
   const clean = plain(translated).trim(); const words = clean.split(/\s+/)
@@ -226,8 +213,6 @@ export function analyse (vtt) {
   const units = plan(cues)
   return { cues, units, texts: units.flatMap(u => u.lines) }
 }
-// The subtitle file from the translated lines. A line that is undefined (not translated yet) leaves its subtitles as the
-// fallback cues have them.
 export function assemble ({ cues, units }, lines, fallback) {
   const result = new Array(cues.length)
   let at = 0
@@ -248,10 +233,8 @@ export async function translateVtt (vtt, code, report, j) {
   return assemble(a, done)
 }
 
-// One translation at a time (the engine is single-threaded) and every result kept, so a subtitle is translated once.
 const cache = new Map()
 let chain = Promise.resolve()
-// report({ stage: 'model' | 'translating', pct }) follows the work, for the viewer's progress display.
 // signal: when every request waiting on this translation has gone away, the work stops (the part done is not kept).
 const running = new Map()
 const keyOf = (code, vtt) => crypto.createHash('sha1').update(code + '\n' + vtt).digest('hex')
@@ -281,15 +264,12 @@ export function translateSubtitle (vtt, code, report, signal) {
 }
 export function stopBetter (vtt, code) { const j = jobs.get(keyOf(code, vtt)); if (j) j.stop = true }
 
-// ---------- higher quality (optional) ----------
-// The standard translation is served at once; the better engine then goes over the subtitle in the background, starting at
-// the playhead, and every request returns the lines improved so far. One subtitle is worked on at a time.
+// The standard translation is served at once; the better engine improves it in the background from the playhead. One subtitle at a time.
 const jobs = new Map()
 let active = null
 const STALE = 10 * 60e3 // nobody asked for it for this long: stop and keep what is done
 const sane = (src, out) => out && out.length <= src.length * 3 + 20
 
-// The standard translation's cues, only if they line up one to one with the source's (else wrong lines would be shown).
 const aligned = (base, n) => { const c = parseVtt(base); return c.length === n ? c : null }
 function job (key, vtt, code, base) {
   let j = jobs.get(key)
@@ -331,12 +311,10 @@ async function run (j) {
     }))
   } finally {
     clearInterval(saver); save(j); j.running = false
-    // Lines taken but not finished (stopped mid-way) are free again.
     j.taken = j.taken.map((t, i) => j.lines[i] !== undefined)
     if (active === j) active = null
   }
 }
-// The subtitle as improved so far. done is 0..1; prep is set while the better engine is still being fetched.
 export async function translateBetter (vtt, code, at, report, signal) {
   const base = await translateSubtitle(vtt, code, report, signal)
   if (!hq.supports(code)) return { vtt: base, done: 1 }

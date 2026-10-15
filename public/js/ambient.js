@@ -23,7 +23,6 @@ export function sample (url) {
         }
         if (!w) return resolve(DEFAULT)
         r /= w; g /= w; b /= w
-        // Lift dim colors so the wash stays visible on near-black, cap the very bright ones.
         const mx = Math.max(r, g, b) || 1
         const k = Math.min(1.9, Math.max(0.75, 205 / mx))
         resolve([r, g, b].map(v => Math.min(255, Math.round(v * k))).join(' '))

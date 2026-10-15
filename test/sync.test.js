@@ -5,7 +5,6 @@ import os from 'node:os'
 import path from 'node:path'
 import { align, syncSubtitle, offsetAt, mapTime, shiftVtt, parseCues, isAd, withoutAds } from '../src/sync.js'
 
-// Reproducible "dialogue": bursts of speech with gaps, like a film.
 const rng = seed => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32
 function dialogue (seconds, seed = 7) {
   const r = rng(seed); const out = []; let t = 5 + r() * 5
@@ -22,7 +21,6 @@ const frames = (bursts, seconds, noise = 0.15, seed = 3) => {
 test('align finds a constant offset to within a few hundredths of a second', () => {
   const media = dialogue(500)
   for (const d of [-37.4, -2.15, 0.33, 6.8, 58.21]) {
-    // Subtitles carry the same lines, but at times that are d seconds off.
     const cues = media.map(b => ({ s: b.s - d, e: b.e - d }))
     const r = align(frames(media.filter(b => b.s > 40 && b.e < 460), 500).subarray(0), 0, cues, 90)
     assert.ok(r && r.z > 6, `no lock for ${d}`)
@@ -36,13 +34,11 @@ test('align refuses to lock onto unrelated timing', () => {
   assert.ok(!r || r.z < 6, `false lock z=${r?.z}`)
 })
 
-// What the audio of a film made of these bursts looks like, one stretch at a time.
 const audioOf = media => (ws, len) => frames(media.map(b => ({ s: b.s - ws, e: b.e - ws })).filter(b => b.e > 0 && b.s < len), len, 0.2, Math.round(ws) + 1)
 
 test('syncSubtitle recovers offset, frame-rate drift and splices', async () => {
   const media = dialogue(3600, 11)
   const run = cues => syncSubtitle({ url: 'unused', duration: 3600, cues, signalAt: audioOf(media) })
-  // constant
   let r = await run(media.map(b => ({ s: b.s - 4.7, e: b.e - 4.7 })))
   assert.equal(r.model, 'constant'); assert.ok(Math.abs(r.anchors[0].d - 4.7) < 0.05)
   // 25 fps subtitles on 23.976 fps film: times are compressed by 23.976/25 relative to the picture
@@ -63,7 +59,6 @@ test('syncSubtitle recovers offset, frame-rate drift and splices', async () => {
 
 test('syncSubtitle works from real audio read through ffmpeg', async () => {
   const seconds = 600; const media = dialogue(seconds, 21)
-  // 16 kHz mono WAV: a 300 Hz voice-like tone with modulation during speech, a little noise elsewhere.
   const rate = 16000; const data = new Int16Array(seconds * rate); const r = rng(1)
   for (let i = 0; i < data.length; i++) data[i] = Math.round((r() - 0.5) * 600)
   for (const b of media) for (let i = Math.floor(b.s * rate); i < Math.min(data.length, Math.floor(b.e * rate)); i++) { const t = i / rate; data[i] += Math.round(9000 * Math.sin(2 * Math.PI * (300 + 60 * Math.sin(t * 5)) * t) * (0.6 + 0.4 * Math.sin(t * 11))) }

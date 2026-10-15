@@ -41,11 +41,9 @@ function heroHTML (i) {
     </div></div>`
 }
 
-// Phones in portrait get the poster (it is the right shape); everything else gets the backdrop, sized to the screen.
 const portraitQuery = matchMedia('(max-width: 700px) and (orientation: portrait)')
 const heroSrc = i => portraitQuery.matches && i.poster ? { src: sized(i.poster, Math.round(innerWidth * Math.min(devicePixelRatio || 1, 3))), portrait: true } : { src: sized(i.background || i.poster, fullWidth()), portrait: false }
 
-// `only` (movie, series or anime) turns the home page into that type's own page: same hero and shelves, one type.
 export async function home (root, only = '') {
   const recent = S.me.recent.filter(r => !only || r.type === only)
   const mine = S.me.list.filter(i => !only || i.type === only)
@@ -77,7 +75,6 @@ export async function home (root, only = '') {
   const paintDots = () => { dots.innerHTML = items.map((_, k) => `<button class="${k === idx ? 'on' : ''}" data-k="${k}" aria-label="Show featured title ${k + 1} of ${items.length}" aria-current="${k === idx}"></button>`).join('') }
   const imgs = () => [...bg.querySelectorAll('img')]
   let track = null
-  // Slides the strip to the current title; adjacent moves glide, jumps (dots, wrap-around) cross-fade.
   function place (animate, jump) {
     if (!track) return
     track.style.transition = animate && !jump ? '' : 'none'
@@ -135,7 +132,6 @@ export async function home (root, only = '') {
     if (first) { hero.classList.add('ready'); show(0); if (usingKeys()) $('[data-autofocus]', hero)?.focus({ preventScroll: true }) } else paintDots()
   }
 
-  // Auto-advance: waits out an active trailer and a recent touch, never stops for good.
   const tick = setInterval(() => {
     const now = Date.now()
     if (document.hidden || !visible || items.length < 2) { deadline = now + 7000; return }
@@ -143,7 +139,6 @@ export async function home (root, only = '') {
     if (now >= deadline) show(idx + 1)
   }, 1000)
 
-  // Swipe or drag (touch, pen and mouse): the strip follows the finger, then glides to the nearest title.
   // Vertical scrolling still belongs to the page (touch-action: pan-y).
   let start = null; let swiped = false
   hero.addEventListener('pointerdown', e => { if (e.target.closest('a, button')) return; start = { x: e.clientX, y: e.clientY, t: Date.now(), live: false }; swiped = false })
@@ -152,7 +147,6 @@ export async function home (root, only = '') {
     const dx = e.clientX - start.x; const dy = e.clientY - start.y
     if (!start.live && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) { start.live = true; swiped = true; stopTrailer(); document.body.classList.add('dragging'); window.dispatchEvent(new Event('dragstrip')) }
     if (!start.live || !track) return
-    // Resist at the ends of the strip.
     const edge = (idx === 0 && dx > 0) || (idx === items.length - 1 && dx < 0)
     const x = edge ? dx * 0.3 : dx
     track.style.transition = 'none'
@@ -198,7 +192,6 @@ export async function home (root, only = '') {
       if (dead) return
       const rail = $(`#s-${t} .rail`); rail.innerHTML = list.map(i => poster(i)).join(''); dragScroll(rail)
       picks[t] = list.filter(i => i.background || i.poster).slice(0, only ? 8 : 3)
-      // Interleave types so the rotation shows range, not three movies in a row.
       add(Array.from({ length: only ? 8 : 3 }, (_, n) => n).flatMap(n => order.map(o => picks[o]?.[n]).filter(Boolean)))
     }).catch(() => {
       if (dead) return
@@ -212,14 +205,12 @@ export async function home (root, only = '') {
     $('#s-local').outerHTML = shelf('On your server', uniq.map(e => poster({ type: e.type, id: e.mid, name: e.name, poster: e.poster, year: e.year })).join(''), { id: 's-local' })
     dragScroll($('#s-local .rail'))
   }).catch(() => {})
-  // "Because you liked X": only appears once the viewer has rated something.
   if (Object.values(S.me.ratings || {}).some(r => r.v > 0)) api('/api/picks').then(groups => {
     groups = groups.filter(g => !only || g.items[0]?.type === only)
     if (dead || !groups.length) return
     $('#s-picks').innerHTML = groups.map((g, k) => shelf(`Because you liked ${g.because}`, g.items.map(i => poster(i)).join(''), { id: 's-pick' + k })).join('')
     $('#s-picks').querySelectorAll('.rail').forEach(dragScroll)
   }).catch(() => {})
-  // Further shelves are listed up front and each one loads only when it is about to be seen.
   const lazy = new IntersectionObserver(es => es.forEach(async en => {
     if (!en.isIntersecting) return
     lazy.unobserve(en.target)

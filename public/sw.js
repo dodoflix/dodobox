@@ -1,5 +1,5 @@
 // Offline shell + stale-while-revalidate for catalog data and posters. Streams are never cached here.
-const VERSION = 'v18'
+const VERSION = 'v19'
 const SHELL = ['/', '/style.css', '/js/main.js', '/js/util.js', '/js/api.js', '/js/session.js', '/js/ambient.js', '/js/nav.js', '/js/profiles.js', '/js/home.js', '/js/browse.js', '/js/detail.js', '/js/library.js', '/js/settings.js', '/js/player.js', '/js/cast.js', '/js/trailer.js', '/js/drag.js', '/js/preview.js', '/js/onboarding.js', '/js/bandwidth.js', '/js/volume.js', '/js/dropdown.js', '/js/menu.js', '/js/i18n.js', '/js/genres.js', '/js/syncmap.js', '/js/lang/strings.js', '/js/lang/extra-it.js', '/js/lang/extra-pt.js', '/js/lang/extra-ru.js', '/js/lang/extra-nl.js', '/js/lang/extra-pl.js', '/js/lang/extra-ja.js', '/js/lang/extra-ko.js', '/js/lang/extra-zh.js', '/js/lang/extra-ar.js', '/js/lang/extra-id.js', '/js/lang/extra-sv.js', '/js/lang/extra-hi.js', '/js/lang/extra-vi.js', '/js/lang/extra-el.js', '/js/lang/extra-he.js', '/vendor/hls.js', '/fonts/figtree-latin-wght-normal.woff2', '/fonts/figtree-latin-ext-wght-normal.woff2', '/fonts/big-shoulders-display-latin-800-normal.woff2', '/fonts/big-shoulders-display-latin-900-normal.woff2', '/fonts/big-shoulders-display-latin-ext-800-normal.woff2', '/fonts/big-shoulders-display-latin-ext-900-normal.woff2', '/icons/icon.svg']
 const DATA = /^\/(api\/(catalog|meta|profiles|me|server)|img)/
 
@@ -18,7 +18,6 @@ self.addEventListener('fetch', e => {
       return u.pathname.startsWith('/img') ? (hit || net) : net.then(r => r || hit)
     }))
   } else if (!u.pathname.startsWith('/api/')) {
-    // Shell: network first so updates land, cache when offline.
     e.respondWith(fetch(e.request).then(r => { const copy = r.clone(); caches.open(VERSION).then(c => c.put(e.request, copy)); return r }).catch(() => caches.match(e.request).then(r => r || caches.match('/'))))
   }
 })

@@ -7,7 +7,6 @@ addEventListener('keydown', () => { lastWasKey = true }, true)
 addEventListener('pointerdown', () => { lastWasKey = false }, true)
 export const usingKeys = () => lastWasKey || isTV
 
-// Where arrow keys may move: inside the top-most open layer, otherwise the page.
 const scope = () => {
   const open = [...document.querySelectorAll('[data-modal]')].filter(el => !el.hidden && el.offsetParent !== null).pop()
   return open || document.getElementById('shell')
@@ -34,7 +33,6 @@ function nextFocus (from, dir, list) {
     const ahead = dir === 'ArrowRight' ? dx : dir === 'ArrowLeft' ? -dx : dir === 'ArrowDown' ? dy : -dy
     if (ahead <= 1) continue
     const off = dir === 'ArrowLeft' || dir === 'ArrowRight' ? Math.abs(dy) : Math.abs(dx)
-    // Prefer elements that overlap the origin on the cross axis, then nearest.
     const overlap = dir === 'ArrowLeft' || dir === 'ArrowRight' ? Math.min(a.bottom, r.bottom) - Math.max(a.top, r.top) : Math.min(a.right, r.right) - Math.max(a.left, r.left)
     const score = ahead + off * (overlap > 0 ? 1.2 : 4)
     if (score < bestScore) { bestScore = score; best = el }
@@ -82,7 +80,6 @@ addEventListener('keydown', e => {
   else { e.preventDefault(); from.dispatchEvent(new CustomEvent('navedge', { bubbles: true, detail: e.key })) }
 }, true)
 
-// Enter/OK on non-native clickable elements.
 addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.matches?.('[role=button], [data-click]')) { e.preventDefault(); e.target.click() }
 })

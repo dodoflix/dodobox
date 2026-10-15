@@ -1,5 +1,4 @@
-// Localized titles and descriptions from Wikidata + Wikipedia, for languages Cinemeta/AniList do not cover.
-// Keyless, cached for a week, and always optional: a miss simply leaves the English text.
+// Translated titles and descriptions from a public knowledge base for languages the catalog sources lack; a miss keeps the English text.
 import fs from 'node:fs'
 import path from 'node:path'
 import { DATA } from './paths.js'
@@ -14,7 +13,7 @@ let saveT
 const save = () => { clearTimeout(saveT); saveT = setTimeout(() => fs.writeFile(FILE, JSON.stringify(Object.fromEntries(cache)), () => {}), 4000).unref() }
 
 const valid = lang => /^[a-z]{2,3}$/.test(lang || '') && lang !== 'en'
-// IMDb ids and AniList ids live under different Wikidata properties.
+// Each catalog id type lives under a different property.
 const prop = id => /^tt\d+$/.test(id) ? 'P345' : /^al:\d+$/.test(id) ? 'P8729' : null
 const key = id => id.replace(/^al:/, '')
 
@@ -29,7 +28,6 @@ async function sparql (lang, ids) {
   return (await r.json()).results.bindings
 }
 
-// Adds localName to catalog items when a translated title exists.
 export async function localizeItems (items, lang) {
   if (!valid(lang) || !items.length) return items
   const need = items.map(i => i.id).filter(id => prop(id) && !(cache.get(`${lang}:${id}`)?.at > Date.now() - WEEK))
@@ -48,7 +46,6 @@ export async function localizeItems (items, lang) {
   })
 }
 
-// Full detail: title plus a description from the language's Wikipedia article.
 export async function localizeMeta (item, lang) {
   if (!valid(lang)) return item
   const [one] = await localizeItems([item], lang)

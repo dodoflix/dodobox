@@ -55,7 +55,6 @@ export const run = (args, input) => new Promise((resolve, reject) => {
   if (input) p.stdin.on('error', () => {}).end(input)
 })
 
-// Segment cache keeps seeking back cheap; capped so long sessions don't grow without bound.
 const segs = new Map()
 let running = 0
 const waiting = []
@@ -83,7 +82,6 @@ export function segment (url, key, n, audio = 0, maxH = 1080) {
   return segs.get(k)
 }
 
-// Playback asks for segments in order, so warm the next ones before the player does.
 export function warm (url, key, n, last, audio, maxH) {
   for (let i = n + 1; i <= Math.min(n + 2, last); i++) segment(url, key, i, audio, maxH).catch(() => {})
 }
@@ -91,5 +89,4 @@ export function warm (url, key, n, last, audio, maxH) {
 // `to` (seconds) limits how much of the file is read, so subtitles can be pulled from a download still in progress.
 export const embeddedSub = async (url, n, to = 0) => srtToVtt((await run([...(to ? ['-t', String(to)] : []), '-i', url, '-map', `0:s:${n}`, '-f', 'webvtt', 'pipe:1'])).toString('utf8'))
 
-// Any subtitle format ffmpeg understands (ASS, SSA, SUB...) to WebVTT.
 export const anyToVtt = async buf => (await run(['-i', 'pipe:0', '-f', 'webvtt', 'pipe:1'], buf)).toString('utf8')

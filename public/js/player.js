@@ -78,8 +78,6 @@ export async function watch (type, id, season, episode) {
   const root = $('.pl', layer); const v = $('video', root)
   const subsEl = $('.pl-subs', root); const menu = $('#menu', root)
   let dead = false; let hash; let st; let info; let mode = 'direct'; let hls
-  // Whatever the viewer set for this title (subtitle, audio, quality, speed, auto sync, subtitle size) is used again next
-  // time; it is kept on this device, per profile.
   const titleKey = `title:${getProfile()}:${type}:${id}`
   const P = store.get(titleKey, {})
   const keep = (k, val) => { P[k] = val; store.set(titleKey, P) }
@@ -90,8 +88,6 @@ export async function watch (type, id, season, episode) {
   const timers = []; const tried = new Set()
   let castCtl = null
 
-  // ---------- helpers ----------
-  // Subtitle size follows the picture (a small upright phone picture needs smaller text than a 1080p one), then the viewer's A-/A+ choice.
   let picH = 0
   const applySize = () => root.style.setProperty('--sub', `${(isTV ? 33.6 : picH ? Math.min(28, Math.max(13, picH * 0.06)) : innerWidth < 700 ? 16 : 28) * (P.size ?? store.get('subsize', 1))}px`)
   applySize()
@@ -106,32 +102,26 @@ export async function watch (type, id, season, episode) {
     bar.style.transform = pct != null ? `scaleX(${Math.max(0.04, pct)})` : ''
     if (actions !== undefined) $('#l-act', root).innerHTML = actions
   }
-  // The track the file plays on its own (what a plain <video> uses).
   const defaultAudio = () => info.audio?.find(a => a.default)?.i ?? 0
-  // What to start on: the title's original language, else the file's default; dubs and commentaries are the last choice.
   const tag3 = c => ({ deu: 'ger', fra: 'fre', zho: 'chi', nld: 'dut', gre: 'ell' })[c] || c
   const isDub = a => /dub|commentary|descriptive/i.test(a.title || '')
-  // Anime is original-language Japanese unless the metadata says otherwise.
   const origLang = m.originalLanguage || (type === 'anime' ? 'jpn' : null)
   const bestAudio = () => {
     const all = info.audio || []; const plain = all.filter(a => !isDub(a))
     const orig = all.filter(a => origLang && tag3(a.lang) === origLang)
     return (orig.find(a => !isDub(a)) || orig[0] || plain.find(a => a.default) || plain[0] || all.find(a => a.default) || all[0])?.i ?? 0
   }
-  // Starts on the viewer's earlier choice for this title, else the best track.
   const pickAudio = () => {
     const saved = P.audio && info.audio?.find(a => a.lang === P.audio.lang && (a.title || '') === P.audio.title)
     return saved ? saved.i : bestAudio()
   }
   const hideLoad = () => { $('#load', root).hidden = true }
-  // A quiet, small way out when a version is slow. Nothing waits on it: the stream keeps trying either way.
   const showSlowLink = () => { if (!$('#another', root) && !$('#retry', root)) $('#l-act', root).innerHTML = '<button class="slow-link" id="another">Try another version</button>' }
   const fail = (title, line) => setLoad({ title, line, actions: '<button class="btn btn-ink" id="retry" data-autofocus>Try again</button><a class="btn btn-ghost" href="#/title/' + type + '/' + enc(id) + '">Go back</a>' })
 
   const fx = (side, text) => { const el = $(`.pl-fx.${side}`, root); el.textContent = text; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go') }
   const seekBy = d => { if (!v.duration) return; v.currentTime = Math.max(0, Math.min(v.duration - 0.5, v.currentTime + d)); fx(d > 0 ? 'r' : 'l', (d > 0 ? '+' : '') + d + 's'); wake() }
 
-  // ---------- controls visibility ----------
   let idleT; let ui = true
   const setUI = on => { ui = on; root.classList.toggle('ui', on); root.dataset.keys = isTV && on ? '' : 'own' }
   function wake () {
@@ -141,7 +131,6 @@ export async function watch (type, id, season, episode) {
   root.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') wake() })
   root.addEventListener('focusin', wake)
 
-  // ---------- state sync ----------
   const sync = () => {
     const p = v.paused
     root.classList.toggle('paused', p)
@@ -183,7 +172,6 @@ export async function watch (type, id, season, episode) {
     if (e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); seekBy(-10) } else if (e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); seekBy(10) }
   })
 
-  // ---------- buttons ----------
   const toggle = () => { if (castCtl) return castCtl.toggle(); v.paused ? v.play().catch(() => {}) : v.pause() }
   $('#pp', root).onclick = toggle; $('#big', root).onclick = toggle
   $('#b10', root).onclick = () => seekBy(-10); $('#f10', root).onclick = () => seekBy(10)
@@ -206,7 +194,6 @@ export async function watch (type, id, season, episode) {
     $('#airplay', root).onclick = () => v.webkitShowPlaybackTargetPicker()
   }
 
-  // Tap / click on the picture
   let lastTap = { t: 0, x: 0 }; let clickT
   root.addEventListener('pointerup', e => {
     if (e.target !== v && !e.target.classList.contains('pl-subs')) return
@@ -223,7 +210,6 @@ export async function watch (type, id, season, episode) {
     }
   })
 
-  // ---------- menus ----------
   let menuKind = null
   const closeMenu = () => { menu.hidden = true; menuKind = null; wake() }
   const row = (label, { on, extra = '', data = '', disabled } = {}) => `<button ${data} class="${on ? 'on' : ''}" ${disabled ? 'disabled' : ''}><span>${label}</span>${on ? icon('check') : extra}</button>`
@@ -256,10 +242,8 @@ export async function watch (type, id, season, episode) {
       }).join('')}</div>`
     menu.scrollTop = keep
   }
-  // Languages and their files scroll separately, and the timing, size and file controls stay put at the bottom.
   function drawSubsMenu () {
     const sgn = x => { const r = Math.round(x * 10) / 10; return r === 0 ? '0.0' : (r > 0 ? '+' : '') + r.toFixed(1) }
-    // The shift sync applies at the current moment of the film (it can differ along the film).
     const autoNow = syncRes && autoOn() && subSel && !subSel.embedded ? mapTime(syncRes, v.currentTime) - v.currentTime : 0
     const groups = new Map()
     for (const x of subs) { const k = x.lang || '_file'; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x) }
@@ -321,7 +305,6 @@ export async function watch (type, id, season, episode) {
     e.target.value = ''
   }
 
-  // ---------- subtitles (own cue engine: partial files, timing and size behave the same everywhere) ----------
   let cues = []; let subGen = 0; let refreshT; let raf = 0; let lastDraw = 0; let smLang = null
   const toSec = t => { const p = t.replace(',', '.').split(':').map(Number); return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1] }
   function parseVtt (text) {
@@ -348,8 +331,6 @@ export async function watch (type, id, season, episode) {
   v.addEventListener('playing', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(loop) })
   v.addEventListener('seeked', renderCue)
 
-  // Automatic sync: the server compares the audio (or a built-in subtitle track) with when the cues appear and answers
-  // with how to map cue times onto the film. Cues keep their original times so it can be switched off again.
   let baseCues = []; let syncRes = null; let syncGen = 0; let syncTimer; let syncState = ''
   const autoOn = () => P.autosync ?? store.get('autosync', true)
   const applyCues = () => { cues = syncRes && autoOn() ? baseCues.map(c => ({ ...c, s: mapTime(syncRes, c.s), e: mapTime(syncRes, c.e) })) : baseCues; subsEl._last = null; renderCue() }
@@ -361,18 +342,13 @@ export async function watch (type, id, season, episode) {
     let r = null
     try { r = await api(`/api/sub/sync?${new URLSearchParams({ hash, file: st.fileIdx, src: entry.src })}`) } catch { /* retried below */ }
     if (gen !== syncGen || dead) return
-    // A few minutes of the film must be on disk first; check back until then.
     if (!r || r.pending) { syncState = 'waiting'; if (attempt < 60) syncTimer = setTimeout(() => runSync(entry, attempt + 1), 12000) } else if (r.anchors && r.confidence >= 0.35) {
       syncRes = r; candidate = null; syncState = Math.abs(r.anchors[0].d) < 0.15 && r.ratio === 1 && r.model === 'constant' ? 'insync' : 'synced'; applyCues(); scheduleProbe()
-      // Made from the start of a file still downloading: look again later with more of it.
       if (r.partial && attempt < 40) syncTimer = setTimeout(() => runSync(entry, attempt + 1), 90000)
     } else { syncState = ''; if (r.none && r.partial && attempt < 40) syncTimer = setTimeout(() => runSync(entry, attempt + 1), 90000) }
     if (menuKind === 'subs') drawMenu()
   }
 
-  // Sync does not stop after the first answer: every so often another stretch near the playhead is measured, so drift,
-  // a different cut or a wrong first guess get corrected while watching. A disagreement is believed only once a second
-  // look confirms it, so one noisy stretch cannot throw the subtitles off.
   const PROBE_MS = 75000
   let probeTimer; let candidate = null
   function scheduleProbe () { clearTimeout(probeTimer); probeTimer = setTimeout(probeSync, PROBE_MS) }
@@ -403,7 +379,6 @@ export async function watch (type, id, season, episode) {
     clearTimeout(refreshT)
     const ctl = loadCtl = new AbortController()
     if (entry.embedded) { entry.status = 'Reading subtitles...'; drawMenu() }
-    // A translation is made on the server the first time (a few seconds; longer when the language's model is fetched first).
     let watch
     if (entry.translated && !again) {
       const show = t => { entry.status = t; if (menuKind === 'subs') drawMenu() }
@@ -420,7 +395,6 @@ export async function watch (type, id, season, episode) {
       const covered = r.headers.get('x-covered')
       const text = await r.text()
       if (gen !== subGen) return
-      // The better translation keeps improving while it is watched: show how far it is and fetch it again now and then.
       const better = r.headers.get('x-hq-done')
       if (better != null && +better < 1) {
         const prep = r.headers.get('x-hq-prep')
@@ -430,7 +404,6 @@ export async function watch (type, id, season, episode) {
       baseCues = parseVtt(text); applyCues(); drawMenu()
       if (!syncRes && syncState !== 'checking') runSync(entry)
       const dur = v.duration || info?.duration || 0; const last = cues.length ? cues.at(-1).e : 0
-      // A built-in track still arriving is partial by design; refresh it as the download grows.
       if (entry.embedded) entry.status = covered && covered !== 'full' ? `Available up to ${clock(+covered)}, more as it downloads` : ''
       if (entry.embedded && covered && covered !== 'full') { drawMenu(); refreshT = setTimeout(() => subSel === entry && loadEntry(entry, auto), 45000); return }
       // Files covering only a few foreign-language lines look "broken": prefer a fuller one in the same language.
@@ -443,11 +416,8 @@ export async function watch (type, id, season, episode) {
       }
     } catch (e) { if (gen === subGen && e.name !== 'AbortError') { toast('This subtitle could not be loaded.'); if (entry.embedded) { entry.status = ''; drawMenu() } } }
   }
-  // Built-in tracks are readable once the start of the file is on disk, not only when the whole download ends.
   const embeddedOk = s => !s.embedded || st.phase === 'done' || (st.length && info?.duration && (st.readable ?? st.downloaded) / st.length * info.duration * 0.85 > 60)
 
-  // Leaving an auto-translation (another subtitle, off, or the player closing) stops the server's work on it.
-  // The viewer's subtitle choice for this title (and the timing they set per episode) is kept on this device and used again next time.
   const epKey = `${season}/${episode}`
   const remember = entry => keep('sub', entry ? { lang: entry.lang, label: entry.label, tr: entry.translated?.to || null, delays: P.sub?.delays } : { off: true, delays: P.sub?.delays })
   const savedDelay = entry => { const r = P.sub?.delays?.[epKey]; return r && r.l === entry.label ? r.d : 0 }
@@ -468,7 +438,6 @@ export async function watch (type, id, season, episode) {
     loadEntry(entry, auto)
     syncNative()
   }
-  // final: every list of subtitles has arrived, so a saved choice that has not turned up gives way to the profile's language.
   const autoSub = final => {
     const sv = P.sub
     if (sv?.off) return
@@ -483,34 +452,25 @@ export async function watch (type, id, season, episode) {
     const hit = subs.find(s => s.lang === want && !s.forced && !s.manualOnly && embeddedOk(s)) || subs.find(s => s.lang === want && !s.manualOnly && embeddedOk(s))
     if (hit) showSub(hit, { auto: true })
   }
-  // Every language the server can translate into, as [2-letter, 3-letter]; Brazilian Portuguese is added when it is the viewer's choice.
   const translationTargets = () => [...LANGUAGES.filter(l => l[0] !== 'en'), ...(S.me.settings.sublang === 'pob' ? [['pt', 'pob']] : [])]
   const loadSubs = async () => {
     const embedded = (info.subs || []).map(s => ({ lang: s.lang, label: `${LANG(s.lang || 'und')}${s.title ? ' · ' + s.title : ''}`, hint: 'Built in', embedded: true, src: `/api/sub/embedded/${hash}/${st.fileIdx}/${s.i}` }))
-    // Auto-translation is offered from the start (greyed out while the English subtitle is being looked for), so the menu
-    // shows it is coming instead of silently adding it later.
     const targets = translationTargets()
     const supported = await cget('/api/translate/langs').catch(() => [])
     const soon = targets.filter(([c2]) => supported.includes(c2)).map(([, c3]) => ({ lang: c3, label: 'Auto-translated', hint: 'Getting started...', pending: true, manualOnly: true, src: '' }))
     subs = [...embedded, ...soon]; autoSub(); drawMenu()
-    // Ask for the viewer's language first, then English; the server ranks by how well each file fits this release.
     const want = S.me.settings.sublang !== 'off' ? S.me.settings.sublang : langOf(S.me.settings.lang)[1]
     const langs = [...new Set([want, langOf(S.me.settings.lang)[1], 'eng'])].join(',')
     const qs = new URLSearchParams({ type, id, langs, release: st.name || '', ...(season != null && { season, episode }) })
-    // An empty answer is usually a provider hiccup; ask again a couple of times before settling for none.
     let raw = []
     for (let i = 0; i < 3 && !raw.length; i++) { if (i) await new Promise(r => setTimeout(r, 3000 * i)); raw = await api(`/api/subs?${qs}`).catch(() => []) }
     const ext = raw.map(s => ({ lang: s.lang, label: s.label, hint: s.hint, best: s.best, forced: s.forced, src: `/api/sub?url=${enc(s.url)}${s.enc ? '&enc=' + enc(s.enc) : ''}` }))
     subs = [...embedded, ...ext]
-    // The English subtitle is offered translated by the server into every supported language: useful when there is no file
-    // in the language, or the one there is poor.
     const base = subs.find(x => x.lang === 'eng' && !x.forced && !x.pending && embeddedOk(x))
     if (base) for (const [c2, c3] of targets) if (supported.includes(c2)) subs.push({ lang: c3, label: 'Auto-translated', hint: 'Translated from English', src: `/api/sub/translate?src=${enc(base.src)}&to=${c2}${S.me.settings.bestTranslation ? '&hq=1' : ''}`, translated: { src: base.src, to: c2 }, manualOnly: true })
     autoSub(true); drawMenu()
   }
 
-  // ---------- playback ----------
-  // Stream height cap: the viewer's choice, or (on Auto) whatever this connection can carry.
   const cap = () => (quality !== 'auto' ? +quality : autoH)
   const hq = () => (cap() ? `&h=${cap()}` : '')
   function chooseMode () {
@@ -527,10 +487,7 @@ export async function watch (type, id, season, episode) {
   const nativeOk = !!v.canPlayType('application/vnd.apple.mpegurl')
   let engines = [...(isSafari && nativeOk ? ['native'] : []), ...(window.Hls?.isSupported() ? ['hlsjs'] : []), ...(!isSafari && nativeOk ? ['native'] : [])]
   let engineAt = 0
-  // Safari hands the stream URL to AirPlay (and to the iPhone full-screen player), so subtitles drawn by the page never
-  // arrive there. The stream itself carries a WebVTT rendition: the viewer's language by default, or the exact file when
-  // it was picked by hand or is built in. It is only switched on while casting or full screen; otherwise the page's own
-  // overlay draws the subtitles, placed on the picture.
+  // Safari hands the stream to AirPlay by URL, so page-drawn subtitles never reach a TV: the stream carries a WebVTT rendition, switched on only while casting or full screen.
   let attachedKey = 'none'
   const isLive = () => !!(v.webkitCurrentPlaybackTargetIsWireless || v.webkitDisplayingFullscreen)
   const prefLang = () => (S.me.settings.sublang && S.me.settings.sublang !== 'off' ? S.me.settings.sublang : '')
@@ -562,7 +519,6 @@ export async function watch (type, id, season, episode) {
   v.addEventListener('webkitendfullscreen', syncNative)
   v.addEventListener('loadedmetadata', () => { applyNativeTracks(); placeSubs() })
   v.textTracks?.addEventListener?.('addtrack', applyNativeTracks)
-  // Letterboxed video (a phone held upright) leaves black bars; subtitles belong on the picture, not at the screen edge.
   function placeSubs () {
     const W = v.clientWidth; const H = v.clientHeight
     if (!v.videoWidth || !W || !H) return
@@ -619,8 +575,6 @@ export async function watch (type, id, season, episode) {
     if (mode === 'direct') { mode = 'hls'; startAt = v.currentTime; toast('Switching to a compatible stream...'); attach() } else if (!hls) { if (nextEngine()) { startAt = v.currentTime; attach() } else fail('Can\'t play this one', 'The video could not be decoded on this device.') }
   })
 
-  // Probes as soon as the file is known (ffprobe's reads steer the torrent toward the pieces it needs),
-  // while watching for a stall. Throws {stall:true} when this source is not going to work.
   let runId = 0
   const aborted = Object.assign(new Error('superseded'), { abort: true })
   async function ready (my) {
@@ -638,7 +592,6 @@ export async function watch (type, id, season, episode) {
       if (st.downloaded > lastBytes) { lastBytes = st.downloaded; lastAt = Date.now() }
       const waited = (Date.now() - t0) / 1000
       if (st.phase === 'metadata' ? waited > 40 : Date.now() - lastAt > 25000) throw Object.assign(new Error('stalled'), { stall: true })
-      // Data is moving but the file is still not readable: let the viewer choose instead of an endless spinner.
       if (probing && Date.now() - probeAt > 18000) showSlowLink()
       if (probing && Date.now() - probeAt > 120000) throw Object.assign(new Error('probe timeout'), { stall: true })
       const need = Math.min(st.length || 3e6, 3e6)
@@ -680,7 +633,6 @@ export async function watch (type, id, season, episode) {
       if (!dead && !e.abort && my === runId) fail('We couldn\'t start this', e.status === 404 ? 'Nothing is available for this title right now. Try again later.' : e.message)
     }
   }
-  // Keeps download state fresh; built-in subtitles unlock as the start of the file arrives, and all of them once it is complete.
   timers.push(setInterval(async () => {
     if (!hash || !info || dead) return
     try {
@@ -695,7 +647,6 @@ export async function watch (type, id, season, episode) {
     if (e.target.closest('#another')) { tried.add(hash); $('#slow', root).hidden = true; start() }
   })
 
-  // ---------- progress, up next, prefetch ----------
   let lastSave = 0
   function save () {
     if (!v.duration || !isFinite(v.duration) || v.currentTime < 5 || castCtl) return
@@ -722,7 +673,6 @@ export async function watch (type, id, season, episode) {
   v.addEventListener('ended', () => { save(); if (next && upShown !== 'dismissed' && S.me.settings.autoNext !== false) go(next); else if (next) { if (!upShown) showUp() } else leave() })
   v.addEventListener('seeking', () => { if (upShown === true && v.duration - v.currentTime > 40) { $('#up', root).hidden = true; clearTimeout(upT); upShown = false } })
 
-  // ---------- keyboard / remote ----------
   const onKey = e => {
     if (e.target.matches?.('input[type=text], input:not([type])') || e.ctrlKey || e.metaKey || e.altKey) return
     const own = !isTV || !ui
@@ -756,7 +706,6 @@ export async function watch (type, id, season, episode) {
     leave(); return true
   }
 
-  // ---------- cast ----------
   loadCast().then(ok => { if (ok && !dead) $('#cast', root).hidden = false })
   $('#cast', root).onclick = async () => {
     if (!info) return toast('Start the video first, then cast.')
@@ -778,7 +727,6 @@ export async function watch (type, id, season, episode) {
   }
   function stopCast (t) { castCtl = null; $('#casting', root).hidden = true; if (t > 5) v.currentTime = t; v.play().catch(() => {}) }
 
-  // ---------- system integration ----------
   if ('mediaSession' in navigator) {
     navigator.mediaSession.metadata = new MediaMetadata({ title: m.name, artist: label || 'Dodobox', artwork: m.poster ? [{ src: m.poster, sizes: '512x768' }] : [] })
     for (const [a, f] of [['play', () => v.play()], ['pause', () => v.pause()], ['seekbackward', () => seekBy(-10)], ['seekforward', () => seekBy(10)], ['nexttrack', next ? () => go(next) : null]]) { try { navigator.mediaSession.setActionHandler(a, f) } catch {} }

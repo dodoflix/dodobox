@@ -10,7 +10,6 @@ const COLORS = ['#f2a65a', '#e5646e', '#6fb7e9', '#7ad3a0', '#b58cf0', '#f0d264'
 let db = { profiles: {}, settings: {} }
 try { db = { ...db, ...JSON.parse(fs.readFileSync(FILE, 'utf8')) } } catch {}
 
-// Profiles saved by older versions gain the newer fields on load.
 for (const p of Object.values(db.profiles)) { p.history ||= {}; p.ratings ||= {}; p.settings = { ...DEFAULTS_INIT(), ...p.settings } }
 function DEFAULTS_INIT () { return { sublang: 'off', lang: 'en', interests: [], autoNext: true, quality: 'auto', sourceMode: 'balanced', adultFilter: false, bestTranslation: false, onboarded: false } }
 
@@ -60,14 +59,12 @@ export function deleteProfile (id) {
 
 export const progressKey = (type, id, season, episode) => [type, id, season ?? '', episode ?? ''].join('|')
 
-// Keeps a per-episode position plus one "recent" entry per title for Continue Watching.
 export function saveProgress (id, b) {
   const p = db.profiles[id]
   if (!p || !(b.dur > 0)) return false
   const now = Date.now()
   p.progress[progressKey(b.type, b.id, b.season, b.episode)] = [Math.floor(b.pos), Math.floor(b.dur), now]
   const tk = `${b.type}:${b.id}`
-  // History keeps every title that was started, including finished ones that leave Continue Watching.
   const h = (p.history[tk] ||= { type: b.type, id: b.id, first: now })
   Object.assign(h, { name: b.name, poster: b.poster, at: now, season: b.season ?? null, episode: b.episode ?? null })
   if (b.season == null && b.pos / b.dur > 0.9) h.finished = true
@@ -94,7 +91,6 @@ export function renameTitle (id, type, tid, name) {
 }
 export function markNamesFixed (id) { if (db.profiles[id]) { db.profiles[id].namesFixed = true; persist() } }
 
-// value: 2 loved, 1 liked, -1 disliked, anything else clears the rating.
 export function setRating (id, item, value) {
   const p = db.profiles[id]; if (!p) return null
   const k = `${item.type}:${item.id}`

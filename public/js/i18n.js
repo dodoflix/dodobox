@@ -1,5 +1,4 @@
-// Interface language. Text and labels are translated in place by exact English match (see lang/strings.js), so no
-// code needs to know about translation and data such as titles and names (marked translate="no") is never touched.
+// Interface language: text is translated in place by exact English match (lang/strings.js); data such as titles (translate="no") is never touched.
 import { store } from './util.js'
 
 // Spanish, French, German and Turkish live in strings.js columns; the rest each have a file of rows in the same order.
@@ -20,7 +19,6 @@ function lookup (text) {
   return null
 }
 
-// For text assembled in code (a genre inside a shelf title) before it is put on the page.
 export const tr = text => (current === 'en' ? text : lookup(text) ?? text)
 
 function translateText (node) {

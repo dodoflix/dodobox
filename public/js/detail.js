@@ -44,16 +44,13 @@ export async function title (root, type, id) {
         <div class="facts">
           ${(m.genres || []).length ? `<div><b>Genres</b> ${m.genres.map(g => `<span>${esc(g)}</span>`).join(', ')}</div>` : ''}
           ${(m.cast || []).length ? `<div><b>Starring</b> ${m.cast.slice(0, 5).map(esc).join(', ')}</div>` : ''}
-          ${Object.entries(m.links || {}).length ? `<div>${Object.entries(m.links).map(([k, u]) => `<a href="${esc(u)}" target="_blank" rel="noreferrer">${k === 'mal' ? 'MyAnimeList' : k === 'imdb' ? 'IMDb' : 'AniList'}</a>`).join(' · ')}</div>` : ''}
         </div>
       </div>
     </section>
     ${flat ? '' : `<h2 class="sec-h">Episodes</h2><div class="eps-bar">${seasons.length > 1 ? `<div class="tabs" id="seasons">${seasons.map(s => `<button class="chip ${s === season ? 'on' : ''}" data-s="${s}">Season ${s}</button>`).join('')}</div>` : '<span></span>'}<button class="btn btn-ghost sm" id="dlseason">${icon('down')}Download season</button></div><div class="eps" id="eps"></div>`}
   </div>`
 
-  // Look for a source now so Play starts a few seconds sooner.
   if (target) fetch(`/api/sources?${new URLSearchParams({ type, id, ...(target.season != null && { season: target.season, episode: target.episode }) })}`).catch(() => {})
-  // The trailer plays quietly behind the title after a short pause (desktop and TV); the button opens it with sound.
   let dtr = null; let dwell
   const hero = $('.d-hero')
   if (m.trailer && canTrailer()) dwell = setTimeout(() => { dtr = mountTrailer($('#dtr'), m.trailer, { onPlaying: () => hero.classList.add('has-trailer'), onFail: () => { dtr = null } }) }, 1800)
@@ -66,12 +63,10 @@ export async function title (root, type, id) {
     await toggleList({ type, id, name: m.name, poster: m.poster, year: m.year, rating: m.rating })
     e.currentTarget.innerHTML = inL() ? icon('check') + 'In My List' : icon('plus') + 'My List'
   }
-  // Ratings: one tap to like, love or dislike; tap again to clear.
   const paintRate = () => root.querySelectorAll('.rate button').forEach(b => b.classList.toggle('on', +b.dataset.r === ratingOf(type, id)))
   paintRate()
   $('.rate', root).onclick = async e => { const b = e.target.closest('[data-r]'); if (!b) return; await rate({ type, id, name: m.name, originalName: m.originalName, poster: m.poster, year: m.year, genres: m.genres }, +b.dataset.r); paintRate() }
 
-  // Downloads: state of every episode (or the movie) from the library and the queue, refreshed while something is moving.
   let dl = {}; let poll
   const dkey = (s, e) => (s == null || s === '' ? 'm' : `${s}:${e}`)
   async function refreshDl () {

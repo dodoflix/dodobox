@@ -12,9 +12,7 @@ export const FFPROBE = pick(process.env.FFPROBE, 'ffprobe', ffprobeStatic.path)
 
 const VAAPI_DEVICE = process.env.VAAPI_DEVICE || '/dev/dri/renderD128'
 
-// Each encoder: input-side args, and the video args for a given max height.
-// Streams must start on a keyframe and carry plain increasing timestamps (no B-frame reordering at the segment edge),
-// which Safari's native HLS player insists on; High 4.1 is decodable by every phone and TV in use.
+// Streams start on a keyframe with increasing timestamps (no B-frames), which Safari's native HLS requires; High 4.1 plays on every phone and TV.
 const SAFE = ['-profile:v', 'high', '-level', '4.1', '-g', '48', '-keyint_min', '48', '-sc_threshold', '0', '-bf', '0']
 const scale = h => `scale=-2:'min(${h},ih)'`
 export const ENCODERS = {
@@ -31,7 +29,6 @@ export const trial = name => new Promise(resolve => {
 })
 
 let chosen
-// First hardware encoder that really encodes wins; software x264 always works.
 export async function encoder () {
   if (!chosen) {
     chosen = (async () => {

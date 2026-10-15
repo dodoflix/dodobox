@@ -1,5 +1,4 @@
-// First-run flows. Device: once per device, tunes the layout and shows the one tip that matters there.
-// Profile: once per profile, sets language, subtitles and taste so the home screen is theirs from the first visit.
+// First-run flows: once per device (layout tuning) and once per profile (language, subtitles, taste).
 import { $, esc, store, isTV, ua } from './util.js'
 import { S, setSetting } from './session.js'
 import { focusFirst } from './nav.js'
@@ -29,7 +28,6 @@ export function detectDevice () {
   return d
 }
 
-// One quiet hint on phones, once: installing it makes it open like an app.
 export function installTip (toast) {
   if (store.get('device') !== 'phone' || store.get('tipShown') || matchMedia('(display-mode: standalone)').matches || navigator.standalone) return
   store.set('tipShown', true)
@@ -37,7 +35,6 @@ export function installTip (toast) {
   setTimeout(() => toast(ios ? 'Tip: tap Share, then Add to Home Screen, to open Dodobox like an app.' : 'Tip: open the browser menu and choose Add to Home screen.', { ms: 9000 }), 4000)
 }
 
-// Language, subtitles and taste. Runs for every profile that has not been through it.
 export async function profileOnboarding () {
   const guess = (navigator.language || 'en').slice(0, 2)
   let lang = langOf(S.me.settings.lang !== 'en' ? S.me.settings.lang : guess)[0]

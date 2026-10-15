@@ -15,8 +15,7 @@ const say = async (to, text) => {
   for (const s of text.split(SENTENCE)) out.push((await tr(s, { src_lang: 'eng_Latn', tgt_lang: to, max_new_tokens: Math.min(256, s.length + 16) }))[0].translation_text)
   return out.join(' ')
 }
-// The graphics card (WebGPU: Vulkan, Direct3D or Metal, whatever the system has) when there is one that is really fast,
-// else the processor.
+// Graphics card (WebGPU) when there is a really fast one, else the processor.
 async function load (device) {
   if (device !== 'cpu') {
     try {

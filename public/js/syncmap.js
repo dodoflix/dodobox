@@ -24,8 +24,6 @@ export function mapTime (res, t) {
 const median = a => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)] }
 export const isLine = pts => { if (pts.length < 3) return pts.length === 2; const l = fitLine(pts); return pts.every(p => Math.abs(p.d - (l.a + l.b * p.t)) < 0.2) }
 
-// From measured points { t, d } (offset d found around time t) to a model: one constant offset when they agree, a trend
-// when they move steadily (frame-rate drift), otherwise a path through them (cut or added scenes).
 // Speech trails the start of its subtitle by a fraction of a second, so a tiny constant offset is measurement, not error.
 export function classify (points, ratio = 1) {
   const pts = [...points].sort((a, b) => a.t - b.t)

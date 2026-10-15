@@ -1,4 +1,3 @@
-// Genre and sort choices shared by the browse grid and the type pages.
 const CINE = ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime', 'Documentary', 'Drama', 'Family', 'Fantasy', 'History', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Sport', 'Thriller', 'War', 'Western']
 export const GENRES = {
   movie: CINE,

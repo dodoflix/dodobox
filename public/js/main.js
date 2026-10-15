@@ -89,7 +89,6 @@ async function boot () {
   detectDevice()
   const first = await tryRestore()
   if (!first) {
-    // A household of one never needs the picker.
     const all = await api('/api/profiles').catch(() => [])
     if (all.length === 1) await pickProfile(all[0].id); else await showPicker()
   }

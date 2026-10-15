@@ -1,4 +1,3 @@
-// Profile menu: hover or click the avatar for the person's options instead of jumping straight to settings.
 import { $, esc, icon } from './util.js'
 import { S } from './session.js'
 import { showPicker } from './profiles.js'

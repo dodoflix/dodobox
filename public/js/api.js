@@ -11,7 +11,6 @@ export const setSafe = v => { safe = !!v }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
-// GETs retry on network errors, 429 and 5xx with jittered backoff (honouring Retry-After); anything else fails at once.
 export async function api (path, { method = 'GET', body, raw } = {}) {
   const tries = method === 'GET' ? 4 : 1
   let lastErr
@@ -30,7 +29,6 @@ export async function api (path, { method = 'GET', body, raw } = {}) {
   throw lastErr
 }
 
-// Short-lived GET cache that also merges concurrent identical requests.
 const memo = new Map()
 export function cget (path, ttl = 10 * 60e3) {
   const k = lang + (safe ? '*' : '') + path

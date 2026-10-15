@@ -1,10 +1,8 @@
-// Polite outbound HTTP: retries with backoff (honouring Retry-After), a per-host rate limit, de-duplication of
-// identical in-flight requests, and a short circuit breaker so one dead provider cannot slow every request.
+// Outbound HTTP with retries, per-provider rate limits, request merging and a circuit breaker.
 const UA = { 'user-agent': 'Mozilla/5.0 dodobox' }
 const inflight = new Map()
 const hosts = new Map()
 
-// Requests per second and parallelism per provider, below what each one tolerates.
 const LIMITS = [
   [/anilist\.co$/, { perSec: 1.2, parallel: 2 }],
   [/wikidata\.org$/, { perSec: 1, parallel: 1 }],
@@ -24,7 +22,6 @@ function hostState (host) {
   return hosts.get(host)
 }
 
-// Waits for a slot: at most `parallel` at once and `perSec` starts per second.
 async function slot (h) {
   while (h.active >= h.parallel) await new Promise(r => h.waiting.push(r))
   const now = Date.now()
@@ -63,7 +60,6 @@ export async function fetchRetry (url, { tries = 3, timeout = 10000, headers, ..
   throw last
 }
 
-// One request for identical concurrent callers.
 export function once (key, fn) {
   if (!inflight.has(key)) inflight.set(key, fn().finally(() => inflight.delete(key)))
   return inflight.get(key)

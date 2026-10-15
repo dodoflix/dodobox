@@ -16,11 +16,8 @@ export const store = {
   set (k, v) { try { localStorage.setItem(k, JSON.stringify(v)) } catch {} }
 }
 
-// Ask the server for a smaller copy of a proxied image (phones should not download 1900 px backdrops).
 export const sized = (src, w) => (src && src.startsWith('/img?') ? `${src}&w=${w}` : src)
-// Width for a full-bleed image: the screen's real pixels (density counted, up to 2x), the server snaps it to a stored size.
 export const fullWidth = () => Math.round(innerWidth * Math.min(devicePixelRatio || 1, 2))
-// Pixel width worth requesting for a CSS width, accounting for density.
 export const px = css => Math.round(css * Math.min(devicePixelRatio || 1, 2))
 
 export const icon = (n, c = '') => `<svg class="i ${c}" aria-hidden="true"><use href="#i-${n}"/></svg>`
@@ -46,13 +43,9 @@ export function toast (msg, { action, ms = 3600 } = {}) {
   setTimeout(() => el.remove(), ms)
 }
 
-// Posters without artwork get a deterministic tint from the title and its initial, so they still look designed.
 const hue = n => { let h = 0; for (const c of String(n || '')) h = (h * 31 + c.charCodeAt(0)) % 360; return h }
 const initial = n => (String(n || '?').match(/[\p{L}\p{N}]/u) || ['?'])[0].toUpperCase()
 
-// Poster card. Progress (0-1) and a custom subtitle are optional.
-// What the hover preview needs about every card that has been drawn: the catalog already carried it, so the preview can
-// open at once instead of asking the server again.
 export const known = new Map()
 function remember (i) {
   if (!i.description && !i.background) return

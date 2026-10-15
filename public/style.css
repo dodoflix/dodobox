@@ -298,7 +298,7 @@ select.field { padding-right: .5rem; }
 .tp-stage { position: absolute; inset: 0; display: grid; place-items: center; background: #000; }
 .tp-stage { overflow: hidden; }
 .tp-stage iframe { width: min(100vw, 177.78vh); height: min(100vh, 56.25vw); border: 0; pointer-events: none; background: #000; transform: scale(1.14); }
-/* While paused or ended the poster covers the embed, so YouTube's own pause and suggestion screens never show. */
+/* While paused or ended the poster covers the embed, so the embed's own pause and suggestion screens never show. */
 .tp-cover { position: absolute; inset: 0; z-index: 1; background: #000 center / cover; opacity: 0; pointer-events: none; transition: opacity .35s ease; }
 .tp-cover::after { content: ""; position: absolute; inset: 0; background: rgb(0 0 0 / .62); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
 #tp.veil .tp-cover { opacity: 1; }

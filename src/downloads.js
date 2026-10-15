@@ -1,6 +1,4 @@
-// Download without watching: one title, one episode, or a whole season. Requests wait in a queue and start a few at a time,
-// so a season does not hammer the torrent search providers or the connection. Downloads the user asks for are pinned
-// (never evicted when the storage limit is reached).
+// Download without watching: a queue that starts a few at a time. Downloads the user asks for are pinned and never evicted.
 import { meta } from './meta.js'
 import * as engine from './engine.js'
 import * as local from './local.js'

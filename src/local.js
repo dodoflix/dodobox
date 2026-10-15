@@ -25,7 +25,6 @@ export const dirs = () => {
 const clean = s => s.replace(/[._]+/g, ' ').replace(/\[[^\]]*\]|\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim()
 const JUNK = /\b(2160p|1080p|720p|480p|4k|bluray|brrip|bdrip|webrip|web-?dl|hdtv|dvdrip|x26[45]|h26[45]|hevc|aac|ac3|dts|remux|proper|repack|extended|uncut)\b.*$/i
 
-// "Show.Name.S01E02...", "[Group] Show - 03", "Movie Name (2019)" and the folder name as a last resort.
 export function parseName (file) {
   const base = path.basename(file).replace(/\.[^.]+$/, '')
   const dir = path.basename(path.dirname(file))

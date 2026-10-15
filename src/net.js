@@ -1,7 +1,6 @@
 import os from 'node:os'
 import { spawn } from 'node:child_process'
 
-// Private IPv4 addresses other devices on the home network can reach.
 export const lanAddresses = () => Object.values(os.networkInterfaces()).flat()
   .filter(i => i && i.family === 'IPv4' && !i.internal && /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(i.address))
   .map(i => i.address)

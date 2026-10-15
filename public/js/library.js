@@ -9,8 +9,6 @@ const SE = i => (i.season != null ? `S${i.season} E${i.episode}` : '')
 
 const rail = (title, items, id) => items.length ? `<section class="shelf" id="${id}"><div class="shelf-h"><h2>${esc(title)}</h2></div><div class="rail">${items.join('')}</div></section>` : ''
 
-// Everything the viewer has done on Dodobox in one place: what they are watching, what they want, how they rated things,
-// what they have watched, and what is stored on the server.
 export async function library (root) {
   calm()
   const me = S.me

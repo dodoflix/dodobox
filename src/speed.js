@@ -21,7 +21,6 @@ export async function measure () {
 
 // Torrent throughput seen in practice also counts: it can exceed a short HTTP test.
 export const observe = bytesPerSec => { peak = Math.max(peak * 0.999, bytesPerSec * 8 / 1e6) }
-// Mbps, or 0 when unknown.
 export const downMbps = () => Math.max(probe.down, peak)
 
 export function start () {
@@ -29,7 +28,6 @@ export function start () {
   setInterval(measure, 30 * 60e3).unref()
 }
 
-// Random bytes for the browser to time its own link to this server.
 const chunk = Buffer.alloc(256 * 1024).map(() => Math.floor(Math.random() * 256))
 export function sendTestBytes (res, bytes) {
   bytes = Math.max(1e5, Math.min(8e6, bytes || 2e6))

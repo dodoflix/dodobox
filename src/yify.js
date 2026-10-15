@@ -1,4 +1,4 @@
-// YIFY Subtitles: an extra source for movies, scraped from the public page (ZIP downloads, one .srt inside).
+// An extra subtitle source for movies, read from a public page (ZIP downloads, one .srt inside).
 import zlib from 'node:zlib'
 import { fetchRetry, once } from './http.js'
 
@@ -6,7 +6,6 @@ const BASE = 'https://yifysubtitles.ch'
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36'
 export const yifyHeaders = { 'user-agent': UA, referer: BASE + '/' }
 
-// Language names on the site to the ISO 639-2 codes used everywhere else.
 const CODES = { english: 'eng', turkish: 'tur', spanish: 'spa', french: 'fre', german: 'ger', italian: 'ita', portuguese: 'por', 'brazilian portuguese': 'pob', russian: 'rus', arabic: 'ara', japanese: 'jpn', korean: 'kor', chinese: 'chi', 'chinese bg code': 'chi', dutch: 'dut', polish: 'pol', indonesian: 'ind', hindi: 'hin', vietnamese: 'vie', greek: 'ell', hebrew: 'heb', swedish: 'swe', danish: 'dan', finnish: 'fin', norwegian: 'nor', romanian: 'rum', hungarian: 'hun', czech: 'cze', bulgarian: 'bul', croatian: 'hrv', serbian: 'srp', ukrainian: 'ukr', thai: 'tha', 'farsi/persian': 'per', slovenian: 'slv', malay: 'may' }
 
 const cache = new Map()

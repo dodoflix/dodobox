@@ -5,11 +5,11 @@ import { srtToVtt, allowedSubUrl, sameShow, plausible } from '../src/subs.js'
 import { playlist } from '../src/transcode.js'
 
 test('anime episode matching', () => {
-  assert.ok(matchAnimeEpisode('[SubsPlease] Sousou no Frieren - 03 (1080p) [7EF3F175].mkv', 3))
-  assert.ok(matchAnimeEpisode('[Erai-raws] Show 2nd Season - 03 [1080p][ENG]', 3))
+  assert.ok(matchAnimeEpisode('[GroupA] Sousou no Frieren - 03 (1080p) [7EF3F175].mkv', 3))
+  assert.ok(matchAnimeEpisode('[GroupB] Show 2nd Season - 03 [1080p][ENG]', 3))
   assert.ok(matchAnimeEpisode('[Group] Show - 03v2 [720p]', 3))
-  assert.ok(!matchAnimeEpisode('[SubsPlease] Show - 13 (1080p)', 3))
-  assert.ok(!matchAnimeEpisode('[SubsPlease] Show - 30 (1080p)', 3))
+  assert.ok(!matchAnimeEpisode('[GroupA] Show - 13 (1080p)', 3))
+  assert.ok(!matchAnimeEpisode('[GroupA] Show - 30 (1080p)', 3))
   assert.ok(!matchAnimeEpisode('[Group] Show - 05 [1080p]', 8))
   assert.ok(matchAnimeEpisode('[Group] Show (01-12) [1080p] Batch', 7))
   assert.ok(!matchAnimeEpisode('[Group] Show (01-12) [1080p]', 14))
@@ -23,7 +23,7 @@ test('series episode matching', () => {
 })
 
 test('anime season detection', () => {
-  assert.equal(animeSeason('[SubsPlease] Sousou no Frieren S2 - 03'), 2)
+  assert.equal(animeSeason('[GroupA] Sousou no Frieren S2 - 03'), 2)
   assert.equal(animeSeason('Show 2nd Season - 03'), 2)
   assert.equal(animeSeason('Show Season 3'), 3)
   assert.equal(animeSeason('[Group] Show - 03 [1080p]'), 1)
@@ -77,7 +77,7 @@ test('hls playlist covers the full duration', () => {
   assert.ok(p.endsWith('#EXT-X-ENDLIST\n'))
 })
 
-test('ranking favors H.264 and YTS over heavy HEVC at equal health', () => {
+test('ranking favors H.264 and compact encodes over heavy HEVC at equal health', () => {
   const r = rank([
     { title: 'Movie 1080p BluRay x265 10bit', quality: 1080, seeders: 200, size: 3e9 },
     { title: 'Movie 1080p WEB-DL x264', quality: 1080, seeders: 200, size: 3e9 },
@@ -122,10 +122,10 @@ test('quality parsing trusts explicit heights; anime packs are told apart from s
   assert.equal(parseQuality('Movie 2010 UHD BDRip 1080p HDR10'), 1080)
   assert.equal(parseQuality('Movie 2160p WEB'), 2160)
   assert.equal(parseQuality('Movie UHD BluRay'), 2160)
-  assert.equal(isAnimePack('[Erai-raws] Tantei wa Mou, Shindeiru Season 2 - 01 [1080p CR WEB-DL AVC AAC]'), false)
-  assert.equal(isAnimePack('[EMBER] The Detective Is Already Dead (2021) (Season 1) [BDRip] [1080p]'), true)
+  assert.equal(isAnimePack('[GroupB] Tantei wa Mou, Shindeiru Season 2 - 01 [1080p CR WEB-DL AVC AAC]'), false)
+  assert.equal(isAnimePack('[GroupE] The Detective Is Already Dead (2021) (Season 1) [BDRip] [1080p]'), true)
   assert.equal(isAnimePack('[Group] Show (01-12) [1080p] Batch'), true)
-  assert.equal(isAnimePack('[SubsPlease] Show - 03 (1080p) [ABCD1234].mkv'), false)
+  assert.equal(isAnimePack('[GroupA] Show - 03 (1080p) [ABCD1234].mkv'), false)
 })
 
 test('zip reader finds the subtitle inside a downloaded archive', async () => {
@@ -161,7 +161,7 @@ test('ranking: foreign dubs lose unless they carry English or are the viewer\'s 
   assert.equal(rank([ita, eng], { runtimeMin: 50 })[0], eng)
   assert.equal(rank([ita, dual], { runtimeMin: 50 })[0], dual)
   assert.equal(rank([ita, eng], { runtimeMin: 50, audio: 'it' })[0], ita)
-  // A season pack whose Torrentio entry names the episode's file (fileIdx) is judged by that file's size, not the pack's.
+  // A season pack whose provider entry names the episode's file (fileIdx) is judged by that file's size, not the pack's.
   const bigPackFile = { title: 'Show S01 1080p', release: 'Show S01 1080p', size: 9e9, seeders: 100, quality: 1080, pack: true, fileIdx: 3, infoHash: 'd' }
   const goodPackFile = { ...bigPackFile, size: 1.3e9, infoHash: 'e' }
   assert.equal(rank([bigPackFile, goodPackFile], { runtimeMin: 50, mode: 'balanced' })[0], goodPackFile)
@@ -179,25 +179,25 @@ test('ranking uses real measured speed: a dead release sinks, a fast one rises',
 
 test('anime releases of a different show are rejected even when the title and episode number match', () => {
   const titles = ['ONE PIECE']
-  assert.equal(animeShowName('[SubsPlease] One Piece Log - Fish-Man Island Saga - 01 (1080p) [7FC26310].mkv'), 'One Piece Log - Fish-Man Island Saga')
-  assert.equal(showVerdict('[SubsPlease] One Piece Log - Fish-Man Island Saga - 01 (1080p) [7FC26310].mkv', titles), 'other')
-  assert.equal(showVerdict('[SubsPlease] One Piece Fan Letter - 01 (1080p).mkv', titles), 'other')
-  assert.equal(showVerdict('[HorribleSubs] One Piece - 01 [1080p].mkv', titles), 'same')
-  assert.equal(showVerdict('[Erai-raws] One Piece - 1000 [1080p][Multiple Subtitle].mkv', titles), 'same')
-  assert.equal(showVerdict('[Judas] One Piece (1999) - S01E01.mkv', titles), 'same')
+  assert.equal(animeShowName('[GroupA] One Piece Log - Fish-Man Island Saga - 01 (1080p) [7FC26310].mkv'), 'One Piece Log - Fish-Man Island Saga')
+  assert.equal(showVerdict('[GroupA] One Piece Log - Fish-Man Island Saga - 01 (1080p) [7FC26310].mkv', titles), 'other')
+  assert.equal(showVerdict('[GroupA] One Piece Fan Letter - 01 (1080p).mkv', titles), 'other')
+  assert.equal(showVerdict('[GroupC] One Piece - 01 [1080p].mkv', titles), 'same')
+  assert.equal(showVerdict('[GroupB] One Piece - 1000 [1080p][Multiple Subtitle].mkv', titles), 'same')
+  assert.equal(showVerdict('[GroupD] One Piece (1999) - S01E01.mkv', titles), 'same')
   // later seasons and parts keep working, and unfamiliar naming is left to the search
-  assert.equal(showVerdict('[SubsPlease] 86 - Eighty Six (Part 2) - 03 (1080p).mkv', ['86 EIGHTY-SIX Part 2', '86: Eighty Six Part 2']), 'same')
+  assert.equal(showVerdict('[GroupA] 86 - Eighty Six (Part 2) - 03 (1080p).mkv', ['86 EIGHTY-SIX Part 2', '86: Eighty Six Part 2']), 'same')
   // ... but the later part is not the first one
-  assert.equal(showVerdict('[Erai-raws] 86 Eighty-Six Part 2 - 01 [1080p]', ['86 EIGHTY-SIX', '86: Eighty Six']), 'other')
-  assert.equal(showVerdict('[Erai-raws] 86 Eighty-Six - 02 [1080p]', ['86 EIGHTY-SIX', '86: Eighty Six']), 'same')
+  assert.equal(showVerdict('[GroupB] 86 Eighty-Six Part 2 - 01 [1080p]', ['86 EIGHTY-SIX', '86: Eighty Six']), 'other')
+  assert.equal(showVerdict('[GroupB] 86 Eighty-Six - 02 [1080p]', ['86 EIGHTY-SIX', '86: Eighty Six']), 'same')
   assert.equal(showVerdict('[Group] Some Show Season 1 - 02', ['Some Show']), 'same')
-  assert.equal(showVerdict('[SubsPlease] Re Zero kara Hajimeru Isekai Seikatsu - 01.mkv', ['Re:ZERO -Starting Life in Another World-']), 'unknown')
-  assert.equal(showVerdict('[SubsPlease] Sword Art Online Alternative - Gun Gale Online - 01.mkv', ['Sword Art Online']), 'other')
+  assert.equal(showVerdict('[GroupA] Re Zero kara Hajimeru Isekai Seikatsu - 01.mkv', ['Re:ZERO -Starting Life in Another World-']), 'unknown')
+  assert.equal(showVerdict('[GroupA] Sword Art Online Alternative - Gun Gale Online - 01.mkv', ['Sword Art Online']), 'other')
 })
 
 test('anime batches with four-digit ranges only count for episodes inside them', () => {
-  assert.equal(matchAnimeEpisode('[Erai-raws] One Piece - 0892 ~ 1089 [1080p][BATCH][Multiple Subtitle]', 1), false)
-  assert.equal(matchAnimeEpisode('[Erai-raws] One Piece - 0892 ~ 1089 [1080p][BATCH][Multiple Subtitle]', 1000), true)
+  assert.equal(matchAnimeEpisode('[GroupB] One Piece - 0892 ~ 1089 [1080p][BATCH][Multiple Subtitle]', 1), false)
+  assert.equal(matchAnimeEpisode('[GroupB] One Piece - 0892 ~ 1089 [1080p][BATCH][Multiple Subtitle]', 1000), true)
   assert.equal(matchAnimeEpisode('[Lia] One Piece - 0001-1000 [WEB 1080p] [BATCH]', 1), true)
   assert.equal(isAnimePack('[Lia] One Piece - 0001-1000 [WEB 1080p] [BATCH]'), true)
   assert.equal(showVerdict('[Xera] Koisuru One Piece - 01 (1080p) [FDD755D9]', ['ONE PIECE']), 'other')
@@ -210,11 +210,11 @@ test('season-style episode ranges (S01E01-16) are ranges too', () => {
 })
 
 test('releases that carry the viewer\'s subtitle language built in are favoured', () => {
-  const erai = '[Erai-raws] Show - 05 [1080p][Multiple Subtitle] [ENG][POR-BR][SPA-LA][SPA][ARA][FRE][GER][ITA][RUS][TUR]'
-  assert.deepEqual([...releaseSubLangs(erai)].sort(), ['ara', 'eng', 'fre', 'ger', 'ita', 'pob', 'rus', 'spa', 'tur'])
-  assert.equal(releaseSubLangs('[SubsPlease] Show - 05 (1080p) [A1B2C3D4].mkv').size, 0)
+  const multi_ = '[GroupB] Show - 05 [1080p][Multiple Subtitle] [ENG][POR-BR][SPA-LA][SPA][ARA][FRE][GER][ITA][RUS][TUR]'
+  assert.deepEqual([...releaseSubLangs(multi_)].sort(), ['ara', 'eng', 'fre', 'ger', 'ita', 'pob', 'rus', 'spa', 'tur'])
+  assert.equal(releaseSubLangs('[GroupA] Show - 05 (1080p) [A1B2C3D4].mkv').size, 0)
   const sub = (title, seeders) => ({ title, release: title, size: 1.4e9, seeders, quality: 1080, infoHash: title, pack: false })
-  const multi = sub(erai, 40); const plain = sub('[SubsPlease] Show - 05 (1080p)', 60)
+  const multi = sub(multi_, 40); const plain = sub('[GroupA] Show - 05 (1080p)', 60)
   assert.equal(rank([plain, multi], { runtimeMin: 24, sublang: 'tur' })[0], multi)
   assert.equal(rank([plain, multi], { runtimeMin: 24, sublang: 'eng' })[0], plain)
   assert.equal(rank([plain, multi], { runtimeMin: 24, sublang: 'off' })[0], plain)

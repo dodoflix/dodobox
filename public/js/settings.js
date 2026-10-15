@@ -72,7 +72,6 @@ export async function settings (root) {
   root.onchange = async e => {
     const t = e.target
     if (t.id === 'lang') {
-      // Subtitles follow the language unless they are off.
       await setSetting('lang', t.value)
       store.set('ui', uiLangFor(t.value))
       if (me.settings.sublang !== 'off') { await setSetting('sublang', langOf(t.value)[1]); const sl = root.querySelector('[data-k="sublang"]'); sl.value = langOf(t.value)[1]; syncSelect(sl) }
@@ -82,7 +81,6 @@ export async function settings (root) {
     if (t.dataset.k) setSetting(t.dataset.k, t.value)
     if (t.dataset.g) { await api('/api/settings', { method: 'PUT', body: { [t.dataset.g]: +t.value } }) }
   }
-  // The better translator is installed the moment it is switched on; the line under the switch says how far that is.
   async function hqStatus (start) {
     const el = $('#hqstat'); if (!el || !root.contains(el)) return
     let r = await api('/api/translate/better', start ? { method: 'POST' } : {}).catch(() => null)

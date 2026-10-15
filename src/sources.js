@@ -1,6 +1,6 @@
 import { getJSON as fetchJSON, getText, once } from './http.js'
 
-// Torrent discovery: Torrentio (IMDb ids) + apibay for movies/series, Nyaa for anime.
+// Torrent discovery: stream and search providers for movies and series, an anime tracker for anime.
 const TRACKERS = [
   'udp://tracker.opentrackr.org:1337/announce',
   'udp://open.stealth.si:80/announce',
@@ -10,8 +10,7 @@ const TRACKERS = [
   'udp://tracker.bittor.pw:1337/announce',
   'http://nyaa.tracker.wf:7777/announce'
 ]
-// Public trackers come and go (several in the old fixed list answered nothing), so the currently healthy ones are
-// pulled from a community-maintained list and added to every magnet.
+// Public trackers come and go, so the healthy ones from a community list are added to every magnet.
 let live = []
 export async function refreshTrackers () {
   try {
@@ -36,16 +35,13 @@ export function parseQuality (name) {
   return 0
 }
 
-// Bitrate (Mbps, H.264) at which each resolution already looks great; far above it is wasted download.
 const TARGET = { 2160: 14, 1080: 6, 720: 3, 480: 1.4 }
 const tierOf = q => (q >= 2160 ? 2160 : q >= 1080 ? 1080 : q >= 720 ? 720 : 480)
 // Dubbed releases carry their language in the name; a full dub with no English track is wrong unless it is the viewer's own language.
 const DUBS = { it: /\b(ita|italian)\b/i, fr: /\b(french|vff|vfq|truefrench|vostfr)\b/i, de: /\b(german|deutsch)\b/i, es: /\b(spanish|castellano|latino|esp)\b/i, ru: /\b(rus|russian)\b/i, tr: /\b(turkish|turkce)\b/i, pt: /\b(portuguese|dublado|brazilian)\b/i, hi: /\b(hindi|tamil|telugu)\b/i, pl: /\b(polish|lektor)\b/i, ko: /\bkorean\b/i, ja: /\bjap(anese)?\b/i, zh: /\bchinese\b/i }
 // Fansub groups list the subtitle languages built into a release: "[Multiple Subtitle] [ENG][POR-BR][SPA-LA][ARA][FRE]".
-// A release that already carries the viewer's language beats one that only has English, whatever the subtitle sites have.
 const SUB_TAGS = { ENG: 'eng', JPN: 'jpn', JAP: 'jpn', 'POR-BR': 'pob', POR: 'por', 'SPA-LA': 'spa', SPA: 'spa', ESP: 'spa', ARA: 'ara', FRE: 'fre', FRA: 'fre', GER: 'ger', DEU: 'ger', ITA: 'ita', RUS: 'rus', TUR: 'tur', KOR: 'kor', CHI: 'chi', ZHO: 'chi', 'CHI-S': 'chi', 'CHI-T': 'chi', IND: 'ind', VIE: 'vie', THA: 'tha', POL: 'pol', DUT: 'dut', NLD: 'dut', SWE: 'swe', HIN: 'hin', HEB: 'heb', GRE: 'ell', ELL: 'ell' }
 export const releaseSubLangs = name => new Set([...name.matchAll(/\[([A-Za-z]{3}(?:-[A-Za-z]{1,2})?)\]/g)].map(m => SUB_TAGS[m[1].toUpperCase()]).filter(Boolean))
-// Real download speed seen for a release the last time it was tried: { bps, at }.
 export const measured = new Map()
 const QUALITY_SCORE = { 2160: 130, 1440: 112, 1080: 100, 720: 80, 480: 30, 0: 20 }
 const RUNTIME = { movie: 110, series: 45, anime: 24 }
@@ -58,7 +54,6 @@ export function score (r, ctx = {}) {
   if (!r.seeders) return -1000
   const forced = ctx.prefer && ctx.prefer !== 'auto' ? +ctx.prefer : 0
   let base = QUALITY_SCORE[r.quality] ?? 20
-  // More pixels than the screen shows, or an unknown connection, is not worth chasing.
   if (r.quality >= 2160 && !forced && (!ctx.mbps || (ctx.display && ctx.display < 1800) || ctx.mode === 'compact')) base = 70
   let s = base + Math.min(Math.log2(r.seeders + 1) * 8, 60)
   if (forced) s += r.quality === forced ? 200 : -(r.quality ? Math.abs(Math.log2(r.quality / forced)) * 45 : 45)
@@ -66,7 +61,7 @@ export function score (r, ctx = {}) {
   // Can the line carry it? Bitrate = size / runtime. A season pack's size says nothing about one episode.
   const mode = ctx.mode || 'balanced'
   const hevc = /x265|hevc|h\.?265|\bav1\b/i.test(r.title)
-  // Torrentio reports the size of the episode's own file even inside a season pack (it knows the file index).
+  // The stream provider reports the size of the episode's own file even inside a season pack (it knows the file index).
   const ownSize = !r.pack || r.fileIdx != null
   if (ownSize && r.size) {
     const mbps = r.size * 8 / ((ctx.runtimeMin || 100) * 60) / 1e6
@@ -74,8 +69,6 @@ export function score (r, ctx = {}) {
       const ratio = mbps / (ctx.mbps * 0.7)
       if (ratio > 1) s -= Math.min(160, (ratio - 1) * 70) * (forced ? 0.3 : mode === 'lossless' ? 0.5 : 1)
     } else if (r.size > 12e9 && mode !== 'lossless') s -= 40
-    // Nobody wants a 10 GB episode: past what the resolution needs, extra bytes only cost waiting time.
-    // HEVC and AV1 need fewer bits for the same picture.
     if (mode === 'lossless') s += Math.min(20, Math.log2(mbps + 1) * 3)
     else {
       const target = (TARGET[tierOf(r.quality)] ?? 8) * (mode === 'compact' ? 0.6 : 1)
@@ -88,13 +81,11 @@ export function score (r, ctx = {}) {
     if (dub.some(([l]) => l === ctx.audio)) s += 25
     else if (!/\b(eng|english|multi)\b/i.test(r.title)) s -= 80
   }
-  // Untouched disc copies are the biggest files there are.
   if (/\bremux\b|\bbd(25|50|66|100)\b|\bcomplete\.?(uhd\.)?bluray\b/i.test(r.title)) s += mode === 'lossless' ? 25 : mode === 'compact' ? -90 : -60
   if (ctx.sublang && ctx.sublang !== 'off' && ctx.sublang !== 'eng' && releaseSubLangs(r.title).has(ctx.sublang)) s += 35
   const m = measured.get(r.infoHash)
   if (m && Date.now() - m.at < 6 * 3600e3) s += m.bps ? Math.min(40, Math.log2(m.bps / 1e5 + 1) * 6) : -60
   if (/\b(cam|hdcam|ts|telesync|hdts|tc)\b/i.test(r.title)) s -= 300
-  // H.264 plays almost everywhere and transcodes cheaply; HEVC/10-bit often needs a slow transcode.
   if (/x265|hevc|h\.?265|10.?bit/i.test(r.title)) s += mode === 'compact' ? 12 : mode === 'lossless' ? -6 : -10
   else if (/x264|h\.?264|avc/i.test(r.title)) s += 8
   if (/\b(yts|yify)\b/i.test(r.title + ' ' + (r.provider || ''))) s += 10
@@ -111,7 +102,6 @@ export const nameHasTitle = (name, title) => {
   return words(title).every(w => n.has(w))
 }
 
-// Absolute episode number in anime releases, e.g. "[Group] Show - 03 [1080p]".
 export function matchAnimeEpisode (name, ep) {
   const e = String(ep).replace(/^0+/, '')
   const single = new RegExp(`(?:^|[\\s_\\-\\[(])0*${e}(?:v\\d)?(?=[\\s_\\[\\]().,-]|$)`)
@@ -122,7 +112,6 @@ export function matchAnimeEpisode (name, ep) {
   return /batch|complete/i.test(name) && !range
 }
 
-// Which show a fansub-style release is about: the part of "[Group] Show Name - 01 (1080p)" before the episode marker.
 export function animeShowName (release) {
   const n = release.replace(/^\s*(\[[^\]]*\]\s*)+/, '').replace(/_/g, ' ')
   const cut = n.search(/\s-\s*\d|\s-\s*S\d|\sS\d+E\d+|\s\d{2,4}\s*(\(|\[|v\d|$)|\s\(?\d{3,4}p|\s\[/i)
@@ -151,7 +140,7 @@ export function showVerdict (release, titles) {
   return verdict
 }
 
-// Season number a release claims (1 when it doesn't say). AniList lists each cour/season as its own entry,
+// Season number a release claims (1 when it doesn't say). The anime catalog lists each cour/season as its own entry,
 // so "Show S2 - 03" must not satisfy a lookup for the first entry's episode 3.
 export function animeSeason (name) {
   const m = name.match(/\bS(\d{1,2})\b(?!E)|\b(\d{1,2})(?:st|nd|rd|th) Season|\bSeason[ _]?0*(\d{1,2})\b/i)
@@ -172,7 +161,6 @@ export const matchSeriesEpisode = (name, s, e) =>
   new RegExp(`(?:\\bs0*${s}[ ._-]?e0*${e}\\b|\\b0*${s}x0*${e}\\b)`, 'i').test(name)
 const isSeasonPack = (name, s) => new RegExp(`\\bs0*${s}\\b|season[ ._-]?0*${s}\\b`, 'i').test(name) && !/\bs\d+[ ._-]?e\d+/i.test(name)
 
-// Choose which file inside a torrent to play.
 export function pickFile (files, { type, season, episode, fileIdx } = {}) {
   const vids = files.map((f, i) => ({ ...f, i })).filter(f => VIDEO_EXT.test(f.name) && !/sample/i.test(f.name))
   if (!vids.length) return -1
@@ -247,7 +235,6 @@ async function nyaa (query, filter) {
 }
 
 const cache = new Map()
-// item: { type, id, title, altTitles, year, season, episode, runtimeMin }; ctx: see score()
 export const findSources = (item, ctx = {}) => once('src:' + JSON.stringify([item.type, item.id, item.season, item.episode]), () => find(item, ctx))
 async function find (item, ctx) {
   const key = JSON.stringify([item.type, item.id, item.season, item.episode])
@@ -259,7 +246,7 @@ async function find (item, ctx) {
   const jobs = []
   if (type === 'movie') {
     jobs.push(torrentio(`movie/${item.id}`))
-    // apibay search is fuzzy: trust its IMDb tag when present, else title + year in the name.
+    // The search is fuzzy: trust its catalog tag when present, else title + year in the name.
     jobs.push(apibay(`${item.title} ${item.year || ''}`.trim(), (n, r) => r.imdb ? r.imdb === item.id : nameHasTitle(n, item.title) && (!item.year || n.includes(String(item.year)))))
   } else if (type === 'series') {
     jobs.push(torrentio(`series/${item.id}:${season}:${episode}`))

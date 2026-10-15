@@ -1,5 +1,4 @@
-// Subtitles: OpenSubtitles through two keyless routes (Stremio's addon and the REST search), merged and ranked by
-// how well each file matches the release being played. SRT -> WebVTT conversion lives here too.
+// Subtitles from several keyless providers, merged and ranked by release match; SRT to WebVTT lives here too.
 import zlib from 'node:zlib'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -8,7 +7,6 @@ import { DATA } from './paths.js'
 import { fetchRetry, once } from './http.js'
 import { yifyList, unzipFirst, yifyHeaders } from './yify.js'
 
-// Text encodings subtitle files of each language were usually saved in before UTF-8.
 const LEGACY = { tur: 'windows-1254', ara: 'windows-1256', per: 'windows-1256', rus: 'windows-1251', ukr: 'windows-1251', bul: 'windows-1251', srp: 'windows-1251', ell: 'windows-1253', heb: 'windows-1255', pol: 'windows-1250', cze: 'windows-1250', hun: 'windows-1250', rum: 'windows-1250', hrv: 'windows-1250', slv: 'windows-1250', tha: 'windows-874', vie: 'windows-1258' }
 
 const CACHE = path.join(DATA, 'subs')
@@ -26,7 +24,6 @@ export function srtToVtt (text) {
 }
 
 const tokens = s => new Set(String(s || '').toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length > 1))
-// Release-name overlap: "...1080p.WEB-DL.x264-GROUP" against the subtitle's own release label.
 export function similarity (a, b) {
   const A = tokens(a); const B = tokens(b)
   if (!A.size || !B.size) return 0
@@ -35,7 +32,7 @@ export function similarity (a, b) {
 }
 
 async function addon ({ type, id, season, episode, imdb }) {
-  if (type === 'anime' && !imdb) return [] // the addon only knows IMDb ids
+  if (type === 'anime' && !imdb) return [] // the addon only knows IMDb-style ids
   const key = imdb ? `${imdb}:1:${episode}` : type === 'series' ? `${id}:${season}:${episode}` : id
   const r = await fetchRetry(`${ADDON}/subtitles/${imdb ? 'series' : type}/${key}.json`, { timeout: 9000, tries: 2 })
   return ((await r.json()).subtitles || []).map(s => ({ lang: s.lang, url: s.url, rel: s.movieReleaseName || s.subtitleFileName || '', dl: +s.g || 0, via: 'addon' }))
@@ -48,7 +45,7 @@ async function rest (q, langs) {
   return per.flat()
 }
 // A title search also finds sequels and spin-offs ("Naruto" brings Shippuden, Boruto, other episode numbers): keep the one show and episode.
-// Compared by the show's IMDb id when known, else by its name with doubled letters folded (Shippuuden = Shippuden).
+// Compared by the show's catalog id when known, else by its name with doubled letters folded (Shippuuden = Shippuden).
 const fold = t => String(t || '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '').replace(/(.)\1+/gu, '$1')
 export function sameShow (s, { episode, titles, imdb }) {
   if (+s.SeriesEpisode && +s.SeriesEpisode !== +episode) return false
@@ -58,7 +55,7 @@ export function sameShow (s, { episode, titles, imdb }) {
 }
 async function restOne ({ type, id, season, episode, titles, imdb }, code) {
   const lang = `sublanguageid-${code}`
-  // Anime: by IMDb id when known, then by title. The title is searched as plain words (punctuation breaks the search:
+  // Anime: by catalog id when known, then by title. The title is searched as plain words (punctuation breaks the search:
   // "86 eighty-six" finds nothing, "86 eighty six" does) and as release files name it, "Title - 01".
   const words = t => encodeURIComponent(t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim())
   const ep2 = String(episode).padStart(2, '0')
@@ -77,7 +74,6 @@ async function restOne ({ type, id, season, episode, titles, imdb }, code) {
   return []
 }
 
-// langs: preferred first, e.g. ['tur', 'eng']. release: file name being played, for match ranking.
 const listCache = new Map()
 export const listSubtitles = (q, langs = [], release = '') => {
   const key = JSON.stringify([q.type, q.id, q.season, q.episode, langs, release])
@@ -115,7 +111,6 @@ async function listFresh (q, langs, release) {
     if (n > PER_LANG) continue
     out.push({ lang: s.lang, label: `${langName(s.lang)}${n > 1 ? ' #' + n : ''}`, hint: (s.forced ? 'Forced only: ' : '') + s.rel.replace(/\.(srt|sub|ass)$/i, '').slice(0, 42), enc: s.enc, url: s.url, forced: s.forced, best: n === 1 && !s.forced && similarity(release, s.rel) > 0.34 })
   }
-  // Preferred languages first, then the rest alphabetically by name.
   return out.sort((x, y) => (langs.indexOf(x.lang) + 1 || 99) - (langs.indexOf(y.lang) + 1 || 99) || x.label.localeCompare(y.label))
 }
 
@@ -124,7 +119,6 @@ export const allowedSubUrl = u => {
   try { const { protocol, hostname } = new URL(u); return protocol === 'https:' && /(^|\.)(strem\.io|opensubtitles\.org|yifysubtitles\.ch)$/.test(hostname) } catch { return false }
 }
 
-// Converted subtitles are kept on disk: providers limit downloads, and the same file is wanted again on every replay.
 export async function fetchSubtitle (url, enc) {
   const f = path.join(CACHE, crypto.createHash('sha1').update(url + (enc || '')).digest('hex') + '.vtt')
   try { return fs.readFileSync(f, 'utf8') } catch {}

@@ -28,7 +28,6 @@ function attach (entry) {
     entry.fileIdx = idx
     entry.name = t.files[idx].name
     t.files[idx].select()
-    // Other episodes of the same pack the viewer asked to download.
     for (const x of entry.extra || []) {
       x.fileIdx ??= pickFile(t.files.map(f => ({ name: f.path, length: f.length })), x.ctx)
       if (x.fileIdx >= 0) { x.name = t.files[x.fileIdx].name; t.files[x.fileIdx].select() }
@@ -42,7 +41,7 @@ for (const e of Object.values(lib)) attach(e)
 
 export function add ({ hash, magnet, ctx, fileIdx, pinned }) {
   hash = hash.toLowerCase()
-  // Torrentio's fileIdx is only a hint for pickFile (it can be stale for multi-file packs).
+  // The provider's fileIdx is only a hint for pickFile (it can be stale for multi-file packs).
   ctx.fileIdx = fileIdx
   if (!lib[hash]) {
     lib[hash] = { hash, magnet, ctx, added: Date.now() }
@@ -51,7 +50,6 @@ export function add ({ hash, magnet, ctx, fileIdx, pinned }) {
   } else if (ctx.episode != null && lib[hash].ctx?.episode !== ctx.episode && (pinned || lib[hash].pinned)) {
     addExtra(hash, ctx)
   } else if (ctx.episode != null && lib[hash].ctx?.episode !== ctx.episode && !lib[hash].pinned) {
-    // Same pack reused for another episode: reselect.
     const t = client.torrents.find(x => x.infoHash === hash)
     Object.assign(lib[hash], { ctx, fileIdx: undefined, error: undefined })
     if (t?.ready) {
@@ -61,7 +59,6 @@ export function add ({ hash, magnet, ctx, fileIdx, pinned }) {
       save()
     }
   }
-  // Downloads the user asked for are kept until they delete them; streaming leftovers can be evicted.
   if (pinned && !lib[hash].pinned) { lib[hash].pinned = true; save() }
   return lib[hash]
 }
@@ -79,8 +76,7 @@ function addExtra (hash, ctx) {
   save()
 }
 
-// Streaming leftovers stop downloading once nobody is watching, and downloads the viewer started by hand give way while
-// something is being watched, so the film on screen always gets the whole connection.
+// Idle streams pause, and manual downloads give way while something is being watched.
 const WATCH_MS = 25e3 // a title is "being watched" while the player has asked for it this recently
 const IDLE_MS = 45e3 // an unpinned download nobody has asked for this long is paused
 export const pauseReason = (e, now, watching) => {
@@ -111,7 +107,6 @@ export function pin (hash) { if (lib[hash]) { lib[hash].pinned = true; save() } 
 
 const torrentOf = hash => client.torrents.find(t => t.infoHash === hash)
 
-// One torrent can hold several downloads (episodes of a pack); `file` picks which, the first by default.
 const rowsOf = e => [e, ...(e.extra || [])]
 const rowFor = (e, file) => (file == null ? e : rowsOf(e).find(x => x.fileIdx === +file) || e)
 
@@ -136,7 +131,6 @@ export function status (hash, silent, file) {
     name: f?.name || row.name || null,
     length: f?.length ?? 0,
     downloaded: f?.downloaded ?? 0,
-    // The unbroken start of the file, which is what built-in subtitles can be read from.
     readable: f && !f.done ? readablePrefix(hash, row.fileIdx) : f?.length ?? 0,
     progress: f?.progress ?? 0
   }
@@ -148,7 +142,6 @@ export async function remove (hash, file) {
   if (!lib[hash]) return false
   const e = lib[hash]
   const t = torrentOf(hash)
-  // Removing one episode of a pack keeps the rest.
   if (file != null && e.extra?.length) {
     const k = +file
     if (e.fileIdx === k) { const x = e.extra.shift(); t?.files[k]?.deselect(); Object.assign(e, { ctx: x.ctx, fileIdx: x.fileIdx, name: x.name }); save(); return true }
@@ -161,7 +154,6 @@ export async function remove (hash, file) {
   return true
 }
 
-// How many bytes from the start of a file are already complete on disk (whole verified pieces, no gaps).
 export function readablePrefix (hash, idx) {
   const t = torrentOf(hash); const f = t?.ready ? t.files[idx] : null
   if (!f || !t.bitfield) return 0
@@ -170,7 +162,6 @@ export function readablePrefix (hash, idx) {
   return p > last ? f.length : Math.max(0, p * pl - f.offset)
 }
 
-// Where a file of a download lives on disk (null until the torrent's metadata is known).
 export function filePath (hash, idx) {
   const t = torrentOf(hash); const f = t?.files[idx]
   return f ? path.join(t.path, f.path) : null
@@ -189,7 +180,6 @@ export function touch (hash) {
   if (paused.has(hash)) { const t = torrentOf(hash); if (t) setPaused(e, t, null) } // someone is watching again: continue at once
 }
 
-// Existing download for the same title/episode: reuse it instead of searching again.
 export function findEntry (ctx) {
   for (const e of Object.values(lib)) {
     if (e.error) continue

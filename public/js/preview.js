@@ -1,4 +1,4 @@
-// Netflix-style hover preview: rest the pointer on a poster and a small card plays the trailer.
+// Hover preview: rest the pointer on a poster and a small card plays the trailer.
 import { cget } from './api.js'
 import { S, toggleList, inList } from './session.js'
 import { esc, icon, enc, sized, isTV, known } from './util.js'
@@ -17,7 +17,6 @@ function close () {
 
 async function open (poster) {
   const ref = parse(poster); if (!ref || !fine.matches) return
-  // The catalog already described this title when its card was drawn; ask the server only when it did not.
   let m = known.get(`${ref.type}:${ref.id}`)
   if (!m) { try { m = await cget(`/api/meta/${ref.type}/${enc(ref.id)}`) } catch { return } }
   if (current !== poster) return
@@ -41,7 +40,6 @@ async function open (poster) {
     if (l) { toggleList(m).then(() => { l.innerHTML = inList(m.type, m.id) ? icon('check') + 'In list' : icon('plus') + 'My List' }); return }
     if (!e.target.closest('a')) location.hash = `#/title/${m.type}/${enc(m.id)}`
   })
-  // The player is heavy (a whole YouTube page per card), so it only starts once the pointer has really stayed.
   if (m.trailer && navigator.onLine && !navigator.connection?.saveData) {
     const mine = card
     trailerT = setTimeout(() => { if (card === mine) trailer = mountTrailer(mine.querySelector('.pv'), m.trailer, { width: 1280, onFail: () => { trailer = null } }) }, 700)
@@ -51,7 +49,6 @@ async function open (poster) {
 export function initPreview () {
   if (isTV) return
   document.addEventListener('pointerover', e => {
-    // Never while a strip is being dragged or any button is held: the pointer is busy swiping, not looking.
     if (e.pointerType !== 'mouse' || !fine.matches || !S.me || e.buttons || document.body.classList.contains('dragging')) return
     const p = e.target.closest?.('.poster')
     if (!p || p === current || p.closest('#toasts')) { if (!p && !e.target.closest?.('.peek') && card) { clearTimeout(hideT); hideT = setTimeout(close, 250) } return }

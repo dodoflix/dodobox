@@ -4,12 +4,11 @@ import { DATA } from './paths.js'
 import { proxied } from './images.js'
 import { getJSON, fetchRetry } from './http.js'
 
-// Metadata: IMDb ids via Stremio's Cinemeta (movies, series), AniList for anime (carries MyAnimeList ids).
+// Metadata: a catalog service for movies and series, a separate one for anime.
 const CINEMETA = 'https://v3-cinemeta.strem.io'
 const PAGE = 36
 
-// Stale-while-revalidate cache, persisted: a known answer is served instantly, refreshed in the background once it is
-// older than its TTL, and kept (up to a week) if the provider is failing, so rate limits and outages stay invisible.
+// Stale-while-revalidate cache on disk: served at once, refreshed in the background, kept up to a week if the provider fails.
 const FILE = path.join(DATA, 'meta-cache.json')
 const MAX_STALE = 7 * 24 * 3600e3
 const ttl = new Map()
@@ -38,7 +37,7 @@ export async function cached (key, maxAge, fn) {
   try { return await load() } catch (e) { if (hit) return hit.v; throw e }
 }
 
-// The title's original spoken language (ISO 639-2, as audio tracks are tagged) from its first production country; unknown countries give none.
+// Original spoken language (ISO 639-2) from the first production country; unknown countries give none.
 const COUNTRY_LANG = { 'United States': 'eng', 'United Kingdom': 'eng', Canada: 'eng', Australia: 'eng', Ireland: 'eng', 'New Zealand': 'eng', Japan: 'jpn', 'South Korea': 'kor', China: 'chi', 'Hong Kong': 'chi', Taiwan: 'chi', France: 'fre', Germany: 'ger', Spain: 'spa', Italy: 'ita', Turkey: 'tur', Russia: 'rus', India: 'hin', Brazil: 'por', Portugal: 'por', Netherlands: 'dut', Poland: 'pol', Sweden: 'swe', Indonesia: 'ind', Vietnam: 'vie', Greece: 'ell', Israel: 'heb' }
 const ANI_LANG = { JP: 'jpn', KR: 'kor', CN: 'chi', TW: 'chi' }
 
@@ -56,8 +55,7 @@ const cineItem = (m, type) => ({
   runtime: m.runtime,
   cast: m.cast,
   originalLanguage: COUNTRY_LANG[String(m.country || '').split(',')[0].trim()] || null,
-  imdb: m.imdb_id || m.id,
-  links: { imdb: `https://www.imdb.com/title/${m.imdb_id || m.id}/` }
+  imdb: m.imdb_id || m.id
 })
 
 const ANILIST = `
@@ -74,7 +72,7 @@ async function anilist (variables) {
   const j = await getJSON('https://graphql.anilist.co', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    // AniList rejects an explicit null for filter arguments ("Illegal operator and value combination"), so unset ones are left out.
+    // The anime API rejects an explicit null for filter arguments ("Illegal operator and value combination"), so unset ones are left out.
     body: JSON.stringify({ query: ANILIST, variables: Object.fromEntries(Object.entries(variables).filter(([, v]) => v != null)) })
   })
   if (j.errors) throw new Error(j.errors[0].message)
@@ -106,7 +104,6 @@ const aniItem = m => {
     status: m.status,
     originalLanguage: ANI_LANG[m.countryOfOrigin] || null,
     mal: m.idMal,
-    links: m.idMal ? { mal: `https://myanimelist.net/anime/${m.idMal}`, anilist: `https://anilist.co/anime/${m.id}` } : { anilist: `https://anilist.co/anime/${m.id}` },
     videos: Array.from({ length: movie ? 1 : aired }, (_, i) => ({
       season: 1, episode: i + 1, title: eps[i + 1]?.title || (movie ? m.title.english || m.title.romaji : `Episode ${i + 1}`), thumbnail: proxied(eps[i + 1]?.thumbnail)
     }))
@@ -114,11 +111,9 @@ const aniItem = m => {
 }
 
 
-// AniList's banners are 1900x400 strips and its covers 460 px wide: fine in a grid, soft as a full-screen hero. Most anime
-// also exist on IMDb, whose artwork (Full HD backdrops, 780 px posters) is served by metahub; use that when the match is sure.
+// Anime artwork is soft as a full-screen hero; the movie catalog's is sharper, so it is used when the match is sure.
 const norm = s => (s || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, ' ').trim()
-// The IMDb title an anime entry corresponds to, when the match is sure (the same name, or the same name without its
-// season suffix). Gives artwork (below) and lets subtitle search use IMDb ids, which most subtitle files are filed under.
+// The catalog title an anime entry corresponds to when the match is sure; lets subtitle search use catalog ids.
 export const animeImdb = item => cached(`imdb3:${item.id}`, 30 * 24 * 3600e3, async () => {
   // A later season ("Show Season 2") shares the series' artwork, so the match ignores the season suffix (and the year then).
   const base = n => norm(n).replace(/ (season|part|cour) \d+.*$| \d+(st|nd|rd|th) season.*$/, '')
@@ -129,7 +124,7 @@ export const animeImdb = item => cached(`imdb3:${item.id}`, 30 * 24 * 3600e3, as
       let hits = []
       try { hits = await imdbSuggest(q, t) } catch { continue }
       const exact = hits.find(h => names.includes(norm(h.name)) && (!h.year || !item.year || Math.abs(h.year - item.year) <= 1))
-      // IMDb often files a show under a shorter name ("86" for "86 EIGHTY-SIX"): accept that when the year agrees and
+      // The catalog often files a show under a shorter name ("86" for "86 EIGHTY-SIX"): accept that when the year agrees and
       // its name is a whole-word part of the anime's own title.
       const within = hits.find(h => h.year && item.year && Math.abs(h.year - item.year) <= 1 && names.some(n => ` ${n} `.includes(` ${norm(h.name)} `)))
       const hit = exact || hits.find(h => bases.has(norm(h.name))) || within
@@ -158,19 +153,15 @@ async function imdbSuggest (q, type) {
   }))
 }
 
-// Anime categories that AniList models as tags rather than genres.
 export const ANIME_TAGS = ['Isekai', 'School', 'Shounen', 'Seinen', 'Shoujo', 'Military', 'Historical', 'Super Power', 'Martial Arts', 'Time Manipulation']
 const ANIME_SORT = { popular: ['TRENDING_DESC', 'POPULARITY_DESC'], rating: ['SCORE_DESC'], new: ['START_DATE_DESC'], airing: ['POPULARITY_DESC'] }
 const CINE_SORT = { popular: 'top', rating: 'imdbRating', new: 'year', airing: 'top' }
 
-// sort: 'popular' (default), 'rating' or 'new'.
-// safe: hide titles AniList marks as adult (and its explicit genre); off by default, a setting of the viewer's.
 export const catalog = ({ type, q, genre, page = 1, sort = 'popular', safe = false }) => {
   if (!ANIME_SORT[sort]) sort = 'popular'
   return cached(`cat7:${type}:${q}:${genre}:${page}:${sort}:${safe ? 1 : 0}`, 3 * 3600e3, async () => {
     if (type === 'anime') {
       const tag = ANIME_TAGS.includes(genre)
-      // Opening a title by id is never filtered; lists and searches are only when the viewer turned the filter on.
       const media = await anilist({
         adult: safe ? false : null, notGenres: safe ? ['Hentai'] : null,
         page, perPage: PAGE, search: q || null, genre: tag ? null : genre || null, tag: tag ? genre : null,
@@ -179,10 +170,9 @@ export const catalog = ({ type, q, genre, page = 1, sort = 'popular', safe = fal
         minPop: !q && (sort === 'rating' ? 15000 : sort === 'new' ? 4000 : null), notStatus: !q && sort === 'new' ? 'NOT_YET_RELEASED' : null, status: !q && sort === 'airing' ? 'RELEASING' : null
       })
       const items = media.map(aniItem).map(({ videos, ...x }) => x)
-      // The first few feed the hero carousels, which are shown big.
       return q ? items : [...await Promise.all(items.slice(0, 10).map(withArt)), ...items.slice(10)]
     }
-    // Cinemeta's own search is fuzzy; IMDb's suggestion endpoint finds exact titles, so it goes first.
+    // The catalog's own search is fuzzy; a suggestion endpoint finds exact titles, so it goes first.
     if (q && !genre && page === 1) {
       const hits = await imdbSuggest(q, type).catch(() => [])
       if (hits.length) return hits
@@ -199,7 +189,6 @@ export const catalog = ({ type, q, genre, page = 1, sort = 'popular', safe = fal
   })
 }
 
-// AniList often has no episode art or titles; Kitsu sometimes does. Best effort, never blocks the page.
 async function kitsuEpisodes (anilistId, count) {
   try {
     const H = { accept: 'application/vnd.api+json' }

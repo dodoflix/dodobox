@@ -10,11 +10,9 @@ export async function browse (root, type = 'movie', q) {
   calm()
   const genre = q.get('genre') || ''
   const sort = SORTS.some(x => x[0] === q.get('sort')) ? q.get('sort') : 'popular'
-  // Plain type pages are a "discover" page like Home; the full grid is for browsing everything, filtered or sorted.
   if (!q.get('all') && !genre && sort === 'popular') { const { home } = await import('./home.js'); return home(root, type) }
   let page = 1; let busy = false; let end = false; let dead = false
   const here = (g, so = sort) => { const p = new URLSearchParams(); if (g) p.set('genre', g); if (so !== 'popular') p.set('sort', so); if (![...p].length) p.set('all', '1'); return `#/browse/${type}${[...p].length ? '?' + p : ''}` }
-  // The chosen genre leads the row so the current filter is always visible; "All" clears it.
   const genres = genre ? [genre, ...GENRES[type].filter(g => g !== genre)] : GENRES[type]
   root.innerHTML = `<div class="view page">
     <div class="page-h"><h1>${TYPES[type]}</h1></div>
@@ -31,7 +29,6 @@ export async function browse (root, type = 'movie', q) {
   $('#sort').onchange = e => { location.hash = here(genre, e.target.value) }
   const grid = $('#grid'); const more = $('#more')
   const params = n => new URLSearchParams({ type, genre, sort, page: n })
-  // Placeholders at the end of the grid show that more is coming; a failed page offers a retry instead of stopping.
   const tail = on => { grid.querySelectorAll('.sk-tail').forEach(n => n.remove()); if (on) grid.insertAdjacentHTML('beforeend', skeletons(8).replace(/class="poster"/g, 'class="poster sk-tail"')) }
   async function load () {
     if (busy || end || dead) return
@@ -46,7 +43,6 @@ export async function browse (root, type = 'movie', q) {
       if (!items.length) end = true
       if (page === 1 && !items.length) grid.innerHTML = `<div class="empty"><div class="eico">${icon('compass')}</div><h2>Nothing here</h2>Try another genre.</div>`
       page++
-      // Warm the next page now so scrolling never waits on it, and keep going if the end is still on screen.
       if (!end) cget(`/api/catalog?${params(page)}`).catch(() => {})
       busy = false
       if (!end && more.getBoundingClientRect().top < innerHeight + 1800) setTimeout(load, 60)

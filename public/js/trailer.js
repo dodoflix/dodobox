@@ -1,13 +1,10 @@
-// Trailers: YouTube embeds driven through its player API, so Dodobox draws every control itself.
-// The embed is loaded with no chrome and captions off, and stays invisible until it is really playing,
-// so a blocked or unavailable trailer never shows YouTube's error card.
+// Trailers: video-host embeds driven through the player API with Dodobox's own controls; the embed stays invisible until it is really playing so a blocked trailer never shows the host's error card.
 import { $, esc, icon, clock, isTV, enc } from './util.js'
 import { cget } from './api.js'
 import { volumeHTML, bindVolume } from './volume.js'
 import { onBack } from './nav.js'
 import { glow } from './ambient.js'
 
-// Autoplay only where there is a pointer to hover or a TV; never on phones (data) or with data saver on.
 export const canTrailer = () => (matchMedia('(hover: hover) and (pointer: fine)').matches || isTV) && !navigator.connection?.saveData && navigator.onLine
 
 const ORIGIN = 'https://www.youtube-nocookie.com'
@@ -23,7 +20,6 @@ function embed (id, { muted }) {
   return frame
 }
 
-// Subscribes to the embed's state messages. Calls back with { time, duration, state, volume, muted }.
 function listen (frame, cb) {
   const msg = e => {
     if (e.source !== frame.contentWindow) return
@@ -38,13 +34,12 @@ function listen (frame, cb) {
   return () => removeEventListener('message', msg)
 }
 
-// YouTube draws its own title bar, pause glyph and controls for the first moments of every start (and again after a
+// The embed draws its own title bar, pause glyph and controls for the first moments of every start (and again after a
 // pause or a loop), whatever the embed parameters say. The video is only shown once that has faded.
 const CHROME_FIRST = 4000 // after the first start and after a loop
 const CHROME_RESUME = 1300 // after a pause or buffering
 
-// A muted looping trailer behind a hero or preview card. `box` must fill its container.
-// YouTube picks the stream quality from the size of its player, and a small embed gets a small stream. The embed is laid
+// The embed picks the stream quality from the size of its player, and a small embed gets a small stream. The embed is laid
 // out at a real 1080p (720p for small preview cards) and scaled down to the box, so it asks for HD.
 export function mountTrailer (box, id, { onPlaying, onFail, width = 1920 } = {}) {
   const frame = embed(id, { muted: true })
@@ -67,9 +62,8 @@ export function mountTrailer (box, id, { onPlaying, onFail, width = 1920 } = {})
       restarted = false
       reveal = setTimeout(() => { frame.classList.add('on'); if (first) { first = false; onPlaying?.() } }, wait)
     } else {
-      // Never show YouTube's paused, buffering or ended screens.
       frame.classList.remove('on')
-      if (m.state === 0) { restarted = true; send(frame, 'seekTo', [0, true]); send(frame, 'playVideo') } // loop without YouTube's playlist chrome
+      if (m.state === 0) { restarted = true; send(frame, 'seekTo', [0, true]); send(frame, 'playVideo') } // loop without the host's playlist chrome
     }
   })
   const fail = () => { if (!done) { done = true; destroy(); onFail?.() } }
@@ -80,7 +74,6 @@ export function mountTrailer (box, id, { onPlaying, onFail, width = 1920 } = {})
   return { frame, destroy, unmute: () => { send(frame, 'unMute'); send(frame, 'setVolume', [100]) }, mute: () => send(frame, 'mute'), get playing () { return playing } }
 }
 
-// The trailer page: Dodobox's own controls over the embed.
 export async function watchTrailer (type, id) {
   const layer = $('#layer')
   layer.className = 'player'; layer.hidden = false
@@ -141,7 +134,6 @@ export async function watchTrailer (type, id) {
       st.state = m.state
       const playing = m.state === 1
       root.classList.toggle('paused', !playing)
-      // The blurred poster stays up until YouTube's own overlays have faded after a start or a resume.
       clearTimeout(veilT)
       if (playing) veilT = setTimeout(() => root.classList.remove('veil'), firstPlay ? 4000 : 1300); else root.classList.add('veil')
       if (playing) firstPlay = false
@@ -150,7 +142,6 @@ export async function watchTrailer (type, id) {
     }
     update(st.volume / 100, st.muted); paint()
   })
-  // The embed only reports time while playing; poll so the bar keeps moving smoothly.
   const poll = setInterval(() => { if (!dead) frame.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*') }, 1000)
   const timeout = setTimeout(() => { if (st.state < 0) fail() }, 9000)
 

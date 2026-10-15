@@ -1,7 +1,4 @@
-// Automatic subtitle sync. Speech in the audio is compared with the times subtitles appear, in a few short windows spread
-// over the film, by cross-correlation: where the two line up best is the offset for that part of the film. A constant
-// offset, frame-rate drift and spliced (cut or extended) versions all show up as how the per-window offsets change over
-// time. Only short stretches of audio are read, and only from a file that is already fully on disk.
+// Automatic subtitle sync: speech in the audio is cross-correlated with subtitle times in a few short windows; how the per-window offsets change reveals a constant shift, frame-rate drift or a splice.
 import { spawn } from 'node:child_process'
 import { Worker } from 'node:worker_threads'
 import { FFMPEG } from './bin.js'
@@ -10,7 +7,6 @@ export { mapTime, offsetAt } from '../public/js/syncmap.js'
 
 const DT = 0.01 // seconds per frame
 
-// ---------- cues ----------
 const toSec = t => { const p = t.replace(',', '.').split(':').map(Number); return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1] }
 export function parseCues (text) {
   const out = []
@@ -24,8 +20,7 @@ export function parseCues (text) {
   return out.sort((a, b) => a.s - b.s)
 }
 
-// ---------- advertisements ----------
-// Subtitle files carry credits and ads ("Support us and become VIP member to remove all ads from www.OpenSubtitles.org").
+// Subtitle files carry credits and ads ("Support us and become VIP member to remove all ads").
 // Nobody speaks them, so they must not take part in the alignment. Site names count anywhere; the looser tell-tales (a web
 // address, "subtitles by", "synced by") only count at the very start or end, where such lines live.
 const AD_ANYWHERE = /opensubtitles|osdb\b|subscene|addic7ed|yifysubtitles|yts\.|podnapisi|subtitlecat|tvsubtitles|become (a )?vip|remove all ads|advertise (your|here)|rate this subtitle/i
@@ -37,7 +32,6 @@ export function isAd (cue, end) {
 }
 export const withoutAds = cues => { const end = cues.length ? cues.at(-1).e : 0; return cues.filter(c => !isAd(c, end)) }
 
-// ---------- FFT cross-correlation ----------
 function fft (re, im, inverse) {
   const n = re.length
   for (let i = 1, j = 0; i < n; i++) {
@@ -62,7 +56,6 @@ function fft (re, im, inverse) {
   if (inverse) for (let i = 0; i < n; i++) { re[i] /= n; im[i] /= n }
 }
 
-// c[k] = sum_i a[i] * b[i + k] for k in 0..b.length - a.length
 export function correlate (a, b) {
   let n = 1; while (n < a.length + b.length) n <<= 1
   const ar = new Float64Array(n); const ai = new Float64Array(n); const br = new Float64Array(n); const bi = new Float64Array(n)
@@ -75,8 +68,7 @@ export function correlate (a, b) {
 
 const zeroMean = v => { let m = 0; for (const x of v) m += x; m /= v.length || 1; const o = new Float64Array(v.length); for (let i = 0; i < v.length; i++) o[i] = v[i] - m; return o }
 
-// Offset d (seconds) such that a subtitle at time t belongs at t + d, from `sig` (frames of speech strength, media
-// time ws + i*DT) against `cues`. `range` is how far (seconds) either way to look. Returns { d, z } or null.
+// Offset d (seconds) such that a subtitle at t belongs at t + d, from `sig` (speech strength frames, media time ws + i*DT) against `cues`; `range` is how far either way to look. Returns { d, z } or null.
 export function align (sig, ws, cues, range) {
   const R = Math.round(range / DT)
   const ind = new Float64Array(sig.length + 2 * R)
@@ -90,25 +82,21 @@ export function align (sig, ws, cues, range) {
   if (on < 60) return null // fewer than a second of subtitles in this stretch
   const a = zeroMean(sig); const b = zeroMean(ind)
   const c = correlate(a, b)
-  // Normalise by the local energy of b so busy stretches do not win by sheer amount.
   const pre = new Float64Array(b.length + 1); for (let i = 0; i < b.length; i++) pre[i + 1] = pre[i] + b[i] * b[i]
   let na = 0; for (const x of a) na += x * x
   const score = new Float64Array(c.length)
   for (let k = 0; k < c.length; k++) { const nb = pre[k + a.length] - pre[k]; score[k] = nb > 1e-9 && na > 1e-9 ? c[k] / Math.sqrt(na * nb) : 0 }
   let best = 0; for (let k = 1; k < score.length; k++) if (score[k] > score[best]) best = k
-  // Spread of the scores away from the peak, for a z-score.
   let m = 0; let s2 = 0; let cnt = 0; const ex = Math.round(1.5 / DT)
   for (let k = 0; k < score.length; k++) if (Math.abs(k - best) > ex) { m += score[k]; cnt++ }
   m /= cnt || 1
   for (let k = 0; k < score.length; k++) if (Math.abs(k - best) > ex) s2 += (score[k] - m) ** 2
   const sd = Math.sqrt(s2 / (cnt || 1)) || 1e-9
-  // Parabolic refinement for sub-frame accuracy.
   let frac = 0
   if (best > 0 && best < score.length - 1) { const l = score[best - 1]; const r = score[best + 1]; const den = l - 2 * score[best] + r; if (den < 0) frac = 0.5 * (l - r) / den }
   return { d: (R - (best + frac)) * DT, z: (score[best] - m) / sd, peak: score[best] }
 }
 
-// ---------- audio to speech strength ----------
 function pcm (url, start, len, timeoutMs = 60000) {
   return new Promise((resolve, reject) => {
     // Lowest priority: playback and transcoding always come first.
@@ -122,10 +110,7 @@ function pcm (url, start, len, timeoutMs = 60000) {
   })
 }
 
-// Loudness per frame in the speech band, shaped into a 0..1 "someone is talking" strength. Loudness alone is fooled by
-// theme songs and action scenes, so it is weighed by how much the level changes from moment to moment: syllables make the
-// level jump around constantly, music and engine noise hold steady. That single change took the share of windows that
-// locked correctly on a real anime episode from 2 in 5 to 4 in 5.
+// Loudness per frame in the speech band, weighted by how much the level changes from moment to moment: syllables make it jump, music and engine noise hold steady. Loudness alone is fooled by theme songs and action scenes.
 const spread = (v, lo, hi, minSpan) => {
   const sorted = Float64Array.from(v).sort()
   const a = sorted[Math.floor(v.length * lo)] ?? 0; const b = sorted[Math.floor(v.length * hi)] ?? 1
@@ -149,7 +134,6 @@ export function speechStrength (buf) {
   return blur(level.map((x, i) => x * (0.35 + 0.65 * lively[i])), 5)
 }
 
-// ---------- the sync ----------
 const WIN = 180 // seconds of audio per window
 // Windows are accepted on a clear peak; the answer is trusted when windows agree with each other (real films give
 // modest z-scores even for a correct lock, because speech is itself repetitive).
@@ -177,10 +161,8 @@ export async function syncSubtitle ({ url, duration, cues, signalAt, isAborted =
     const r = align(sig ?? await signal(ws, len), ws, warp(cues, ratio), range)
     return r && r.z >= MIN_Z && r.peak >= MIN_PEAK ? { t: ws + len / 2, d: r.d, z: r.z, peak: r.peak } : null
   }
-  // Windows are spread over what can be read, away from the first minutes (logos, cold open, music) and the credits.
   const spots = duration >= WIN * 3 ? [0.22, 0.5, 0.78].map(f => f * duration) : duration >= len * 2.2 ? [0.3, 0.75].map(f => f * duration) : [duration / 2]
 
-  // Which frame-rate ratio (if any) makes the middle stretch line up best? Judged on the same audio, so it is cheap.
   let ratio = 1; let first = null
   try {
     const ws = window(spots[Math.floor(spots.length / 2)]); const sig = await signal(ws, len)
@@ -199,13 +181,11 @@ export async function syncSubtitle ({ url, duration, cues, signalAt, isAborted =
     if (isAborted()) return null
     if (first && Math.abs(window(c) + len / 2 - first.t) < 1) continue
     try {
-      // Near the offset found so far first; if nothing lines up there (a spliced version), search much wider.
       const m = await measure(c, wide, ratio) || (wide < 300 ? await measure(c, 300, ratio) : null)
       if (m) { anchors.push(m); if (anchors.length === 1) wide = Math.abs(m.d) + 25 }
     } catch { /* one unreadable stretch should not stop the rest */ }
   }
   if (!anchors.length) return null
-  // Offsets that jump between neighbours mean a splice (cut or added scenes): look in between, a few times.
   for (let round = 0; round < 3; round++) {
     anchors.sort((a, b) => a.t - b.t)
     const gap = anchors.map((a, i) => i && Math.abs(a.d - anchors[i - 1].d) > 0.6 && a.t - anchors[i - 1].t > 2 * len ? i : 0).filter(Boolean)[0]
@@ -213,8 +193,6 @@ export async function syncSubtitle ({ url, duration, cues, signalAt, isAborted =
     try { const m = await measure((anchors[gap].t + anchors[gap - 1].t) / 2, Math.abs(anchors[gap].d - anchors[gap - 1].d) + 20, ratio); if (m) anchors.push(m); else break } catch { break }
   }
   anchors.sort((a, b) => a.t - b.t)
-  // Discard windows that disagree with everyone else (a wrong peak), but keep separate groups that each agree
-  // within themselves (a splice) and offsets that move steadily (drift).
   const groups = anchors.map(a => anchors.filter(o => Math.abs(o.d - a.d) < 0.4))
   let kept = anchors.filter((a, i) => groups[i].length >= 2)
   if (!kept.length) {
@@ -223,13 +201,11 @@ export async function syncSubtitle ({ url, duration, cues, signalAt, isAborted =
   }
   if (!kept.length) return null
   const cls = classify(kept, ratio)
-  // Agreement between windows is the evidence: more windows, higher peaks, more confidence.
   const confidence = Math.min(1, 0.25 + 0.2 * kept.length + 0.8 * median(kept.map(a => a.peak)) * (kept.length >= 2 ? 1 : 0.5))
   return { ratio, anchors: cls.anchors, model: cls.model, points: kept.map(({ t, d, z }) => ({ t, d, z })), windows: kept.length, confidence }
 }
 
 
-// Rewrites every cue time in a WebVTT text.
 export function shiftVtt (text, res) {
   const fmt = t => { t = Math.max(0, t); const h = Math.floor(t / 3600); const m = Math.floor(t / 60) % 60; const sec = (t % 60).toFixed(3).padStart(6, '0'); return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${sec}` }
   return text.replace(/([\d:.,]+)(\s*-->\s*)([\d:.,]+)/g, (_, a, mid, b) => fmt(mapTime(res, toSec(a))) + mid + fmt(mapTime(res, toSec(b))))
@@ -247,7 +223,6 @@ export async function syncProbe ({ url, duration, cues, at, ratio = 1, expected 
   return r && r.z >= MIN_Z && r.peak >= MIN_PEAK ? { t: ws + len / 2, d: expected + r.d, z: r.z, peak: r.peak } : null
 }
 
-// Same as syncSubtitle (without signalAt), in a worker thread that is given up on after `timeoutMs`.
 export const syncInWorker = (args, timeoutMs = 180000) => new Promise(resolve => {
   const w = new Worker(new URL('./sync-worker.js', import.meta.url), { workerData: args })
   const done = r => { clearTimeout(timer); w.terminate(); resolve(r) }

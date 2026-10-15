@@ -1,4 +1,3 @@
-// HTTP range responses for anything that can open a byte-range stream (torrent files, local files).
 export function sendRange (req, res, { length, type, stream }) {
   const m = /bytes=(\d*)-(\d*)/.exec(req.headers.range || '')
   let start = 0; let end = length - 1

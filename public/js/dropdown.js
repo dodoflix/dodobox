@@ -1,5 +1,4 @@
-// Replaces native <select class="field"> with a dropdown that matches the rest of the interface.
-// The select stays in the DOM (hidden) as the source of truth, so existing change handlers keep working.
+// Replaces native <select class="field"> with a styled dropdown; the select stays hidden as the source of truth.
 import { esc, icon } from './util.js'
 
 let open = null
