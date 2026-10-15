@@ -13,12 +13,14 @@ export const FFPROBE = pick(process.env.FFPROBE, 'ffprobe', ffprobeStatic.path)
 const VAAPI_DEVICE = process.env.VAAPI_DEVICE || '/dev/dri/renderD128'
 
 // Streams start on a keyframe with increasing timestamps (no B-frames), which Safari's native HLS requires; High 4.1 plays on every phone and TV.
-const SAFE = ['-profile:v', 'high', '-level', '4.1', '-g', '48', '-keyint_min', '48', '-sc_threshold', '0', '-bf', '0']
+// The level has to cover the frame size: the NVENC encoder refuses to start ("Invalid Level") when 1440p or 2160p is asked for with level 4.1.
+const level = (h, small) => (h > 1088 ? '5.1' : small)
+const safe = h => ['-profile:v', 'high', '-level', level(h, '4.1'), '-g', '48', '-keyint_min', '48', '-sc_threshold', '0', '-bf', '0']
 const scale = h => `scale=-2:'min(${h},ih)'`
 export const ENCODERS = {
-  libx264: { pre: [], video: h => ['-vf', `${scale(h)},format=yuv420p`, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22', ...SAFE] },
-  h264_nvenc: { pre: [], video: h => ['-vf', `${scale(h)},format=yuv420p`, '-c:v', 'h264_nvenc', '-preset', 'p4', '-rc', 'vbr', '-cq', '23', ...SAFE] },
-  h264_videotoolbox: { pre: [], video: h => ['-vf', `${scale(h)},format=yuv420p`, '-c:v', 'h264_videotoolbox', '-b:v', '6M', '-profile:v', 'high', '-level', '4.2'] },
+  libx264: { pre: [], video: h => ['-vf', `${scale(h)},format=yuv420p`, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22', ...safe(h)] },
+  h264_nvenc: { pre: [], video: h => ['-vf', `${scale(h)},format=yuv420p`, '-c:v', 'h264_nvenc', '-preset', 'p4', '-rc', 'vbr', '-cq', '23', ...safe(h)] },
+  h264_videotoolbox: { pre: [], video: h => ['-vf', `${scale(h)},format=yuv420p`, '-c:v', 'h264_videotoolbox', '-b:v', '6M', '-profile:v', 'high', '-level', level(h, '4.2')] },
   h264_vaapi: { pre: ['-vaapi_device', VAAPI_DEVICE], video: h => ['-vf', `${scale(h)},format=nv12,hwupload`, '-c:v', 'h264_vaapi', '-qp', '23', '-profile:v', 'high'] }
 }
 

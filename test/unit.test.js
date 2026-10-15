@@ -5,6 +5,7 @@ import { srtToVtt, allowedSubUrl, sameShow, plausible } from '../src/subs.js'
 import { playlist } from '../src/transcode.js'
 import { upstream } from '../src/images.js'
 import * as updates from '../src/update.js'
+import { ENCODERS } from '../src/bin.js'
 const { newer } = updates
 
 test('anime episode matching', () => {
@@ -295,4 +296,11 @@ test('lookup finds a newer release by itself and reports a version once', async 
     assert.equal(await updates.lookup('9.9.9'), false)
   } finally { globalThis.fetch = real; console.log = log }
   assert.deepEqual(seen, ['9.9.9'])
+})
+
+test('the encoder level covers the frame size, so 1440p and 2160p do not fail to start', () => {
+  const level = (name, h) => { const a = ENCODERS[name].video(h); return a[a.indexOf('-level') + 1] }
+  for (const name of ['libx264', 'h264_nvenc']) { assert.equal(level(name, 1080), '4.1'); assert.equal(level(name, 720), '4.1'); assert.equal(level(name, 1440), '5.1'); assert.equal(level(name, 2160), '5.1') }
+  assert.equal(level('h264_videotoolbox', 1080), '4.2')
+  assert.equal(level('h264_videotoolbox', 2160), '5.1')
 })
