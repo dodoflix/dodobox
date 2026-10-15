@@ -22,6 +22,7 @@ const save = () => fs.writeFileSync(STATE, JSON.stringify(lib, null, 1))
 
 function attach (entry) {
   const t = client.add(entry.magnet, { path: DL })
+  t.setMaxListeners(50) // every open read of the file listens for verified pieces
   t.on('error', e => console.error('[torrent]', entry.hash, e.message))
   t.on('ready', () => {
     for (const f of t.files) f.deselect()
