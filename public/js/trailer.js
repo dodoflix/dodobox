@@ -1,5 +1,5 @@
 // Trailers: video-host embeds driven through the player API with Dodobox's own controls; the embed stays invisible until it is really playing so a blocked trailer never shows the host's error card.
-import { $, esc, icon, clock, isTV, enc, slowLink } from './util.js'
+import { $, esc, icon, clock, isTV, enc, slowLink, lowres, layered, fullWidth } from './util.js'
 import { cget } from './api.js'
 import { volumeHTML, bindVolume } from './volume.js'
 import { onBack } from './nav.js'
@@ -81,7 +81,7 @@ export async function watchTrailer (type, id) {
   const m = await cget(`/api/meta/${type}/${enc(id)}`)
   glow(m.poster)
   layer.innerHTML = `<div class="pl paused ui veil" data-modal data-keys="own" id="tp">
-    <div class="tp-stage"></div><div class="tp-cover" style="background-image:url('${esc(m.background || m.poster || '')}')"></div>
+    <div class="tp-stage"></div><div class="tp-cover" style="background-image:${esc(layered(m.background || m.poster, fullWidth()))}"></div>
     <div class="pl-top"><button class="cbtn" id="back" aria-label="Back">${icon('left')}</button><div class="ttl"><b translate="no">${esc(m.name)}</b><span>Trailer</span></div></div>
     <div class="pl-center"><button id="big" aria-label="Play or pause">${icon('play')}</button></div>
     <div class="pl-bottom">
@@ -95,7 +95,7 @@ export async function watchTrailer (type, id) {
         <a class="btn btn-ink sm" id="watch" href="#/title/${type}/${enc(id)}" data-autofocus>${icon('play')}Play the ${type === 'movie' ? 'movie' : 'show'}</a>
         <button class="cbtn" id="fs" aria-label="Full screen">${icon('fs')}</button>
       </div></div>
-    <div class="pl-load" id="load"><div class="bg" style="background-image:url('${esc(m.poster || '')}')"></div>
+    <div class="pl-load" id="load"><div class="bg" style="background-image:url('${esc(lowres(m.poster) || m.poster || '')}')"></div>
       <button class="cbtn pl-back" id="back2" aria-label="Back">${icon('left')}</button>
       <div class="msg"><h2 translate="no">${esc(m.name)}</h2><p id="l-line">Loading the trailer...</p><div class="hair"><i></i></div><div class="actions" id="l-act"></div></div></div>
   </div>`

@@ -30,8 +30,10 @@ export function learnLink (img) {
   const old = store.get('bw', 0)
   store.set('bw', Math.round((old ? old * 0.6 + mbps * 0.4 : mbps) * 10) / 10)
 }
-// A tiny copy of a proxied picture: shown blurred while the real one arrives.
-export const lowres = src => (src && src.startsWith('/img?') ? src.replace(/&w=\d+$/, '') + '&w=240' : '')
+// A tiny copy (64 px, about 1 KB) of a proxied picture: shown blurred while the real one arrives.
+export const lowres = src => (src && src.startsWith('/img?') ? src.replace(/&w=\d+$/, '') + '&w=64' : '')
+// A CSS value that shows the tiny copy until the real picture has loaded over it.
+export const layered = (src, w) => (lowres(src) ? `url('${sized(src, w)}'), url('${lowres(src)}')` : `url('${src || ''}')`)
 export const fullWidth = () => { const w = Math.round(innerWidth * Math.min(devicePixelRatio || 1, 2)); return slowLink() ? Math.min(w, 960) : w }
 export const px = css => Math.round(css * Math.min(devicePixelRatio || 1, 2))
 
@@ -72,7 +74,7 @@ export function poster (i, { progress, sub, href } = {}) {
   remember(i)
   const link = href || `#/title/${i.type}/${enc(i.id)}`
   return `<a class="poster" href="${link}">
-    <div class="art"><div class="ph" translate="no" style="--h:${hue(i.name)}"><b>${esc(initial(i.name))}</b><span>${esc(i.name)}</span></div>${i.poster ? `<img loading="lazy" decoding="async" alt="" src="${esc(sized(i.poster, slowLink() ? 240 : 360))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}</div>
+    <div class="art"><div class="ph" translate="no" style="--h:${hue(i.name)}"><b>${esc(initial(i.name))}</b><span>${esc(i.name)}</span></div>${i.poster ? `${lowres(i.poster) ? `<img class="lq in" loading="lazy" decoding="async" alt="" src="${esc(lowres(i.poster))}" onerror="this.remove()">` : ''}<img loading="lazy" decoding="async" alt="" src="${esc(sized(i.poster, slowLink() ? 240 : 360))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}</div>
     ${i.rating ? `<span class="badge">${icon('star')}${i.rating.toFixed(1)}</span>` : ''}
     <div class="cap" translate="no">${esc(i.name)}</div><div class="sub">${esc(sub ?? i.year ?? '')}</div>
     ${progress != null ? `<div class="prog"><i style="width:${Math.min(100, progress * 100)}%"></i></div>` : ''}

@@ -11,7 +11,7 @@ const DIR = path.join(DATA, 'img')
 fs.mkdirSync(DIR, { recursive: true })
 const HOSTS = /(^|\.)(metahub\.space|media-amazon\.com|anilist\.co|crunchyroll\.com|kitsu\.(io|app)|myanimelist\.net|cdn\.myanimelist\.net|strem\.io|themoviedb\.org|tmdb\.org)$/
 
-const WIDTHS = [240, 360, 480, 640, 800, 1080, 1280, 1920]
+const WIDTHS = [64, 240, 360, 480, 640, 800, 1080, 1280, 1920]
 export const snap = w => WIDTHS.find(x => x >= w) || WIDTHS.at(-1)
 
 export const proxied = u => u && HOSTS.test(safeHost(u)) ? `/img?u=${encodeURIComponent(u)}` : u

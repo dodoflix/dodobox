@@ -1,4 +1,4 @@
-import { $ } from './util.js'
+import { $, lowres } from './util.js'
 
 // Samples the artwork (same-origin via /img) for its dominant lit color and washes the page with it.
 const cache = new Map()
@@ -37,7 +37,7 @@ export function sample (url) {
 
 let flip = 0
 export async function glow (url) {
-  const rgb = await sample(url)
+  const rgb = await sample(lowres(url) || url)
   document.documentElement.style.setProperty('--glow', rgb)
   const layers = [...document.querySelectorAll('#ambient i')]
   const next = layers[flip ^= 1]
