@@ -1,6 +1,6 @@
 import { api, cget } from './api.js'
 import { S } from './session.js'
-import { $, esc, icon, bytes, poster, enc, mins } from './util.js'
+import { $, esc, icon, bytes, poster, enc, mins, layered } from './util.js'
 import { calm } from './ambient.js'
 import { dragScroll } from './drag.js'
 
@@ -36,7 +36,7 @@ export async function library (root) {
     const usedText = `${bytes(st.used)} of ${bytes(st.cap)} used. Oldest unwatched downloads are removed automatically when it fills up. Downloads you start yourself are kept.`
     $('#usedtxt').textContent = usedText
     const label = c => (c.season != null ? `${c.title} · S${c.season} E${c.episode}` : c.title)
-    const row = (c, body, acts) => `<div class="item"><a class="th" href="${watchHref(c)}" style="background-image:url('${esc(c.poster || '')}')" aria-label="Play"></a>
+    const row = (c, body, acts) => `<div class="item"><a class="th" href="${watchHref(c)}" style="background-image:${esc(layered(c.poster, 240))}" aria-label="Play"></a>
       <div><span class="t" translate="no">${esc(label(c))}</span>${body}</div><div class="acts">${acts}</div></div>`
     const queued = q.queue.map(j => row({ ...j, title: j.title }, '<div class="d">Waiting to download</div>', `<button class="btn btn-quiet sm" data-q="${esc(j.key)}" aria-label="Remove from the queue">${icon('close')}</button>`))
     const failed = q.failed.map(j => row({ ...j, title: j.title }, '<div class="d err">Could not find a source for this one</div>', `<button class="btn btn-ghost sm" data-retry='${esc(JSON.stringify({ type: j.type, id: j.id, season: j.season, episode: j.episode }))}'>Try again</button><button class="btn btn-quiet sm" data-q="${esc(j.key)}" aria-label="Dismiss">${icon('close')}</button>`))

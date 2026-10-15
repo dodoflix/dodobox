@@ -1,8 +1,7 @@
-import { cget, api } from './api.js'
+import { cget, api, NOW, LATER } from './api.js'
 import { S, progress, inList, toggleList, ratingOf, rate } from './session.js'
-import { $, esc, icon, enc, mins, sized, fullWidth, toast } from './util.js'
+import { $, esc, icon, enc, mins, sized, fullWidth, hue, lowres, thumbW, known, canTrailer, toast } from './util.js'
 import { dragScroll } from './drag.js'
-import { mountTrailer, canTrailer } from './trailer.js'
 import { glow } from './ambient.js'
 
 const watchHref = (t, id, s, e) => `#/watch/${t}/${enc(id)}` + (s != null ? `/${s}/${e}` : '')
@@ -11,8 +10,11 @@ const TYPE_LABEL = { movie: 'Movie', series: 'Series', anime: 'Anime' }
 let detailCleanup = null
 export async function title (root, type, id) {
   detailCleanup?.(); detailCleanup = null
-  root.innerHTML = '<div class="view"><section class="d-hero"><div class="d-body d-skel"><div class="sk" style="height:5.5rem;width:80%"></div><div class="sk" style="height:1.1rem;width:55%"></div><div class="sk" style="height:.9rem"></div><div class="sk" style="height:.9rem;width:92%"></div><div class="sk" style="height:.9rem;width:70%"></div><div class="sk" style="height:2.9rem;width:11rem;border-radius:999px;margin-top:.6rem"></div></div></section></div>'
-  const [m, local] = await Promise.all([cget(`/api/meta/${type}/${enc(id)}`), cget('/api/local', 60e3).catch(() => [])])
+  // From a card the title is already known: show it (and its backdrop, which the full page reuses) while the details come in.
+  const k = known.get(`${type}:${id}`)
+  root.innerHTML = k ? `<div class="view"><section class="d-hero"><div class="bg" style="--h:${hue(k.name)}"><i class="lq" style="background-image:url('${esc(lowres(sized(k.background || k.poster || '', 0)))}')"></i><img alt="" src="${esc(sized(k.background || k.poster || '', fullWidth()))}" onload="this.classList.add('in')"></div><div class="d-body"><h1 class="title" translate="no">${esc(k.name)}</h1><div class="meta"><span class="tag">${TYPE_LABEL[type]}</span>${k.year ? `<span>${k.year}</span>` : ''}${k.runtime ? `<span>${esc(k.runtime)}</span>` : ''}</div><p class="lede" translate="no">${esc(k.description || '')}</p><div class="actions"><div class="sk" style="height:3rem;width:11rem;border-radius:999px"></div></div></div></section></div>` :
+    '<div class="view"><section class="d-hero"><div class="d-body d-skel"><div class="sk" style="height:5.5rem;width:80%"></div><div class="sk" style="height:1.1rem;width:55%"></div><div class="sk" style="height:.9rem"></div><div class="sk" style="height:.9rem;width:92%"></div><div class="sk" style="height:.9rem;width:70%"></div><div class="sk" style="height:2.9rem;width:11rem;border-radius:999px;margin-top:.6rem"></div></div></section></div>'
+  const [m, local] = await Promise.all([cget(`/api/meta/${type}/${enc(id)}`, undefined, NOW), cget('/api/local', 60e3, LATER).catch(() => [])])
   glow(m.poster)
   const flat = type === 'movie' || m.movie
   const videos = m.videos || []
@@ -26,7 +28,7 @@ export async function title (root, type, id) {
 
   root.innerHTML = `<div class="view">
     <section class="d-hero">
-      <div class="bg ${m.background ? '' : 'blur'}"><img alt="" src="${esc(sized(m.background || m.poster || '', fullWidth()))}"></div><div class="trailer-layer" id="dtr" aria-hidden="true"></div>
+      <div class="bg ${m.background ? '' : 'blur'}" style="--h:${hue(m.name)}"><i class="lq" style="background-image:url('${esc(lowres(sized(m.background || m.poster || '', 0)))}')"></i><img alt="" src="${esc(sized(m.background || m.poster || '', fullWidth()))}" onload="this.classList.add('in')"></div><div class="trailer-layer" id="dtr" aria-hidden="true"></div>
       <div class="d-body">
         <h1 class="title" translate="no">${esc(m.name)}</h1>
         <div class="meta"><span class="tag">${TYPE_LABEL[type]}</span>${m.year ? `<span>${m.year}</span>` : ''}${m.runtime ? `<span>${esc(m.runtime)}</span>` : ''}${m.rating ? `<span>${icon('star')}${m.rating.toFixed(1)}</span>` : ''}${m.status && m.status !== 'FINISHED' ? `<span>${esc(m.status.replace(/_/g, ' ').toLowerCase())}</span>` : ''}${mine ? '<span>On your server</span>' : ''}</div>
@@ -53,7 +55,7 @@ export async function title (root, type, id) {
   if (target) fetch(`/api/sources?${new URLSearchParams({ type, id, ...(target.season != null && { season: target.season, episode: target.episode }) })}`).catch(() => {})
   let dtr = null; let dwell
   const hero = $('.d-hero')
-  if (m.trailer && canTrailer()) dwell = setTimeout(() => { dtr = mountTrailer($('#dtr'), m.trailer, { onPlaying: () => hero.classList.add('has-trailer'), onFail: () => { dtr = null } }) }, 1800)
+  if (m.trailer && canTrailer()) dwell = setTimeout(async () => { const { mountTrailer } = await import('./trailer.js'); dtr = mountTrailer($('#dtr'), m.trailer, { onPlaying: () => hero.classList.add('has-trailer'), onFail: () => { dtr = null } }) }, 1800)
   const stop = () => { clearTimeout(dwell); dtr?.destroy(); dtr = null }
   const io = new IntersectionObserver(es => { if (es[0].intersectionRatio < 0.3) { stop(); hero.classList.remove('has-trailer') } }, { threshold: [0, 0.3] })
   io.observe(hero)
@@ -123,7 +125,7 @@ export async function title (root, type, id) {
       const d = v.released ? new Date(v.released).toLocaleDateString(document.documentElement.lang || undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''
       return `<div class="ep-row"><a class="ep" href="${watchHref(type, id, v.season, v.episode)}">
         <span class="n">${v.episode}</span>
-        <span class="th" style="--art:url('${esc(m.background || m.poster || '')}')">${v.thumbnail ? `<img loading="lazy" alt="" src="${esc(v.thumbnail)}" onerror="this.remove()">` : ''}${r > 0.02 ? `<span class="prog"><i style="width:${Math.min(100, r * 100)}%"></i></span>` : ''}<span class="go">${icon('play')}</span>${r > 0.93 ? `<span class="ok">${icon('check')}</span>` : ''}</span>
+        <span class="th">${v.thumbnail ? `<img alt="" data-src="${esc(sized(v.thumbnail, thumbW()))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}${r > 0.02 ? `<span class="prog"><i style="width:${Math.min(100, r * 100)}%"></i></span>` : ''}<span class="go">${icon('play')}</span>${r > 0.93 ? `<span class="ok">${icon('check')}</span>` : ''}</span>
         <span><span class="t" translate="no">${esc(v.title)}</span><br><span class="d">${future ? 'Airs ' + d : d}${p && r < 0.95 ? ` · ${mins(Math.max(60, p[1] - p[0]))} left` : ''}</span></span>
 </a><button class="dl" data-s="${v.season}" data-e="${v.episode}" aria-label="Download">${icon('down')}</button></div>`
     }).join('') || '<p class="dim">No episodes listed yet.</p>'

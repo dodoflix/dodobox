@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { releaseSubLangs, showVerdict, animeShowName, isAnimePack, matchAnimeEpisode, matchSeriesEpisode, animeSeason, pickFile, parseQuality, rank, nameHasTitle, measured } from '../src/sources.js'
 import { srtToVtt, allowedSubUrl, sameShow, plausible } from '../src/subs.js'
 import { playlist } from '../src/transcode.js'
+import { upstream } from '../src/images.js'
 
 test('anime episode matching', () => {
   assert.ok(matchAnimeEpisode('[GroupA] Sousou no Frieren - 03 (1080p) [7EF3F175].mkv', 3))
@@ -229,4 +230,16 @@ test('anime subtitle results keep only the asked show and episode', () => {
   assert.ok(!sameShow({ MovieName: '"Naruto: Shippuden" Kikyo', SeriesEpisode: '1' }, { episode: 1, titles: ['Naruto'] }))
   assert.ok(plausible('Naruto.S01E01.WEBRip', q) && plausible('[ANBU]_Naruto_01_[ED]', q) && plausible('Naruto - S01E01 (001) 1080p', q))
   assert.ok(!plausible('Naruto 101 Gotta See Gotta Know', q) && !plausible('Naruto Shippuden - 001', q) && !plausible('Naruto.S01E02', q) && !plausible('[ANBU]_Naruto_94_[D1]', q))
+})
+
+test('picture hosts that resize are asked for about the width needed', () => {
+  const poster = 'https://images.metahub.space/poster/large/tt0111161/img'
+  assert.equal(upstream(poster, 240), 'https://images.metahub.space/poster/small/tt0111161/img')
+  assert.equal(upstream(poster, 400), 'https://images.metahub.space/poster/medium/tt0111161/img')
+  assert.equal(upstream(poster, 700), poster)
+  assert.equal(upstream('https://images.metahub.space/background/large/tt0111161/img', 240), 'https://images.metahub.space/background/large/tt0111161/img')
+  assert.equal(upstream('https://m.media-amazon.com/images/M/MV5B@._V1_UX500_.jpg', 200), 'https://m.media-amazon.com/images/M/MV5B@._V1_UX240_.jpg')
+  assert.equal(upstream('https://s4.anilist.co/file/anilistcdn/media/anime/cover/extraLarge/bx21-x.jpg', 200), 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx21-x.jpg')
+  assert.equal(upstream('https://s4.anilist.co/file/anilistcdn/media/anime/cover/extraLarge/bx21-x.jpg', 400), 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/extraLarge/bx21-x.jpg')
+  assert.equal(upstream('https://example.com/a.jpg', 240), 'https://example.com/a.jpg')
 })

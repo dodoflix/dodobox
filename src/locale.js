@@ -28,22 +28,38 @@ async function sparql (lang, ids) {
   return (await r.json()).results.bindings
 }
 
+// A translation is a nicety: after this long the English answer goes out, and the lookup finishes in the background for next time.
+const BUDGET = 800
+const within = p => Promise.race([p, new Promise(resolve => setTimeout(resolve, BUDGET))])
+
+async function fill (lang, need) {
+  try {
+    const rows = await sparql(lang, need)
+    const byId = new Map()
+    for (const r of rows) byId.set(r.id.value, { label: r.label?.value, article: r.an?.value })
+    for (const id of need) cache.set(`${lang}:${id}`, { at: Date.now(), ...(byId.get(key(id)) || {}) })
+    save()
+  } catch { /* offline or throttled: show English */ }
+}
+
 export async function localizeItems (items, lang) {
   if (!valid(lang) || !items.length) return items
   const need = items.map(i => i.id).filter(id => prop(id) && !(cache.get(`${lang}:${id}`)?.at > Date.now() - WEEK))
-  if (need.length) {
-    try {
-      const rows = await sparql(lang, need)
-      const byId = new Map()
-      for (const r of rows) byId.set(r.id.value, { label: r.label?.value, article: r.an?.value })
-      for (const id of need) cache.set(`${lang}:${id}`, { at: Date.now(), ...(byId.get(key(id)) || {}) })
-      save()
-    } catch { /* offline or throttled: show English */ }
-  }
+  if (need.length) await within(fill(lang, need))
   return items.map(i => {
     const l = cache.get(`${lang}:${i.id}`)
     return l?.label && l.label !== i.name ? { ...i, name: l.label, originalName: i.name } : i
   })
+}
+
+async function describe (lang, id, article) {
+  const dk = `desc:${lang}:${id}`
+  const d = { at: Date.now() }
+  try {
+    const r = await fetchRetry(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(article.replace(/ /g, '_'))}`, { headers: { 'user-agent': UA['user-agent'] }, timeout: 7000, tries: 1 })
+    const j = await r.json(); if (j.type === 'standard' && (j.extract || '').length > 60) d.text = j.extract
+  } catch {}
+  cache.set(dk, d); save()
 }
 
 export async function localizeMeta (item, lang) {
@@ -53,16 +69,9 @@ export async function localizeMeta (item, lang) {
   let description = item.description
   if (l?.article) {
     const dk = `desc:${lang}:${item.id}`
-    let d = cache.get(dk)
-    if (!d || d.at < Date.now() - WEEK) {
-      d = { at: Date.now() }
-      try {
-        const r = await fetchRetry(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(l.article.replace(/ /g, '_'))}`, { headers: { 'user-agent': UA['user-agent'] }, timeout: 7000, tries: 2 })
-        const j = await r.json(); if (j.type === 'standard' && (j.extract || '').length > 60) d.text = j.extract
-      } catch {}
-      cache.set(dk, d); save()
-    }
-    if (d.text) description = d.text
+    if (!(cache.get(dk)?.at > Date.now() - WEEK)) await within(describe(lang, item.id, l.article))
+    const d = cache.get(dk)
+    if (d?.text) description = d.text
   }
   return { ...one, description, localized: !!(description !== item.description || one.name !== item.name) }
 }

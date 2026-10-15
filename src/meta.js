@@ -120,9 +120,10 @@ export const animeImdb = item => cached(`imdb3:${item.id}`, 30 * 24 * 3600e3, as
   const all = [item.name, ...(item.altTitles || [])].filter(Boolean)
   const names = [...new Set(all.map(norm))]; const bases = new Set(all.map(base))
   for (const t of item.movie ? ['movie'] : ['series', 'movie']) {
-    for (const q of [...new Set([base(item.altTitles?.[0] || item.name), base(item.name)])]) {
-      let hits
-      try { hits = await imdbSuggest(q, t) } catch { continue }
+    const queries = [...new Set([base(item.altTitles?.[0] || item.name), base(item.name)])]
+    const found = await Promise.all(queries.map(q => imdbSuggest(q, t).catch(() => null)))
+    for (const hits of found) {
+      if (!hits) continue
       const exact = hits.find(h => names.includes(norm(h.name)) && (!h.year || !item.year || Math.abs(h.year - item.year) <= 1))
       // The catalog often files a show under a shorter name ("86" for "86 EIGHTY-SIX"): accept that when the year agrees and
       // its name is a whole-word part of the anime's own title.
@@ -196,11 +197,8 @@ async function kitsuEpisodes (anilistId, count) {
     const kid = map.included?.[0]?.id
     if (!kid) return {}
     const out = {}
-    for (let off = 0; off < Math.min(count, 60); off += 20) {
-      const j = await getJSON(`https://kitsu.io/api/edge/anime/${kid}/episodes?page%5Blimit%5D=20&page%5Boffset%5D=${off}&sort=number`, { headers: H, tries: 1 })
-      for (const e of j.data || []) out[e.attributes.number] = { title: e.attributes.canonicalTitle, thumbnail: e.attributes.thumbnail?.original, released: e.attributes.airdate }
-      if ((j.data || []).length < 20) break
-    }
+    const pages = await Promise.all(Array.from({ length: Math.ceil(Math.min(count, 60) / 20) }, (_, n) => getJSON(`https://kitsu.io/api/edge/anime/${kid}/episodes?page%5Blimit%5D=20&page%5Boffset%5D=${n * 20}&sort=number`, { headers: H, tries: 1 }).catch(() => ({ data: [] }))))
+    for (const j of pages) for (const e of j.data || []) out[e.attributes.number] = { title: e.attributes.canonicalTitle, thumbnail: e.attributes.thumbnail?.original, released: e.attributes.airdate }
     return out
   } catch { return {} }
 }
@@ -210,17 +208,24 @@ export const meta = (type, id) =>
     if (type === 'anime') {
       const [m] = await anilist({ page: 1, perPage: 1, id: +id.replace('al:', '') })
       if (!m) throw new Error('not found')
-      const item = await withArt(aniItem(m))
-      if (!item.movie && item.videos.some(v => !v.thumbnail)) {
-        const k = await kitsuEpisodes(m.id, item.videos.length)
+      const base = aniItem(m)
+      const enrich = async () => {
+        const [item, k] = await Promise.all([withArt(base), !base.movie && base.videos.some(v => !v.thumbnail) ? kitsuEpisodes(m.id, base.videos.length) : {}])
         for (const v of item.videos) {
           const e = k[v.episode]; if (!e) continue
           if (!v.thumbnail && e.thumbnail) v.thumbnail = proxied(e.thumbnail)
           if (/^Episode \d+$/.test(v.title) && e.title && !/^Episode \d+$/.test(e.title)) v.title = e.title
           if (e.released) v.released = e.released
         }
+        return item
       }
-      return item
+      // The extras (better artwork, episode names and pictures) come from other services and can be slow: past a short wait the plain entry is
+      // returned and the full one replaces it in the cache as soon as it is ready.
+      const full = enrich()
+      const quick = await Promise.race([full, new Promise(resolve => setTimeout(resolve, 800))])
+      if (quick) return quick
+      full.then(item => { ttl.set(`meta4:${type}:${id}`, { at: Date.now(), v: item }); saveCache() }).catch(() => {})
+      return base
     }
     const { meta: m } = await getJSON(`${CINEMETA}/meta/${type}/${id}.json`)
     const item = cineItem(m, type)

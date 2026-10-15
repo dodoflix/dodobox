@@ -1,13 +1,19 @@
-import { cget, api } from './api.js'
+import { cget, api, NOW, LATER, SOON } from './api.js'
 import { S, toggleList, inList } from './session.js'
-import { $, esc, icon, poster, skeletons, mins, enc, sized, fullWidth } from './util.js'
+import { $, esc, icon, poster, skeletons, mins, enc, sized, fullWidth, hue, lowres, learnLink, slowLink, canTrailer } from './util.js'
 import { glow, calm } from './ambient.js'
 import { usingKeys } from './nav.js'
-import { mountTrailer, canTrailer } from './trailer.js'
 import { dragScroll } from './drag.js'
 import { tr } from './i18n.js'
 import { GENRES } from './genres.js'
 
+// Shelves show a short row; these have a full list to open.
+const shelfHref = id => {
+  const [kind, type, g] = id.split(':')
+  if (kind === 'genre') return `#/browse/${type}?genre=${enc(g)}`
+  const sort = { new: 'new', rated: 'rating' }[kind]
+  return sort ? `#/browse/${type}?all=1&sort=${sort}` : ''
+}
 const shelf = (title, body, { href, wide, id } = {}) => `<section class="shelf" ${id ? `id="${id}"` : ''}>
   <div class="shelf-h"><h2>${esc(title)}</h2>${href ? `<a href="${href}">See all</a>` : ''}</div>
   <div class="rail ${wide ? 'wide' : ''}">${body}</div></section>`
@@ -44,6 +50,9 @@ function heroHTML (i) {
 const portraitQuery = matchMedia('(max-width: 700px) and (orientation: portrait)')
 const heroSrc = i => portraitQuery.matches && i.poster ? { src: sized(i.poster, Math.round(innerWidth * Math.min(devicePixelRatio || 1, 3))), portrait: true } : { src: sized(i.background || i.poster, fullWidth()), portrait: false }
 
+// Started before the profile is even known, so the lists behind the banner download while the rest of the page starts up.
+export const warmHome = () => { for (const t of ['movie', 'series', 'anime']) cget(`/api/catalog?type=${t}&limit=15`, undefined, NOW, false).catch(() => {}) }
+
 export async function home (root, only = '') {
   const recent = S.me.recent.filter(r => !only || r.type === only)
   const mine = S.me.list.filter(i => !only || i.type === only)
@@ -51,7 +60,7 @@ export async function home (root, only = '') {
   root.innerHTML = `<div class="view">
     <section class="hero" id="hero" aria-roledescription="carousel" aria-label="Featured titles">
       <div class="bg"></div><div class="trailer-layer" id="htr" aria-hidden="true"></div>
-      <div id="hero-slot"></div>
+      <div id="hero-slot"><div class="hero-body" aria-hidden="true"><div class="sk" style="height:5.2rem;width:min(30rem,85%)"></div><div class="sk" style="height:1rem;width:min(18rem,70%);margin-top:1.2rem"></div><div class="sk" style="height:3.1rem;width:min(10.5rem,55%);border-radius:999px;margin-top:1.6rem"></div></div></div>
       <button class="hero-arrow l" aria-label="Previous title" tabindex="-1">${icon('left')}</button>
       <button class="hero-arrow r" aria-label="Next title" tabindex="-1">${icon('right')}</button>
       <button class="hero-sound" id="hsound" aria-label="Turn trailer sound on" hidden>${icon('mute')}</button>
@@ -81,9 +90,19 @@ export async function home (root, only = '') {
     track.style.transform = `translateX(${-idx * 100}%)`
     if (jump) { bg.classList.remove('jump'); void bg.offsetWidth; bg.classList.add('jump') }
   }
-  function loadAround (k) { for (const j of [k, k + 1, k - 1]) { const im = imgs()[(j + items.length) % items.length]; if (im && !im.src) im.src = im.dataset.src } }
+  function loadAround (k) {
+    for (const j of slowLink() ? [k, k + 1] : [k, k + 1, k - 1]) {
+      const im = imgs()[(j + items.length) % items.length]
+      if (!im || im.src) continue
+      const lq = lowres(im.dataset.src)
+      if (lq) im.previousElementSibling.style.backgroundImage = `url('${lq}')`
+      im.fetchPriority = j === k ? 'high' : 'low'
+      im.onload = () => { im.classList.add('in'); learnLink(im) }
+      im.src = im.dataset.src
+    }
+  }
   function buildImages () {
-    bg.innerHTML = `<div class="track">${items.map(i => { const h = heroSrc(i); return `<img alt="" decoding="async" class="${h.portrait ? 'portrait' : ''}" data-src="${esc(h.src)}">` }).join('')}</div>`
+    bg.innerHTML = `<div class="track">${items.map(i => { const h = heroSrc(i); return `<div class="slide" style="--h:${hue(i.name)}"><i class="lq"></i><img alt="" decoding="async" class="${h.portrait ? 'portrait' : ''}" data-src="${esc(h.src)}"></div>` }).join('')}</div>`
     track = $('.track', bg)
     place(false)
     loadAround(idx)
@@ -96,10 +115,14 @@ export async function home (root, only = '') {
   }
   async function startTrailer (k) {
     if (dead || k !== idx || !visible || !canTrailer()) return
+    // The banner comes first: a trailer would compete with it for the connection (and the first picture tells how fast that is).
+    if (!imgs()[k]?.complete) { dwell = setTimeout(() => startTrailer(k), 800); return }
     const i = items[k]
     let id = i.trailer
-    if (id === undefined) { try { id = (await cget(`/api/meta/${i.type}/${enc(i.id)}`)).trailer } catch { id = null }; i.trailer = id || null }
+    if (id === undefined) { try { id = (await cget(`/api/meta/${i.type}/${enc(i.id)}`, undefined, LATER)).trailer } catch { id = null }; i.trailer = id || null }
     if (!id || dead || k !== idx || !visible) return
+    const { mountTrailer } = await import('./trailer.js')
+    if (dead || k !== idx || !visible) return
     trailer = mountTrailer(htr, id, {
       onPlaying: () => { hero.classList.add('has-trailer'); sound.hidden = false; trailerUntil = Date.now() + 18000; if (!muted) trailer.unmute() },
       onFail: () => { trailer = null; i.trailer = null }
@@ -188,7 +211,7 @@ export async function home (root, only = '') {
 
   const picks = {}
   for (const t of order) {
-    cget(`/api/catalog?type=${t}`).then(list => {
+    cget(`/api/catalog?type=${t}&limit=15`, undefined, NOW).then(list => {
       if (dead) return
       const rail = $(`#s-${t} .rail`); rail.innerHTML = list.map(i => poster(i)).join(''); dragScroll(rail)
       picks[t] = list.filter(i => i.background || i.poster).slice(0, only ? 8 : 3)
@@ -198,14 +221,14 @@ export async function home (root, only = '') {
       $(`#s-${t} .rail`).innerHTML = `<p class="dim" style="padding:0 var(--pad)">Couldn't load this right now. It will retry when you come back.</p>`
     })
   }
-  api('/api/local').then(local => {
+  api('/api/local', { ref: { prio: LATER } }).then(local => {
     local = local.filter(e => !only || e.type === only)
     if (dead || !local.length) return
     const seen = new Set(); const uniq = local.filter(e => { const k = e.type + e.mid; return seen.has(k) ? false : (seen.add(k), true) })
     $('#s-local').outerHTML = shelf('On your server', uniq.map(e => poster({ type: e.type, id: e.mid, name: e.name, poster: e.poster, year: e.year })).join(''), { id: 's-local' })
     dragScroll($('#s-local .rail'))
   }).catch(() => {})
-  if (Object.values(S.me.ratings || {}).some(r => r.v > 0)) api('/api/picks').then(groups => {
+  if (Object.values(S.me.ratings || {}).some(r => r.v > 0)) api('/api/picks', { ref: { prio: LATER } }).then(groups => {
     groups = groups.filter(g => !only || g.items[0]?.type === only)
     if (dead || !groups.length) return
     $('#s-picks').innerHTML = groups.map((g, k) => shelf(`Because you liked ${g.because}`, g.items.map(i => poster(i)).join(''), { id: 's-pick' + k })).join('')
@@ -224,9 +247,9 @@ export async function home (root, only = '') {
       dragScroll(rail)
     } catch { sec.remove() }
   }), { rootMargin: '700px 0px' })
-  api(`/api/shelves?country=${region()}${only ? '&type=' + only : ''}`).then(specs => {
+  api(`/api/shelves?country=${region()}${only ? '&type=' + only : ''}`, { ref: { prio: SOON } }).then(specs => {
     if (dead) return
-    $('#s-more').innerHTML = specs.map(sp => `<section class="shelf" data-shelf="${esc(sp.id)}" ${sp.ranked ? 'data-ranked="1"' : ''}><div class="shelf-h"><h2>${esc(shelfTitle(sp.id))}</h2></div><div class="rail ${sp.ranked ? 'ranked' : ''}">${skeletons(8)}</div></section>`).join('')
+    $('#s-more').innerHTML = specs.map(sp => `<section class="shelf" data-shelf="${esc(sp.id)}" ${sp.ranked ? 'data-ranked="1"' : ''}><div class="shelf-h"><h2>${esc(shelfTitle(sp.id))}</h2>${shelfHref(sp.id) ? `<a href="${shelfHref(sp.id)}">See all</a>` : ''}</div><div class="rail ${sp.ranked ? 'ranked' : ''}">${skeletons(8)}</div></section>`).join('')
     $('#s-more').querySelectorAll('.shelf').forEach(el => lazy.observe(el))
   }).catch(() => {})
   root.querySelectorAll('.rail').forEach(dragScroll)
