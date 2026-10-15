@@ -11,7 +11,7 @@ npm test
 npm run lint
 ```
 
-Needs Node.js 22+ and `ffmpeg` on the path for the end-to-end test. The frontend is plain ES modules with no build step.
+Needs Node.js 24+ and `ffmpeg` on the path for the end-to-end test. The frontend is plain ES modules with no build step.
 
 ## Commits and pull requests
 

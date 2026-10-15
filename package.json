@@ -29,7 +29,7 @@
     "test": "node --test"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "dependencies": {
     "@browsermt/bergamot-translator": "^0.4.9",
