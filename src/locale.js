@@ -1,6 +1,7 @@
 // Translated titles and descriptions from a public knowledge base for languages the catalog sources lack; a miss keeps the English text.
 import fs from 'node:fs'
 import path from 'node:path'
+import './data.js'
 import { DATA } from './paths.js'
 import { fetchRetry } from './http.js'
 

@@ -6,6 +6,7 @@ import { pickFile } from './sources.js'
 import { sidecarsFor, SUB_FILE } from './sidecar.js'
 import { sendRange, MIME } from './range.js'
 
+import './data.js'
 import { DATA } from './paths.js'
 export { DATA }
 const DL = path.join(DATA, 'downloads')

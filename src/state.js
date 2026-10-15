@@ -2,6 +2,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
+import './data.js'
 import { DATA } from './paths.js'
 
 const FILE = path.join(DATA, 'state.json')

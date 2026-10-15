@@ -32,10 +32,15 @@ if (process.platform === 'darwin') app.dock?.hide()
 // Electron emits 'ready' only after this module has finished evaluating, so nothing here may await it at the top level.
 async function boot () {
   await app.whenReady()
-  const { start, stop } = await import('../server.js')
+  let server; let start; let stop
+  try { ({ start, stop } = await import('../server.js')) } catch (e) {
+    // The data folder is from a newer version, or could not be brought up to date.
+    dialog.showErrorBox('Dodobox cannot start', e.message)
+    app.exit(1)
+    return
+  }
   const { lanAddresses } = await import('../src/net.js')
 
-  let server
   try {
     server = await start()
   } catch (e) {
