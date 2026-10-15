@@ -6,7 +6,7 @@
 
 A self-hosted streaming app for movies, series and anime. Pick a title, press play. Works on phones, laptops and TVs on your home network, with a profile for each person.
 
-Start it (needs [Node.js](https://nodejs.org) 22+):
+Start it (needs [Node.js](https://nodejs.org) 24+):
 
 ```sh
 npm install && npm start
