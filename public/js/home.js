@@ -87,6 +87,7 @@ export async function home (root, only = '') {
       if (!im || im.src) continue
       const lq = lowres(im.dataset.src)
       if (lq) im.previousElementSibling.style.backgroundImage = `url('${lq}')`
+      im.fetchPriority = j === k ? 'high' : 'low'
       im.onload = () => { im.classList.add('in'); learnLink(im) }
       im.src = im.dataset.src
     }

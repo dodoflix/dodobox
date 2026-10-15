@@ -74,13 +74,18 @@ export async function search (root, q) {
   async function run (term) {
     const mine = ++seq
     if (term.length < 2) return idle()
-    res.innerHTML = sections.map(([, n]) => `<h2 class="sec-h">${n}</h2><div class="rail">${skeletons(8)}</div>`).join('')
-    const out = await Promise.allSettled(sections.map(([type]) => cget(`/api/catalog?${new URLSearchParams({ type, q: term })}`, 10 * 60e3)))
-    if (mine !== seq) return
-    const html = sections.map(([, n], k) => out[k].status === 'fulfilled' && out[k].value.length ? `<h2 class="sec-h">${n}</h2><div class="rail">${out[k].value.slice(0, 20).map(i => poster(i)).join('')}</div>` : '').join('')
-    res.innerHTML = html || `<div class="empty"><div class="eico">${icon('search')}</div><h2>No results</h2>Nothing matched "${esc(term)}". Check the spelling or try fewer words.</div>`
-    res.querySelectorAll('.rail').forEach(dragScroll)
+    res.innerHTML = sections.map(([, n], k) => `<div class="sr" data-k="${k}"><h2 class="sec-h">${n}</h2><div class="rail">${skeletons(8)}</div></div>`).join('')
     history.replaceState(null, '', `#/search?q=${enc(term)}`)
+    // Each section shows as soon as its own answer arrives instead of waiting for the slowest one.
+    let left = sections.length
+    sections.forEach(([type], k) => {
+      cget(`/api/catalog?${new URLSearchParams({ type, q: term })}`, 10 * 60e3).then(list => list, () => []).then(list => {
+        if (mine !== seq) return
+        const sec = res.querySelector(`.sr[data-k="${k}"]`)
+        if (list.length) { const rail = $('.rail', sec); rail.innerHTML = list.slice(0, 20).map(i => poster(i)).join(''); dragScroll(rail) } else sec.remove()
+        if (--left === 0 && !res.querySelector('.sr')) res.innerHTML = `<div class="empty"><div class="eico">${icon('search')}</div><h2>No results</h2>Nothing matched "${esc(term)}". Check the spelling or try fewer words.</div>`
+      })
+    })
   }
   input.oninput = () => { clearTimeout(t); t = setTimeout(() => run(input.value.trim()), 280) }
   $('#sf').onsubmit = e => {

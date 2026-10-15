@@ -11,7 +11,6 @@ import { library } from './library.js'
 import { settings } from './settings.js'
 import { watch } from './player.js'
 import { watchTrailer } from './trailer.js'
-import { measure as measureBandwidth } from './bandwidth.js'
 import { initPreview } from './preview.js'
 import { initProfileMenu } from './menu.js'
 import { detectDevice, installTip, profileOnboarding } from './onboarding.js'
@@ -101,7 +100,6 @@ async function boot () {
   await initI18n(S.me.settings.lang)
   installTip(toast)
   initProfileMenu()
-  measureBandwidth()
   initPreview()
   await route()
 }

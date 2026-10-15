@@ -173,6 +173,17 @@ function shelvesFor (p, country, only) {
   for (let i = 0; rows.some(r => i < r.length); i++) for (const r of rows) if (r[i]) out.push(r[i])
   return [...new Set(out)].map(id => ({ id, ranked: /^(top|country):/.test(id) }))
 }
+// The lists every home and type page opens with, and the first titles of each, are fetched in the background after start and
+// again every couple of hours, so the first visitor does not wait on the catalog services (a chart shelf alone takes seconds cold).
+async function warmCatalog () {
+  for (const type of TYPES) {
+    try {
+      const popular = await catalog({ type, q: null, genre: null })
+      for (const id of [`top:${type}`, `new:${type}`, `rated:${type}`]) await shelfItems(id, 'en', false).catch(() => {})
+      for (const i of popular.slice(0, 8)) await meta(type, i.id).catch(() => {})
+    } catch {}
+  }
+}
 async function shelfItems (id, lang, safe) {
   const [kind, a, b] = id.split(':')
   if (!TYPES.includes(a) || (kind === 'country' && !/^[A-Z]{2}$/.test(b)) || (kind === 'genre' && !/^[\w -]{2,24}$/.test(b || ''))) throw Object.assign(new Error('unknown shelf'), { code: 404 })
@@ -502,6 +513,7 @@ export function start (listenPort = process.env.PORT === undefined ? 3000 : +pro
       downloads.init(play)
       refreshTrackers(); setInterval(refreshTrackers, 12 * 3600e3).unref()
       speed.start()
+      setTimeout(warmCatalog, 3000).unref(); setInterval(warmCatalog, 2 * 3600e3).unref()
       encoder().then(e => console.log(`  Video encoder: ${e}`))
       resolve(server)
     })

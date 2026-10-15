@@ -1,6 +1,6 @@
 import { cget, api } from './api.js'
 import { S, progress, inList, toggleList, ratingOf, rate } from './session.js'
-import { $, esc, icon, enc, mins, sized, fullWidth, hue, lowres, thumbW, toast } from './util.js'
+import { $, esc, icon, enc, mins, sized, fullWidth, hue, lowres, thumbW, known, toast } from './util.js'
 import { dragScroll } from './drag.js'
 import { mountTrailer, canTrailer } from './trailer.js'
 import { glow } from './ambient.js'
@@ -11,7 +11,10 @@ const TYPE_LABEL = { movie: 'Movie', series: 'Series', anime: 'Anime' }
 let detailCleanup = null
 export async function title (root, type, id) {
   detailCleanup?.(); detailCleanup = null
-  root.innerHTML = '<div class="view"><section class="d-hero"><div class="d-body d-skel"><div class="sk" style="height:5.5rem;width:80%"></div><div class="sk" style="height:1.1rem;width:55%"></div><div class="sk" style="height:.9rem"></div><div class="sk" style="height:.9rem;width:92%"></div><div class="sk" style="height:.9rem;width:70%"></div><div class="sk" style="height:2.9rem;width:11rem;border-radius:999px;margin-top:.6rem"></div></div></section></div>'
+  // From a card the title is already known: show it (and its backdrop, which the full page reuses) while the details come in.
+  const k = known.get(`${type}:${id}`)
+  root.innerHTML = k ? `<div class="view"><section class="d-hero"><div class="bg" style="--h:${hue(k.name)}"><i class="lq" style="background-image:url('${esc(lowres(sized(k.background || k.poster || '', 0)))}')"></i><img alt="" src="${esc(sized(k.background || k.poster || '', fullWidth()))}" onload="this.classList.add('in')"></div><div class="d-body"><h1 class="title" translate="no">${esc(k.name)}</h1><div class="meta"><span class="tag">${TYPE_LABEL[type]}</span>${k.year ? `<span>${k.year}</span>` : ''}${k.runtime ? `<span>${esc(k.runtime)}</span>` : ''}</div><p class="lede" translate="no">${esc(k.description || '')}</p><div class="actions"><div class="sk" style="height:3rem;width:11rem;border-radius:999px"></div></div></div></section></div>` :
+    '<div class="view"><section class="d-hero"><div class="d-body d-skel"><div class="sk" style="height:5.5rem;width:80%"></div><div class="sk" style="height:1.1rem;width:55%"></div><div class="sk" style="height:.9rem"></div><div class="sk" style="height:.9rem;width:92%"></div><div class="sk" style="height:.9rem;width:70%"></div><div class="sk" style="height:2.9rem;width:11rem;border-radius:999px;margin-top:.6rem"></div></div></section></div>'
   const [m, local] = await Promise.all([cget(`/api/meta/${type}/${enc(id)}`), cget('/api/local', 60e3).catch(() => [])])
   glow(m.poster)
   const flat = type === 'movie' || m.movie
