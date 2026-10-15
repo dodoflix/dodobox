@@ -1,4 +1,4 @@
-import { cget, api } from './api.js'
+import { cget, api, NOW, LATER, SOON } from './api.js'
 import { S, toggleList, inList } from './session.js'
 import { $, esc, icon, poster, skeletons, mins, enc, sized, fullWidth, hue, lowres, learnLink, slowLink } from './util.js'
 import { glow, calm } from './ambient.js'
@@ -110,7 +110,7 @@ export async function home (root, only = '') {
     if (!imgs()[k]?.complete) { dwell = setTimeout(() => startTrailer(k), 800); return }
     const i = items[k]
     let id = i.trailer
-    if (id === undefined) { try { id = (await cget(`/api/meta/${i.type}/${enc(i.id)}`)).trailer } catch { id = null }; i.trailer = id || null }
+    if (id === undefined) { try { id = (await cget(`/api/meta/${i.type}/${enc(i.id)}`, undefined, LATER)).trailer } catch { id = null }; i.trailer = id || null }
     if (!id || dead || k !== idx || !visible) return
     trailer = mountTrailer(htr, id, {
       onPlaying: () => { hero.classList.add('has-trailer'); sound.hidden = false; trailerUntil = Date.now() + 18000; if (!muted) trailer.unmute() },
@@ -200,7 +200,7 @@ export async function home (root, only = '') {
 
   const picks = {}
   for (const t of order) {
-    cget(`/api/catalog?type=${t}`).then(list => {
+    cget(`/api/catalog?type=${t}`, undefined, NOW).then(list => {
       if (dead) return
       const rail = $(`#s-${t} .rail`); rail.innerHTML = list.map(i => poster(i)).join(''); dragScroll(rail)
       picks[t] = list.filter(i => i.background || i.poster).slice(0, only ? 8 : 3)
@@ -210,14 +210,14 @@ export async function home (root, only = '') {
       $(`#s-${t} .rail`).innerHTML = `<p class="dim" style="padding:0 var(--pad)">Couldn't load this right now. It will retry when you come back.</p>`
     })
   }
-  api('/api/local').then(local => {
+  api('/api/local', { ref: { prio: LATER } }).then(local => {
     local = local.filter(e => !only || e.type === only)
     if (dead || !local.length) return
     const seen = new Set(); const uniq = local.filter(e => { const k = e.type + e.mid; return seen.has(k) ? false : (seen.add(k), true) })
     $('#s-local').outerHTML = shelf('On your server', uniq.map(e => poster({ type: e.type, id: e.mid, name: e.name, poster: e.poster, year: e.year })).join(''), { id: 's-local' })
     dragScroll($('#s-local .rail'))
   }).catch(() => {})
-  if (Object.values(S.me.ratings || {}).some(r => r.v > 0)) api('/api/picks').then(groups => {
+  if (Object.values(S.me.ratings || {}).some(r => r.v > 0)) api('/api/picks', { ref: { prio: LATER } }).then(groups => {
     groups = groups.filter(g => !only || g.items[0]?.type === only)
     if (dead || !groups.length) return
     $('#s-picks').innerHTML = groups.map((g, k) => shelf(`Because you liked ${g.because}`, g.items.map(i => poster(i)).join(''), { id: 's-pick' + k })).join('')
@@ -236,7 +236,7 @@ export async function home (root, only = '') {
       dragScroll(rail)
     } catch { sec.remove() }
   }), { rootMargin: '700px 0px' })
-  api(`/api/shelves?country=${region()}${only ? '&type=' + only : ''}`).then(specs => {
+  api(`/api/shelves?country=${region()}${only ? '&type=' + only : ''}`, { ref: { prio: SOON } }).then(specs => {
     if (dead) return
     $('#s-more').innerHTML = specs.map(sp => `<section class="shelf" data-shelf="${esc(sp.id)}" ${sp.ranked ? 'data-ranked="1"' : ''}><div class="shelf-h"><h2>${esc(shelfTitle(sp.id))}</h2></div><div class="rail ${sp.ranked ? 'ranked' : ''}">${skeletons(8)}</div></section>`).join('')
     $('#s-more').querySelectorAll('.shelf').forEach(el => lazy.observe(el))

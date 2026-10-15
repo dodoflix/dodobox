@@ -1,4 +1,4 @@
-import { cget } from './api.js'
+import { cget, NOW, LATER } from './api.js'
 import { $, esc, icon, poster, skeletons, enc, store } from './util.js'
 import { calm } from './ambient.js'
 import { dragScroll } from './drag.js'
@@ -35,7 +35,7 @@ export async function browse (root, type = 'movie', q) {
     busy = true; more.innerHTML = ''
     if (page > 1) tail(true)
     try {
-      const items = await cget(`/api/catalog?${params(page)}`)
+      const items = await cget(`/api/catalog?${params(page)}`, undefined, NOW)
       if (dead) return
       if (page === 1) grid.innerHTML = ''
       tail(false)
@@ -43,7 +43,7 @@ export async function browse (root, type = 'movie', q) {
       if (!items.length) end = true
       if (page === 1 && !items.length) grid.innerHTML = `<div class="empty"><div class="eico">${icon('compass')}</div><h2>Nothing here</h2>Try another genre.</div>`
       page++
-      if (!end) cget(`/api/catalog?${params(page)}`).catch(() => {})
+      if (!end) cget(`/api/catalog?${params(page)}`, undefined, LATER).catch(() => {})
       busy = false
       if (!end && more.getBoundingClientRect().top < innerHeight + 1800) setTimeout(load, 60)
     } catch {
@@ -79,7 +79,7 @@ export async function search (root, q) {
     // Each section shows as soon as its own answer arrives instead of waiting for the slowest one.
     let left = sections.length
     sections.forEach(([type], k) => {
-      cget(`/api/catalog?${new URLSearchParams({ type, q: term })}`, 10 * 60e3).then(list => list, () => []).then(list => {
+      cget(`/api/catalog?${new URLSearchParams({ type, q: term })}`, 10 * 60e3, NOW).then(list => list, () => []).then(list => {
         if (mine !== seq) return
         const sec = res.querySelector(`.sr[data-k="${k}"]`)
         if (list.length) { const rail = $('.rail', sec); rail.innerHTML = list.slice(0, 20).map(i => poster(i)).join(''); dragScroll(rail) } else sec.remove()

@@ -10,6 +10,7 @@ import { title } from './detail.js'
 import { library } from './library.js'
 import { settings } from './settings.js'
 import { watch } from './player.js'
+import { initLoader, resetLoader } from './loader.js'
 import { watchTrailer } from './trailer.js'
 import { initPreview } from './preview.js'
 import { initProfileMenu } from './menu.js'
@@ -33,7 +34,7 @@ function mark (page, arg) {
 }
 
 // Pictures of the page being left stop downloading, so they do not hold up the next page's.
-const dropImages = () => { for (const im of main.querySelectorAll('img')) if (!im.complete) im.removeAttribute('src') }
+const dropImages = () => { resetLoader(); for (const im of main.querySelectorAll('img')) if (!im.complete) im.removeAttribute('src') }
 
 async function route () {
   const mine = ++seq
@@ -100,6 +101,7 @@ async function boot () {
   await initI18n(S.me.settings.lang)
   installTip(toast)
   initProfileMenu()
+  initLoader()
   initPreview()
   await route()
 }

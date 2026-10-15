@@ -1,4 +1,4 @@
-import { cget, api } from './api.js'
+import { cget, api, NOW, LATER } from './api.js'
 import { S, progress, inList, toggleList, ratingOf, rate } from './session.js'
 import { $, esc, icon, enc, mins, sized, fullWidth, hue, lowres, thumbW, known, toast } from './util.js'
 import { dragScroll } from './drag.js'
@@ -15,7 +15,7 @@ export async function title (root, type, id) {
   const k = known.get(`${type}:${id}`)
   root.innerHTML = k ? `<div class="view"><section class="d-hero"><div class="bg" style="--h:${hue(k.name)}"><i class="lq" style="background-image:url('${esc(lowres(sized(k.background || k.poster || '', 0)))}')"></i><img alt="" src="${esc(sized(k.background || k.poster || '', fullWidth()))}" onload="this.classList.add('in')"></div><div class="d-body"><h1 class="title" translate="no">${esc(k.name)}</h1><div class="meta"><span class="tag">${TYPE_LABEL[type]}</span>${k.year ? `<span>${k.year}</span>` : ''}${k.runtime ? `<span>${esc(k.runtime)}</span>` : ''}</div><p class="lede" translate="no">${esc(k.description || '')}</p><div class="actions"><div class="sk" style="height:3rem;width:11rem;border-radius:999px"></div></div></div></section></div>` :
     '<div class="view"><section class="d-hero"><div class="d-body d-skel"><div class="sk" style="height:5.5rem;width:80%"></div><div class="sk" style="height:1.1rem;width:55%"></div><div class="sk" style="height:.9rem"></div><div class="sk" style="height:.9rem;width:92%"></div><div class="sk" style="height:.9rem;width:70%"></div><div class="sk" style="height:2.9rem;width:11rem;border-radius:999px;margin-top:.6rem"></div></div></section></div>'
-  const [m, local] = await Promise.all([cget(`/api/meta/${type}/${enc(id)}`), cget('/api/local', 60e3).catch(() => [])])
+  const [m, local] = await Promise.all([cget(`/api/meta/${type}/${enc(id)}`, undefined, NOW), cget('/api/local', 60e3, LATER).catch(() => [])])
   glow(m.poster)
   const flat = type === 'movie' || m.movie
   const videos = m.videos || []
@@ -126,7 +126,7 @@ export async function title (root, type, id) {
       const d = v.released ? new Date(v.released).toLocaleDateString(document.documentElement.lang || undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''
       return `<div class="ep-row"><a class="ep" href="${watchHref(type, id, v.season, v.episode)}">
         <span class="n">${v.episode}</span>
-        <span class="th" style="--art:url('${esc(lowres(m.background || m.poster) || '')}')">${v.thumbnail ? `<img loading="lazy" alt="" src="${esc(sized(v.thumbnail, thumbW()))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}${r > 0.02 ? `<span class="prog"><i style="width:${Math.min(100, r * 100)}%"></i></span>` : ''}<span class="go">${icon('play')}</span>${r > 0.93 ? `<span class="ok">${icon('check')}</span>` : ''}</span>
+        <span class="th" style="--art:url('${esc(lowres(m.background || m.poster) || '')}')">${v.thumbnail ? `<img alt="" data-src="${esc(sized(v.thumbnail, thumbW()))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}${r > 0.02 ? `<span class="prog"><i style="width:${Math.min(100, r * 100)}%"></i></span>` : ''}<span class="go">${icon('play')}</span>${r > 0.93 ? `<span class="ok">${icon('check')}</span>` : ''}</span>
         <span><span class="t" translate="no">${esc(v.title)}</span><br><span class="d">${future ? 'Airs ' + d : d}${p && r < 0.95 ? ` · ${mins(Math.max(60, p[1] - p[0]))} left` : ''}</span></span>
 </a><button class="dl" data-s="${v.season}" data-e="${v.episode}" aria-label="Download">${icon('down')}</button></div>`
     }).join('') || '<p class="dim">No episodes listed yet.</p>'
