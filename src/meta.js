@@ -121,7 +121,7 @@ export const animeImdb = item => cached(`imdb3:${item.id}`, 30 * 24 * 3600e3, as
   const names = [...new Set(all.map(norm))]; const bases = new Set(all.map(base))
   for (const t of item.movie ? ['movie'] : ['series', 'movie']) {
     for (const q of [...new Set([base(item.altTitles?.[0] || item.name), base(item.name)])]) {
-      let hits = []
+      let hits
       try { hits = await imdbSuggest(q, t) } catch { continue }
       const exact = hits.find(h => names.includes(norm(h.name)) && (!h.year || !item.year || Math.abs(h.year - item.year) <= 1))
       // The catalog often files a show under a shorter name ("86" for "86 EIGHTY-SIX"): accept that when the year agrees and
