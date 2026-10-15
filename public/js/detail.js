@@ -1,6 +1,6 @@
 import { cget, api } from './api.js'
 import { S, progress, inList, toggleList, ratingOf, rate } from './session.js'
-import { $, esc, icon, enc, mins, sized, fullWidth, toast } from './util.js'
+import { $, esc, icon, enc, mins, sized, fullWidth, hue, lowres, toast } from './util.js'
 import { dragScroll } from './drag.js'
 import { mountTrailer, canTrailer } from './trailer.js'
 import { glow } from './ambient.js'
@@ -26,7 +26,7 @@ export async function title (root, type, id) {
 
   root.innerHTML = `<div class="view">
     <section class="d-hero">
-      <div class="bg ${m.background ? '' : 'blur'}"><img alt="" src="${esc(sized(m.background || m.poster || '', fullWidth()))}"></div><div class="trailer-layer" id="dtr" aria-hidden="true"></div>
+      <div class="bg ${m.background ? '' : 'blur'}" style="--h:${hue(m.name)}"><i class="lq" style="background-image:url('${esc(lowres(sized(m.background || m.poster || '', 0)))}')"></i><img alt="" src="${esc(sized(m.background || m.poster || '', fullWidth()))}" onload="this.classList.add('in')"></div><div class="trailer-layer" id="dtr" aria-hidden="true"></div>
       <div class="d-body">
         <h1 class="title" translate="no">${esc(m.name)}</h1>
         <div class="meta"><span class="tag">${TYPE_LABEL[type]}</span>${m.year ? `<span>${m.year}</span>` : ''}${m.runtime ? `<span>${esc(m.runtime)}</span>` : ''}${m.rating ? `<span>${icon('star')}${m.rating.toFixed(1)}</span>` : ''}${m.status && m.status !== 'FINISHED' ? `<span>${esc(m.status.replace(/_/g, ' ').toLowerCase())}</span>` : ''}${mine ? '<span>On your server</span>' : ''}</div>

@@ -1,7 +1,7 @@
 // Hover preview: rest the pointer on a poster and a small card plays the trailer.
 import { cget } from './api.js'
 import { S, toggleList, inList } from './session.js'
-import { esc, icon, enc, sized, isTV, known } from './util.js'
+import { esc, icon, enc, sized, isTV, known, hue, lowres, slowLink } from './util.js'
 import { mountTrailer } from './trailer.js'
 
 const fine = matchMedia('(hover: hover) and (pointer: fine)')
@@ -27,7 +27,7 @@ async function open (poster) {
   const top = Math.max(76, Math.min(innerHeight - 330, r.top - 30))
   card = document.createElement('div')
   card.className = 'peek'; card.style.cssText = `left:${left}px;top:${top}px`
-  card.innerHTML = `<div class="pv" style="background-image:url('${esc(sized(m.background || m.poster, 640))}')"></div>
+  card.innerHTML = `<div class="pv" style="--h:${hue(m.name)}"><i class="lq" style="background-image:url('${esc(lowres(sized(m.background || m.poster, 0)))}')"></i><img alt="" src="${esc(sized(m.background || m.poster, slowLink() ? 480 : 640))}" onload="this.classList.add('in')"></div>
     <div class="pb"><b translate="no">${esc(m.name)}</b>
     <div class="meta">${m.year ? `<span>${m.year}</span>` : ''}${m.runtime ? `<span>${esc(m.runtime)}</span>` : ''}${m.rating ? `<span>${icon('star')}${m.rating.toFixed(1)}</span>` : ''}</div>
     <p translate="no">${esc(m.description || '')}</p>
@@ -40,7 +40,7 @@ async function open (poster) {
     if (l) { toggleList(m).then(() => { l.innerHTML = inList(m.type, m.id) ? icon('check') + 'In list' : icon('plus') + 'My List' }); return }
     if (!e.target.closest('a')) location.hash = `#/title/${m.type}/${enc(m.id)}`
   })
-  if (m.trailer && navigator.onLine && !navigator.connection?.saveData) {
+  if (m.trailer && navigator.onLine && !slowLink()) {
     const mine = card
     trailerT = setTimeout(() => { if (card === mine) trailer = mountTrailer(mine.querySelector('.pv'), m.trailer, { width: 1280, onFail: () => { trailer = null } }) }, 700)
   }

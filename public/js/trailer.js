@@ -1,11 +1,11 @@
 // Trailers: video-host embeds driven through the player API with Dodobox's own controls; the embed stays invisible until it is really playing so a blocked trailer never shows the host's error card.
-import { $, esc, icon, clock, isTV, enc } from './util.js'
+import { $, esc, icon, clock, isTV, enc, slowLink } from './util.js'
 import { cget } from './api.js'
 import { volumeHTML, bindVolume } from './volume.js'
 import { onBack } from './nav.js'
 import { glow } from './ambient.js'
 
-export const canTrailer = () => (matchMedia('(hover: hover) and (pointer: fine)').matches || isTV) && !navigator.connection?.saveData && navigator.onLine
+export const canTrailer = () => (matchMedia('(hover: hover) and (pointer: fine)').matches || isTV) && !slowLink() && navigator.onLine
 
 const ORIGIN = 'https://www.youtube-nocookie.com'
 const send = (frame, func, args = []) => frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*')

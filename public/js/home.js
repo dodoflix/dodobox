@@ -1,6 +1,6 @@
 import { cget, api } from './api.js'
 import { S, toggleList, inList } from './session.js'
-import { $, esc, icon, poster, skeletons, mins, enc, sized, fullWidth } from './util.js'
+import { $, esc, icon, poster, skeletons, mins, enc, sized, fullWidth, hue, lowres, learnLink, slowLink } from './util.js'
 import { glow, calm } from './ambient.js'
 import { usingKeys } from './nav.js'
 import { mountTrailer, canTrailer } from './trailer.js'
@@ -81,9 +81,18 @@ export async function home (root, only = '') {
     track.style.transform = `translateX(${-idx * 100}%)`
     if (jump) { bg.classList.remove('jump'); void bg.offsetWidth; bg.classList.add('jump') }
   }
-  function loadAround (k) { for (const j of [k, k + 1, k - 1]) { const im = imgs()[(j + items.length) % items.length]; if (im && !im.src) im.src = im.dataset.src } }
+  function loadAround (k) {
+    for (const j of slowLink() ? [k, k + 1] : [k, k + 1, k - 1]) {
+      const im = imgs()[(j + items.length) % items.length]
+      if (!im || im.src) continue
+      const lq = lowres(im.dataset.src)
+      if (lq) im.previousElementSibling.style.backgroundImage = `url('${lq}')`
+      im.onload = () => { im.classList.add('in'); learnLink(im) }
+      im.src = im.dataset.src
+    }
+  }
   function buildImages () {
-    bg.innerHTML = `<div class="track">${items.map(i => { const h = heroSrc(i); return `<img alt="" decoding="async" class="${h.portrait ? 'portrait' : ''}" data-src="${esc(h.src)}">` }).join('')}</div>`
+    bg.innerHTML = `<div class="track">${items.map(i => { const h = heroSrc(i); return `<div class="slide" style="--h:${hue(i.name)}"><i class="lq"></i><img alt="" decoding="async" class="${h.portrait ? 'portrait' : ''}" data-src="${esc(h.src)}"></div>` }).join('')}</div>`
     track = $('.track', bg)
     place(false)
     loadAround(idx)
@@ -96,6 +105,8 @@ export async function home (root, only = '') {
   }
   async function startTrailer (k) {
     if (dead || k !== idx || !visible || !canTrailer()) return
+    // The banner comes first: a trailer would compete with it for the connection (and the first picture tells how fast that is).
+    if (!imgs()[k]?.complete) { dwell = setTimeout(() => startTrailer(k), 800); return }
     const i = items[k]
     let id = i.trailer
     if (id === undefined) { try { id = (await cget(`/api/meta/${i.type}/${enc(i.id)}`)).trailer } catch { id = null }; i.trailer = id || null }

@@ -17,7 +17,22 @@ export const store = {
 }
 
 export const sized = (src, w) => (src && src.startsWith('/img?') ? `${src}&w=${w}` : src)
-export const fullWidth = () => Math.round(innerWidth * Math.min(devicePixelRatio || 1, 2))
+// A slow link (the browser's own hint, or what recent images actually took) gets smaller pictures and no trailers.
+export const slowLink = () => {
+  const c = navigator.connection; const bw = store.get('bw', 0)
+  return !!(c && (c.saveData || /^(slow-2g|2g|3g)$/.test(c.effectiveType))) || (bw > 0 && bw < 4)
+}
+// Learns the link's speed from a picture that has just been downloaded (cached or tiny ones say nothing).
+export function learnLink (img) {
+  const e = performance.getEntriesByName(img.currentSrc || img.src).pop()
+  if (!e || e.transferSize < 40e3 || e.responseEnd <= e.responseStart) return
+  const mbps = e.transferSize * 8 / (e.responseEnd - e.responseStart) / 1000
+  const old = store.get('bw', 0)
+  store.set('bw', Math.round((old ? old * 0.6 + mbps * 0.4 : mbps) * 10) / 10)
+}
+// A tiny copy of a proxied picture: shown blurred while the real one arrives.
+export const lowres = src => (src && src.startsWith('/img?') ? src.replace(/&w=\d+$/, '') + '&w=240' : '')
+export const fullWidth = () => { const w = Math.round(innerWidth * Math.min(devicePixelRatio || 1, 2)); return slowLink() ? Math.min(w, 960) : w }
 export const px = css => Math.round(css * Math.min(devicePixelRatio || 1, 2))
 
 export const icon = (n, c = '') => `<svg class="i ${c}" aria-hidden="true"><use href="#i-${n}"/></svg>`
@@ -43,7 +58,7 @@ export function toast (msg, { action, ms = 3600 } = {}) {
   setTimeout(() => el.remove(), ms)
 }
 
-const hue = n => { let h = 0; for (const c of String(n || '')) h = (h * 31 + c.charCodeAt(0)) % 360; return h }
+export const hue = n => { let h = 0; for (const c of String(n || '')) h = (h * 31 + c.charCodeAt(0)) % 360; return h }
 const initial = n => (String(n || '?').match(/[\p{L}\p{N}]/u) || ['?'])[0].toUpperCase()
 
 export const known = new Map()
@@ -57,7 +72,7 @@ export function poster (i, { progress, sub, href } = {}) {
   remember(i)
   const link = href || `#/title/${i.type}/${enc(i.id)}`
   return `<a class="poster" href="${link}">
-    <div class="art"><div class="ph" translate="no" style="--h:${hue(i.name)}"><b>${esc(initial(i.name))}</b><span>${esc(i.name)}</span></div>${i.poster ? `<img loading="lazy" decoding="async" alt="" src="${esc(sized(i.poster, 360))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}</div>
+    <div class="art"><div class="ph" translate="no" style="--h:${hue(i.name)}"><b>${esc(initial(i.name))}</b><span>${esc(i.name)}</span></div>${i.poster ? `<img loading="lazy" decoding="async" alt="" src="${esc(sized(i.poster, slowLink() ? 240 : 360))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}</div>
     ${i.rating ? `<span class="badge">${icon('star')}${i.rating.toFixed(1)}</span>` : ''}
     <div class="cap" translate="no">${esc(i.name)}</div><div class="sub">${esc(sub ?? i.year ?? '')}</div>
     ${progress != null ? `<div class="prog"><i style="width:${Math.min(100, progress * 100)}%"></i></div>` : ''}
