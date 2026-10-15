@@ -1,0 +1,34 @@
+name: Bug report
+description: Something does not work
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you saw. A title and episode help for playback problems.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Dodobox version
+      description: From the Settings page, or `/api/health`.
+    validations:
+      required: true
+  - type: dropdown
+    id: how
+    attributes:
+      label: How it runs
+      options: [npm start, Docker, start script]
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Server OS and browser or TV
+  - type: textarea
+    id: logs
+    attributes:
+      label: Server log or browser console output
+      render: text
