@@ -45,5 +45,5 @@ export const patterns = [
   'Đang chuẩn bị ngôn ngữ... $1%', 'Đang dịch... $1%',
   'Đang cải thiện chất lượng... $1%',
   'Đang cài đặt... $1%',
-  'Dodobox $1 đã có sẵn', 'Phiên bản $1 đã có sẵn', 'Bạn đang dùng phiên bản $1.', 'Kéo image mới và tạo lại container: $1', 'Chỉ phụ đề bắt buộc: $1'
+  'Dodobox $1 đã có sẵn', 'Phiên bản $1 đã có sẵn', 'Bạn đang dùng phiên bản $1.', 'Kéo image mới và tạo lại container: $1', 'Chỉ phụ đề bắt buộc: $1', 'Không tìm thấy phụ đề $1'
 ]
