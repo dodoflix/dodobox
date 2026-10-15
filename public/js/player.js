@@ -357,7 +357,7 @@ export async function watch (type, id, season, episode) {
     if (!syncRes || !autoOn() || !subSel || subSel.embedded || v.paused || document.hidden || castCtl || dead) return
     const gen = syncGen; const t = v.currentTime
     const expected = offsetAt(syncRes.anchors, syncRes.model, t * syncRes.ratio)
-    let r = null
+    let r
     try { r = await api(`/api/sub/sync?${new URLSearchParams({ hash, file: st.fileIdx, src: subSel.src, at: t, ratio: syncRes.ratio, expected })}`) } catch { return }
     if (gen !== syncGen || dead || !r?.probe) return
     const p = r.probe
@@ -621,7 +621,7 @@ export async function watch (type, id, season, episode) {
           if (!e.stall) throw e
           tried.add(hash); info = null
           setLoad({ line: 'That version is slow. Trying another...', pct: null, actions: '' })
-          if (attempt === 4) throw new Error('No version of this title is available right now.')
+          if (attempt === 4) throw new Error('No version of this title is available right now.', { cause: e })
         }
       }
       if (dead || !info) return
