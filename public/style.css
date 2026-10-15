@@ -50,6 +50,8 @@ button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 img { display: block; }
 * { scrollbar-width: thin; scrollbar-color: var(--s3) transparent; }
+body { -webkit-user-select: none; user-select: none; }
+input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; }
 ::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-thumb { background: var(--s3); border-radius: var(--r-pill); }
 :focus { outline: none; }
 :focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; border-radius: var(--r-tag); }
@@ -131,6 +133,8 @@ h1.title { font: 900 clamp(3rem, min(8.2vw, 11vh), 6.5rem)/1 var(--display); tex
 .dots button:not(.on) i { transition: none; }
 
 /* Shelves and posters */
+/* Off-screen shelves and grid tiles skip layout and paint until they near the viewport; auto remembers each real size once drawn. */
+.shelf, .sr { content-visibility: auto; contain-intrinsic-block-size: auto calc(var(--pw) * 1.5 + 10rem); }
 .shelf { margin-top: 2rem; }
 .hero + .shelf { margin-top: -1.5rem; position: relative; z-index: 4; }
 .shelf-h { display: flex; align-items: baseline; justify-content: space-between; padding: 0 var(--pad); margin-bottom: .35rem; }
@@ -159,6 +163,8 @@ html.tv .poster:focus-visible .art { outline-width: 4px; transform: scale(1.06);
 .poster .badge { position: absolute; z-index: 1; top: .5rem; right: .5rem; display: inline-flex; align-items: center; gap: .25rem; padding: .22rem .5rem; border-radius: var(--r-tag); background: rgb(0 0 0 / .62); backdrop-filter: blur(6px); font-size: var(--fs-xs); font-weight: 750; line-height: 1; }
 .poster .badge .i { width: .85rem; height: .85rem; fill: rgb(var(--glow)); stroke: none; margin: 0; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--pw), 1fr)); gap: 1.6rem var(--gap); padding: 1rem var(--pad); }
+/* The padding on tiles and rows keeps focus rings and the TV zoom from being clipped by the paint containment content-visibility adds. */
+.grid .poster { content-visibility: auto; contain-intrinsic-block-size: auto calc(var(--pw) * 1.5 + 4.5rem); padding: 12px; margin: -12px; }
 .sk { position: relative; overflow: hidden; background: var(--s2); border-radius: var(--r); animation: breathe 2.2s ease-in-out infinite; }
 @keyframes breathe { 0%, 100% { opacity: .55; } 50% { opacity: .9; } }
 .sk.art { aspect-ratio: 2 / 3; }
@@ -608,7 +614,7 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 .eps-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-right: var(--pad); }
 .eps-bar .tabs { min-width: 0; flex: 1; margin-right: 0; }
 .eps-bar .btn { flex: none; }
-.ep-row { display: flex; align-items: center; gap: .5rem; }
+.ep-row { display: flex; align-items: center; gap: .5rem; content-visibility: auto; contain-intrinsic-block-size: auto 8rem; padding: 8px; margin: -8px; }
 .ep-row .ep { flex: 1; min-width: 0; }
 .dl { flex: none; display: grid; place-items: center; width: 2.7rem; height: 2.7rem; border: 0; border-radius: 50%; background: transparent; color: var(--ink3); transition: background .2s, color .2s; }
 .dl:hover { background: rgb(255 255 255 / .1); color: var(--ink); }
