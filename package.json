@@ -2,7 +2,7 @@
   "name": "dodobox",
   "version": "0.0.0",
   "private": true,
-  "description": "Self-hosted streaming app: IMDb/AniList metadata, torrent playback, subtitles",
+  "description": "Self-hosted streaming app: torrent playback, subtitles, profiles",
   "keywords": [
     "streaming",
     "self-hosted",

@@ -31,6 +31,10 @@ Keep a pull request to one change. Add or update a test when behaviour changes, 
 
 Releases are automatic. Every merge to `main` updates a release pull request with the next version and changelog. Merging that pull request tags the release, publishes the notes and pushes the container image to `ghcr.io/dodoflix/dodobox`.
 
+## Scope
+
+See the [legal notice](LEGAL.md): changes that add services built to distribute infringing content, or that bundle copyrighted material, are declined.
+
 ## Reporting security problems
 
 See [SECURITY.md](SECURITY.md).
