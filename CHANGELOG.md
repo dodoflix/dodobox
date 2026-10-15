@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.3.0](https://github.com/dodoflix/dodobox/compare/v0.2.0...v0.3.0) (2026-10-15)
+
+
+### Features
+
+* use subtitle files beside local videos, say when a language is missing ([#15](https://github.com/dodoflix/dodobox/issues/15)) ([36ae92a](https://github.com/dodoflix/dodobox/commit/36ae92ab3e6cfa9ff18bc8c4b89579deed7a1034))
+* use subtitle files that come inside the torrent ([#13](https://github.com/dodoflix/dodobox/issues/13)) ([ffc7cd1](https://github.com/dodoflix/dodobox/commit/ffc7cd124e6cfb23cda325e3491b645b2d7dfa25))
+* version the data folder and browser storage, migrate on upgrade ([#17](https://github.com/dodoflix/dodobox/issues/17)) ([5e075d7](https://github.com/dodoflix/dodobox/commit/5e075d73276c0e71c6d0bb15d75d0cf6609729d6))
+
+
+### Bug fixes
+
+* find subtitles for late episodes of long anime ([#12](https://github.com/dodoflix/dodobox/issues/12)) ([83ed80a](https://github.com/dodoflix/dodobox/commit/83ed80a09744a59aba4208f69a43388112eb10d4))
+* translate library rows, time left and episode codes ([#16](https://github.com/dodoflix/dodobox/issues/16)) ([ee0a6a9](https://github.com/dodoflix/dodobox/commit/ee0a6a9f35e5bcc5b9fe5954fefd208895a49f22))
+* update check on unsigned desktop builds, missing translations ([#11](https://github.com/dodoflix/dodobox/issues/11)) ([28b9383](https://github.com/dodoflix/dodobox/commit/28b938307cca9d965aa98ab88e28aaf04f5197c1))
+
 ## [0.2.0](https://github.com/dodoflix/dodobox/compare/v0.1.0...v0.2.0) (2026-10-15)
 
 
