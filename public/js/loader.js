@@ -1,4 +1,4 @@
-// Pictures with a data-src load nearest the top of the screen first, a few at a time, so what is on screen is never behind what is
+// Pictures with a data-src (and tiles with a data-art background) load nearest the top of the screen first, a few at a time, so what is on screen is never behind what is
 // off it and data requests keep their share of the connection. Whatever scrolls away before its turn is dropped from the queue.
 import { slowLink } from './util.js'
 
@@ -28,12 +28,17 @@ function pump () {
 }
 
 const io = new IntersectionObserver(entries => {
-  for (const e of entries) e.isIntersecting ? queue.add(e.target) : queue.delete(e.target)
+  for (const e of entries) {
+    const el = e.target
+    // A background picture (data-art) is set when its tile comes near the screen; it is one shared picture, so it is not queued.
+    if (el.dataset.art !== undefined) { if (e.isIntersecting) { el.style.setProperty('--art', el.dataset.art); io.unobserve(el) } continue }
+    e.isIntersecting ? queue.add(el) : queue.delete(el)
+  }
   pump()
 }, { rootMargin: '300px 500px' })
 
 const watch = el => {
-  for (const im of el.matches('img[data-src]') ? [el] : el.querySelectorAll('img[data-src]')) {
+  for (const im of el.matches('img[data-src], [data-art]') ? [el] : el.querySelectorAll('img[data-src], [data-art]')) {
     if (!seen.has(im)) { seen.add(im); io.observe(im) }
   }
 }
