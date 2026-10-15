@@ -100,7 +100,8 @@
         "AppImage",
         "deb"
       ],
-      "maintainer": "Dodobox contributors <43419555+dodoflix@users.noreply.github.com>"
+      "maintainer": "Dodobox contributors <43419555+dodoflix@users.noreply.github.com>",
+      "icon": "desktop/build/icons"
     },
     "portable": {
       "artifactName": "Dodobox-Portable-${version}-${arch}.${ext}"
