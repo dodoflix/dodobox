@@ -99,12 +99,18 @@ export function segment (url, key, n, audio = 0, maxH = 1080) {
   if (!segs.has(k)) {
     const t = n * SEG
     const p = (async () => {
-      const enc = ENCODERS[await encoder()]
+      const name = await encoder()
       await slot()
       try {
         // Re-encode (not copy) so every segment starts on a keyframe; -output_ts_offset keeps timestamps continuous.
-        return await run([...enc.pre, '-ss', String(t), '-i', url, '-t', String(SEG), '-map', '0:v:0', '-map', `0:a:${audio}?`, '-sn', '-dn',
+        const encode = enc => run([...enc.pre, '-ss', String(t), '-i', url, '-t', String(SEG), '-map', '0:v:0', '-map', `0:a:${audio}?`, '-sn', '-dn',
           ...enc.video(maxH), '-af', 'aresample=async=1:first_pts=0', '-c:a', 'aac', '-b:a', '160k', '-ac', '2', '-ar', '48000', '-f', 'mpegts', '-muxdelay', '0', '-muxpreload', '0', '-output_ts_offset', String(t), 'pipe:1'])
+        // A graphics card that refuses the job (a size or setting it cannot take) must not stop playback: the processor does it.
+        return await encode(ENCODERS[name]).catch(e => {
+          if (name === 'libx264') throw e
+          console.warn(`[transcode] ${name} failed (${String(e.message).split('\n').pop().slice(0, 120)}); using the processor for this segment`)
+          return encode(ENCODERS.libx264)
+        })
       } finally { release() }
     })()
     p.catch(() => segs.delete(k))

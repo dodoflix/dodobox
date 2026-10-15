@@ -6,6 +6,7 @@ import { playlist } from '../src/transcode.js'
 import { upstream } from '../src/images.js'
 import * as updates from '../src/update.js'
 import { parseProbe } from '../src/transcode.js'
+import { ENCODERS } from '../src/bin.js'
 const { newer } = updates
 
 test('anime episode matching', () => {
@@ -326,4 +327,11 @@ test('ffmpeg\'s file report is read as streams: codecs, languages, titles, defau
   const mp4 = parseProbe('Input #0, mov,mp4,m4a,3gp,3g2,mj2, from \'a.mp4\':\n  Duration: 00:00:03.04, start: 0.0, bitrate: 1 kb/s\n  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 640x360 [SAR 1:1 DAR 16:9], 24 fps, 24 tbr (default)\n')
   assert.deepEqual([mp4.format, mp4.streams[0].codec, mp4.streams[0].pix_fmt, mp4.streams[0].width, mp4.streams[0].lang], ['mov,mp4,m4a,3gp,3g2,mj2', 'h264', 'yuv420p', 640, 'und'])
   assert.deepEqual(parseProbe(''), { format: '', duration: 0, streams: [] })
+})
+
+test('the encoder level covers the frame size, so 1440p and 2160p do not fail to start', () => {
+  const level = (name, h) => { const a = ENCODERS[name].video(h); return a[a.indexOf('-level') + 1] }
+  for (const name of ['libx264', 'h264_nvenc']) { assert.equal(level(name, 1080), '4.1'); assert.equal(level(name, 720), '4.1'); assert.equal(level(name, 1440), '5.1'); assert.equal(level(name, 2160), '5.1') }
+  assert.equal(level('h264_videotoolbox', 1080), '4.2')
+  assert.equal(level('h264_videotoolbox', 2160), '5.1')
 })
