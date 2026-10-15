@@ -330,7 +330,12 @@ export const ROWS = [
   ['Something went wrong.', 'Bir şeyler ters gitti.', 'Algo salió mal.', 'Une erreur s\'est produite.', 'Etwas ist schiefgelaufen.'],
   ['Download the new installer and run it.', 'Yeni yükleyiciyi indirip çalıştır.', 'Descarga el nuevo instalador y ejecútalo.', 'Téléchargez le nouvel installateur et lancez-le.', 'Lade das neue Installationsprogramm herunter und führe es aus.'],
   ['Download the new release, or pull the new source and run npm install.', 'Yeni sürümü indir veya yeni kaynağı çekip npm install çalıştır.', 'Descarga la nueva versión, o trae el código nuevo y ejecuta npm install.', 'Téléchargez la nouvelle version, ou récupérez le nouveau code source et lancez npm install.', 'Lade die neue Version herunter oder hole den neuen Quellcode und führe npm install aus.'],
-  ['Nothing playable found for this title right now', 'Bu başlık için şu an oynatılabilir bir şey bulunamadı', 'No se encontró nada reproducible para este título ahora mismo', 'Rien de lisible trouvé pour ce titre pour le moment', 'Für diesen Titel wurde gerade nichts Abspielbares gefunden']
+  ['Nothing playable found for this title right now', 'Bu başlık için şu an oynatılabilir bir şey bulunamadı', 'No se encontró nada reproducible para este título ahora mismo', 'Rien de lisible trouvé pour ce titre pour le moment', 'Für diesen Titel wurde gerade nichts Abspielbares gefunden'],
+  ['Saved', 'Kaydedildi', 'Guardado', 'Enregistré', 'Gespeichert'],
+  ['No playable file found in torrent', 'Torrent içinde oynatılabilir dosya bulunamadı', 'No se encontró ningún archivo reproducible en el torrent', 'Aucun fichier lisible trouvé dans le torrent', 'Keine abspielbare Datei im Torrent gefunden'],
+  ['not found', 'bulunamadı', 'no encontrado', 'introuvable', 'nicht gefunden'],
+  ['Name required', 'Ad gerekli', 'Falta el nombre', 'Nom requis', 'Name erforderlich'],
+  ['Update from the computer Dodobox runs on', 'Güncellemeyi Dodobox\'ın çalıştığı bilgisayardan yap', 'Actualiza desde el equipo donde se ejecuta Dodobox', 'Mettez à jour depuis l\'ordinateur sur lequel Dodobox fonctionne', 'Aktualisiere auf dem Computer, auf dem Dodobox läuft']
 ]
 
 // Patterns for text that carries numbers or names. $1, $2 refer to captured groups; the same order for every language.
@@ -343,7 +348,7 @@ export const PATTERNS = [
   [/^Airs (.+)$/, ['Yayın: $1', 'Se estrena $1', 'Diffusion le $1', 'Läuft am $1']],
   [/^(\d+) h (\d+) min$/, ['$1 sa $2 dk', '$1 h $2 min', '$1 h $2 min', '$1 Std. $2 Min.']],
   [/^(\d+) min$/, ['$1 dk', '$1 min', '$1 min', '$1 Min.']],
-  [/^(.*?)(\d+ h \d+ min|\d+ min) left$/, ['$1$2 kaldı', '$1quedan $2', '$1$2 restantes', '$1noch $2']],
+  [/^(.*?)(\d+) h (\d+) min left$/, ['$1$2 sa $3 dk kaldı', '$1quedan $2 h $3 min', '$1$2 h $3 min restantes', '$1noch $2 Std. $3 Min.']],
   [/^(.*?)(\d+) min left$/, ['$1$2 dk kaldı', '$1quedan $2 min', '$1$2 min restantes', '$1noch $2 Min.']],
   [/^Show featured title (\d+) of (\d+)$/, ['Öne çıkan $1 / $2', 'Mostrar destacado $1 de $2', 'Afficher le titre $1 sur $2', 'Empfehlung $1 von $2 anzeigen']],
   [/^Play (.+)$/, ['$1 oynat', 'Reproducir $1', 'Lire $1', '$1 abspielen']],
@@ -378,5 +383,6 @@ export const PATTERNS = [
   [/^You have (\S+)\.$/, ['Sende $1 var.', 'Tienes la versión $1.', 'Vous avez la version $1.', 'Du hast Version $1.']],
   [/^Pull the new image and recreate the container: (.+)$/, ['Yeni imajı çekip kapsayıcıyı yeniden oluştur: $1', 'Descarga la nueva imagen y recrea el contenedor: $1', 'Récupérez la nouvelle image et recréez le conteneur : $1', 'Lade das neue Image und erstelle den Container neu: $1']],
   [/^Forced only: (.+)$/, ['Yalnızca zorunlu: $1', 'Solo forzados: $1', 'Forcés uniquement : $1', 'Nur erzwungen: $1']],
+  [/^QR code for (.+)$/, ['$1 için QR kodu', 'Código QR de $1', 'Code QR pour $1', 'QR-Code für $1']],
   [/^Tip: (.+)$/, null]
 ].filter(p => p[1])

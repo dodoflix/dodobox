@@ -37,7 +37,9 @@ export async function watch (type, id, season, episode) {
   const at = vids.findIndex(v => v.season === season && v.episode === episode)
   const ep = vids[at]
   const next = flat ? null : vids[at + 1]
-  const label = flat ? '' : `S${season} E${episode}${ep?.title && !/^Episode \d+$/.test(ep.title) ? ' · ' + ep.title : ''}`
+  const epTitle = !flat && ep?.title && !/^Episode \d+$/.test(ep.title) ? ep.title : ''
+  // For the cast receiver and the media session, which show plain text; the title bar builds its own so the episode code translates.
+  const label = flat ? '' : `S${season} E${episode}${epTitle ? ' · ' + epTitle : ''}`
   glow(m.poster)
 
   layer.innerHTML = `
@@ -47,7 +49,7 @@ export async function watch (type, id, season, episode) {
     <div class="pl-fx l"></div><div class="pl-fx r"></div>
     <div class="pl-spin" hidden></div>
     <div class="pl-top"><button class="cbtn" id="back" aria-label="Back">${icon('left')}</button>
-      <div class="ttl"><b translate="no">${esc(m.name)}</b>${label ? `<span translate="no">${esc(label)}</span>` : ''}</div></div>
+      <div class="ttl"><b translate="no">${esc(m.name)}</b>${flat ? '' : `<span><span>S${season} E${episode}</span>${epTitle ? ` · <span translate="no">${esc(epTitle)}</span>` : ''}</span>`}</div></div>
     <div class="pl-center"><button id="big" aria-label="Play or pause">${icon('play')}</button></div>
     <div class="pl-bottom">
       <div class="scrub" id="scrub" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0"><div class="track"><div class="buf"></div><div class="done"></div><div class="knob"></div><div class="tip">0:00</div></div></div>

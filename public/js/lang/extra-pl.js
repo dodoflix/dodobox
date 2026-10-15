@@ -34,10 +34,12 @@ export const rows = [
 /*adult*/ 'Filtr treści dla dorosłych', 'Ukrywa tytuły oznaczone jako dla dorosłych. Domyślnie wyłączone.',
 /*best*/ 'Najlepsza jakość tłumaczenia', 'Automatycznie tłumaczone napisy używają większego tłumacza. Za pierwszym razem pobiera około 2 GB, a każde napisy stopniowo się poprawiają podczas oglądania.',
 /*install*/ 'Zainstalowano i gotowe', 'Zainstalowano i gotowe, używa karty graficznej', 'Nie udało się zainstalować. Sprawdź połączenie z internetem, a potem wyłącz i włącz opcję.',
-/*ui2*/ 'Nie udało się wczytać więcej.', 'Domyślne', 'Teraz odtwarzane', 'Odczytywanie napisów...', 'Oczekiwanie na dalszą część pobierania...', 'Informacje o wydaniu', 'Zaktualizuj teraz', 'Później', 'Pobieranie aktualizacji...', 'Aktualizacja jest gotowa', 'Dodobox uruchomi się ponownie, aby dokończyć.', 'Uruchom ponownie, aby zaktualizować', 'Aktualizacja się nie powiodła', 'Zamknij', 'Ponowne uruchamianie Dodobox...', 'Ta strona odświeży się sama.', 'Coś poszło nie tak.', 'Pobierz nowy instalator i uruchom go.', 'Pobierz nową wersję albo pobierz nowy kod źródłowy i uruchom npm install.', 'Na razie nie znaleziono nic do odtworzenia dla tego tytułu'
+/*ui2*/ 'Nie udało się wczytać więcej.', 'Domyślne', 'Teraz odtwarzane', 'Odczytywanie napisów...', 'Oczekiwanie na dalszą część pobierania...', 'Informacje o wydaniu', 'Zaktualizuj teraz', 'Później', 'Pobieranie aktualizacji...', 'Aktualizacja jest gotowa', 'Dodobox uruchomi się ponownie, aby dokończyć.', 'Uruchom ponownie, aby zaktualizować', 'Aktualizacja się nie powiodła', 'Zamknij', 'Ponowne uruchamianie Dodobox...', 'Ta strona odświeży się sama.', 'Coś poszło nie tak.', 'Pobierz nowy instalator i uruchom go.', 'Pobierz nową wersję albo pobierz nowy kod źródłowy i uruchom npm install.', 'Na razie nie znaleziono nic do odtworzenia dla tego tytułu',
+/*more*/ 'Zapisane', 'Nie znaleziono pliku do odtworzenia w torrencie',
+/*more*/ 'nie znaleziono', 'Nazwa jest wymagana', 'Zaktualizuj z komputera, na którym działa Dodobox'
 ]
 export const patterns = [
-  'Cześć $1, dostosuj to do siebie', 'Sezon $1', 'Sezon $1 · Odcinek $2', 'Wznów S$1 O$2', 'S$1 O$2$3', 'Premiera $1', '$1 godz. $2 min', '$1 min', '$1zostało $2', '$1zostało $2 min',
+  'Cześć $1, dostosuj to do siebie', 'Sezon $1', 'Sezon $1 · Odcinek $2', 'Wznów S$1 O$2', 'S$1 O$2$3', 'Premiera $1', '$1 godz. $2 min', '$1 min', '$1zostało $2 godz. $3 min', '$1zostało $2 min',
   'Pokaż polecany tytuł $1 z $2', 'Odtwórz $1', 'Znaleziono tytułów: $1', 'Szukam w: $1', 'Użyto $1', 'Limit $1', 'Użyto $1 z $2. Najstarsze nieobejrzane pobrania są usuwane automatycznie, gdy miejsce się skończy.',
   'Automatyczna wybiera najlepszą wersję dla połączenia i ekranu (internet tego serwera: około $1 Mb/s). Wybierz poziom, aby go wymusić.', 'Automatyczna wybiera najlepszą wersję dla połączenia i ekranu. Wybierz poziom, aby go wymusić.',
   'Enkoder wideo: programowy', 'Enkoder wideo: $1', 'Brak wyników dla „$1". Sprawdź pisownię lub użyj mniej słów.', 'Buforowanie · $1', 'Odtwarzanie na $1 · $2', '$1p dla Twojego połączenia', 'Dodano odcinków do pobranych: $1', 'Pobieranie $1/$2', 'Bo spodobało Ci się $1', '$1 · częściowe',
@@ -45,5 +47,5 @@ export const patterns = [
   'Przygotowywanie języka... $1%', 'Tłumaczenie... $1%',
   'Poprawianie jakości... $1%',
   'Instalowanie... $1%',
-  'Dostępny jest Dodobox $1', 'Dostępna jest wersja $1', 'Masz wersję $1.', 'Pobierz nowy obraz i utwórz kontener ponownie: $1', 'Tylko wymuszone: $1'
+  'Dostępny jest Dodobox $1', 'Dostępna jest wersja $1', 'Masz wersję $1.', 'Pobierz nowy obraz i utwórz kontener ponownie: $1', 'Tylko wymuszone: $1', 'Kod QR dla $1'
 ]

@@ -11,10 +11,14 @@ let exact = new Map(); let patterns = []; let obs = null; let current = 'en'
 const ATTRS = ['aria-label', 'placeholder', 'title', 'alt']
 const collapse = s => s.replace(/\s+/g, ' ').trim()
 
+// "S1 E2 · 24 min left": the episode code and what follows (a time, a title) are translated on their own.
+const EPISODE_TAIL = /^(S\d+ E\d+) · (.+)$/
 function lookup (text) {
   const key = collapse(text)
   if (!key) return null
   if (exact.has(key)) return exact.get(key)
+  const ep = key.match(EPISODE_TAIL)
+  if (ep) { const a = lookup(ep[1]); const b = lookup(ep[2]); if (a != null || b != null) return `${a ?? ep[1]} · ${b ?? ep[2]}` }
   for (const [re, out] of patterns) { if (re.test(key)) return key.replace(re, out) }
   return null
 }
