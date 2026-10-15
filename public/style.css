@@ -161,6 +161,7 @@ html.tv .poster:focus-visible .art { outline-width: 4px; transform: scale(1.06);
 .poster .prog { height: 3px; margin-top: .55rem; background: rgb(255 255 255 / .18); border-radius: var(--r-pill); overflow: hidden; }
 .poster .prog i { display: block; height: 100%; background: rgb(var(--glow)); }
 .poster .badge { position: absolute; z-index: 1; top: .5rem; right: .5rem; display: inline-flex; align-items: center; gap: .25rem; padding: .22rem .5rem; border-radius: var(--r-tag); background: rgb(0 0 0 / .62); backdrop-filter: blur(6px); font-size: var(--fs-xs); font-weight: 750; line-height: 1; }
+.grid .poster .badge { top: calc(.5rem + 12px); right: calc(.5rem + 12px); }
 .poster .badge .i { width: .85rem; height: .85rem; fill: rgb(var(--glow)); stroke: none; margin: 0; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--pw), 1fr)); gap: 1.6rem var(--gap); padding: 1rem var(--pad); }
 /* The padding on tiles and rows keeps focus rings and the TV zoom from being clipped by the paint containment content-visibility adds. */
