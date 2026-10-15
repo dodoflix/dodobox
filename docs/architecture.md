@@ -58,10 +58,10 @@ Vanilla ES modules, no build step. `nav.js` handles arrow-key navigation and the
 
 Everything Dodobox keeps is versioned, so a release can change how it is stored and upgrade existing installs by itself.
 
-- **Server:** `data/schema.json` holds the data version. `src/migrate.js` lists the steps (`MIGRATIONS`, one per version) and `src/data.js` runs the pending ones at startup, before any module reads its files; every module that loads from the data folder imports `src/data.js` first. Before the first step the JSON files are copied to `data/backups` (the newest three are kept, caches excluded); if a step throws, the files and version are put back and Dodobox stops with a message. A data folder from a newer Dodobox is refused, so an older version never edits it. Steps get `read`, `write` (atomic) and `drop` (for caches) and must cope with missing files.
+- **Server:** `data/schema.json` holds the data version: how many migrations the folder has been through. Each migration is a file in `src/migrations` named for the version it produces (`002-...js`), listed in order in `src/migrations/index.js`; a test checks the files and the list agree. `src/data.js` runs the ones a folder has not seen at startup, before any module reads its files, and every module that loads from the data folder imports it first. An install that skipped releases runs each missing step in turn. A folder with files but no version file is version 0, so `001-baseline` is what versions existing installs; an empty folder is stamped current. Before the first step the JSON files are copied to `data/backups` (the newest three are kept, caches excluded); if a step throws, the files and version are put back and Dodobox stops with a message. A data folder from a newer Dodobox is refused, so an older version never edits it. Steps get `read`, `write` (atomic) and `drop` (for caches) and must cope with missing files.
 - **Browser:** `STORE_STEPS` in `public/js/util.js` does the same for `localStorage`, tracked under the `dbx-schema` key.
 
-To change a stored shape: add a step to the list, write a test with the old shape, and leave older steps as they are.
+To change a stored shape: add the next numbered file and list it, write a test with the old shape, and leave older files as they are.
 
 ## Tests
 

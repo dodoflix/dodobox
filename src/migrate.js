@@ -1,16 +1,11 @@
-// The data folder carries a version (schema.json). Changing how anything in it is stored means adding a step to MIGRATIONS: older folders
-// are brought up to date once at startup, before any module reads its files. Nothing that edits MIGRATIONS' past entries is ever needed.
+// The data folder carries a version (schema.json): the number of migrations (src/migrations) it has been through. At startup the ones it has
+// not seen are run in order, once, before any module reads its files.
 import fs from 'node:fs'
 import path from 'node:path'
+import { MIGRATIONS } from './migrations/index.js'
 
-// MIGRATIONS[i] upgrades a folder from version i + 1 to i + 2. A step gets { dir, read, write, drop } and must be safe to run twice.
-//   read(name)   the parsed JSON file, or undefined if it is missing or unreadable (a step must cope with that)
-//   write(name, value)   replaces the file in one step (never half-written)
-//   drop(name)   deletes a file or folder (for caches, which rebuild themselves)
-// Example: { name: 'profiles hold ids not names', up: ({ read, write }) => { const s = read('state.json'); if (s) { ...; write('state.json', s) } } }
-export const MIGRATIONS = []
-
-export const CURRENT = MIGRATIONS.length + 1
+export { MIGRATIONS }
+export const CURRENT = MIGRATIONS.length
 const KEEP_BACKUPS = 3
 const FILE = 'schema.json'
 
@@ -43,14 +38,14 @@ const toolsFor = dir => ({
   drop: name => fs.rmSync(path.join(dir, name), { recursive: true, force: true })
 })
 
-// Brings `dir` up to date. An empty folder is stamped current; one with files but no version file is version 1 (the layout before versions existed).
+// Brings `dir` up to date. An empty folder is stamped current; one with files but no version file is version 0 (before versions existed).
 // Returns { from, to, ran }. Throws when the folder is from a newer Dodobox, or when a step fails (the files are put back first).
 export function migrate (dir, migrations = MIGRATIONS) {
-  const current = migrations.length + 1
+  const current = migrations.length
   fs.mkdirSync(dir, { recursive: true })
-  let version = 1
+  let version = 0
   const fresh = fs.readdirSync(dir).length === 0
-  try { version = +JSON.parse(fs.readFileSync(path.join(dir, FILE), 'utf8')).version || 1 } catch { if (fresh) version = current }
+  try { version = +JSON.parse(fs.readFileSync(path.join(dir, FILE), 'utf8')).version || 0 } catch { if (fresh) version = current }
   if (version > current) {
     throw Object.assign(new Error(`This data folder (${dir}) was made by a newer Dodobox: it is at data version ${version}, this Dodobox understands up to ${current}. Update Dodobox, or restore an older copy of the folder.`), { code: 'NEWER_DATA' })
   }
@@ -59,7 +54,7 @@ export function migrate (dir, migrations = MIGRATIONS) {
   if (version < current) {
     const saved = backup(dir, version)
     const tools = toolsFor(dir)
-    for (const step of migrations.slice(version - 1)) {
+    for (const step of migrations.slice(version)) {
       try { step.up(tools) } catch (e) {
         restore(dir, saved)
         writeAtomic(path.join(dir, FILE), JSON.stringify({ version: from })) // every step is undone, so the version goes back too
