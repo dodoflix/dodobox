@@ -5,7 +5,7 @@ browser / TV / phone (public/)  <->  server.js  <->  src/meta.js       catalog a
                                                 <->  src/sources.js    torrent search providers, ranked
                                                 <->  src/engine.js     torrent client, library, storage cap
                                                 <->  src/local.js      your own media folders
-                                                <->  src/transcode.js  ffprobe, on-demand HLS, hardware encoder
+                                                <->  src/transcode.js  stream probe, on-demand HLS, hardware encoder
                                                 <->  src/subs.js       subtitle providers
                                                 <->  src/state.js      profiles, progress, My List, settings
                                                 <->  src/images.js     poster proxy with disk cache
@@ -14,7 +14,7 @@ browser / TV / phone (public/)  <->  server.js  <->  src/meta.js       catalog a
 ## Play flow
 
 1. `POST /api/play` picks, in order: a matching local file, an existing download of the same episode, the best-ranked torrent not on the client's `exclude` list.
-2. The client polls status while `/api/info` probes the file with ffprobe. If nothing arrives for 25 s (40 s to find the torrent), the client excludes that source and the server picks the next, up to five times. Stalled torrents with no data are removed.
+2. The client polls status while `/api/info` probes the file with ffmpeg. If nothing arrives for 25 s (40 s to find the torrent), the client excludes that source and the server picks the next, up to five times. Stalled torrents with no data are removed.
 3. `/raw/:id/:file` serves bytes with range support. MP4/WebM with H.264 and AAC plays directly; anything else goes through HLS (6 s segments encoded on request by ffmpeg, the next two warmed). The encoder is chosen at start (NVENC, VideoToolbox, VAAPI, else x264) by test-encoding a frame.
 4. Progress is saved per profile every few seconds. Halfway through an episode the next one starts downloading. The oldest unwatched downloads are removed when the storage limit is reached.
 
@@ -44,7 +44,7 @@ Outbound requests go through `src/http.js`: retries with jittered backoff, a per
 
 ## Audio
 
-ffprobe lists audio tracks with language, title and default flag. The player starts on the track in the title's `originalLanguage` (from the production country, or Japanese for anime), skipping tracks titled as a dub or commentary, and falls back to the file's default flag. A track other than the file's own default always goes through HLS.
+ffmpeg's report lists audio tracks with language, title and default flag. The player starts on the track in the title's `originalLanguage` (from the production country, or Japanese for anime), skipping tracks titled as a dub or commentary, and falls back to the file's default flag. A track other than the file's own default always goes through HLS.
 
 ## Watch party
 
