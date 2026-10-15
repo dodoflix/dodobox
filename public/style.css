@@ -625,3 +625,23 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 .cols { display: grid; gap: 0 4rem; }
 @media (min-width: 1100px) { .cols { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 84rem; } .cols .group { max-width: none; } }
 #hqstat { display: block; margin-top: .25rem; }
+
+/* Watch party panel: in the player it is a .pl-menu (so it shows in full screen), elsewhere a .pmenu. */
+.party-pop { display: grid; gap: .55rem; width: min(22rem, calc(100vw - 2rem)); padding: .9rem; overflow: visible; }
+.pmenu.party-pop { top: 4.75rem; right: max(var(--pad), 1rem); left: auto; }
+.party-pop h4 { margin: 0; padding: 0; }
+.party-pop > button[data-a] { justify-content: center; background: rgb(255 255 255 / .09); }
+.party-pop > button[data-a="start"] { background: var(--ink); color: #121116; }
+.party-pop .btn { width: auto; display: inline-flex; padding: 0 1rem; }
+.pp-join { display: flex; gap: .5rem; }
+.pp-join .field { flex: 1; text-transform: uppercase; letter-spacing: .08em; font-family: ui-monospace, monospace; }
+.pp-note { margin: 0; color: var(--ink3); font-size: .88rem; }
+.pp-code { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .55rem .6rem .55rem .85rem; border-radius: 12px; background: rgb(255 255 255 / .07); }
+.pp-code b { font: 800 .98rem/1 ui-monospace, monospace; letter-spacing: .06em; }
+.pp-members { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }
+.pp-members li { display: flex; align-items: center; gap: .6rem; font-weight: 650; }
+.pp-members .avatar { width: 1.8rem; height: 1.8rem; font-size: .9rem; }
+.pp-members small { color: var(--ink3); font-weight: 550; }
+.pp-now { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .5rem; padding: .6rem .7rem; border-radius: 12px; background: rgb(255 255 255 / .07); }
+.pp-now .btn { margin-left: auto; }
+.cbtn.on#m-party { color: rgb(var(--glow)); }

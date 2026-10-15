@@ -335,7 +335,21 @@ export const ROWS = [
   ['No playable file found in torrent', 'Torrent içinde oynatılabilir dosya bulunamadı', 'No se encontró ningún archivo reproducible en el torrent', 'Aucun fichier lisible trouvé dans le torrent', 'Keine abspielbare Datei im Torrent gefunden'],
   ['not found', 'bulunamadı', 'no encontrado', 'introuvable', 'nicht gefunden'],
   ['Name required', 'Ad gerekli', 'Falta el nombre', 'Nom requis', 'Name erforderlich'],
-  ['Update from the computer Dodobox runs on', 'Güncellemeyi Dodobox\'ın çalıştığı bilgisayardan yap', 'Actualiza desde el equipo donde se ejecuta Dodobox', 'Mettez à jour depuis l\'ordinateur sur lequel Dodobox fonctionne', 'Aktualisiere auf dem Computer, auf dem Dodobox läuft']
+  ['Update from the computer Dodobox runs on', 'Güncellemeyi Dodobox\'ın çalıştığı bilgisayardan yap', 'Actualiza desde el equipo donde se ejecuta Dodobox', 'Mettez à jour depuis l\'ordinateur sur lequel Dodobox fonctionne', 'Aktualisiere auf dem Computer, auf dem Dodobox läuft'],
+  ['Watch party', 'Birlikte izleme', 'Ver en grupo', 'Visionnage en groupe', 'Gemeinsam schauen'],
+  ['Start a party', 'Parti başlat', 'Empezar una sesión', 'Lancer une session', 'Party starten'],
+  ['Party code', 'Parti kodu', 'Código de la sesión', 'Code de la session', 'Party-Code'],
+  ['Join', 'Katıl', 'Unirse', 'Rejoindre', 'Beitreten'],
+  ['Friends need Dodobox too. Share the code with them.', 'Arkadaşlarının da Dodobox\'ı olmalı. Kodu onlarla paylaş.', 'Tus amigos también necesitan Dodobox. Comparte el código con ellos.', 'Vos amis ont aussi besoin de Dodobox. Partagez le code avec eux.', 'Deine Freunde brauchen auch Dodobox. Teile den Code mit ihnen.'],
+  ['Looking for your friends...', 'Arkadaşların aranıyor...', 'Buscando a tus amigos...', 'Recherche de vos amis...', 'Suche nach deinen Freunden...'],
+  ['Copy code', 'Kodu kopyala', 'Copiar código', 'Copier le code', 'Code kopieren'],
+  ['Code copied', 'Kod kopyalandı', 'Código copiado', 'Code copié', 'Code kopiert'],
+  ['Leave party', 'Partiden ayrıl', 'Salir de la sesión', 'Quitter la session', 'Party verlassen'],
+  ['Watching', 'İzleniyor', 'Viendo', 'En cours', 'Läuft'],
+  ['Watch together', 'Birlikte izle', 'Ver juntos', 'Regarder ensemble', 'Zusammen schauen'],
+  ['That is not a party code', 'Bu bir parti kodu değil', 'Ese no es un código de sesión', 'Ce n\'est pas un code de session', 'Das ist kein Party-Code'],
+  ['Already in a party', 'Zaten bir partidesin', 'Ya estás en una sesión', 'Vous êtes déjà dans une session', 'Du bist schon in einer Party'],
+  ['Not in a party', 'Bir partide değilsin', 'No estás en una sesión', 'Vous n\'êtes pas dans une session', 'Du bist in keiner Party']
 ]
 
 // Patterns for text that carries numbers or names. $1, $2 refer to captured groups; the same order for every language.
@@ -385,5 +399,8 @@ export const PATTERNS = [
   [/^Forced only: (.+)$/, ['Yalnızca zorunlu: $1', 'Solo forzados: $1', 'Forcés uniquement : $1', 'Nur erzwungen: $1']],
   [/^No (.+) subtitles found$/, ['$1 altyazı bulunamadı', 'No se encontraron subtítulos en $1', 'Aucun sous-titre en $1 trouvé', 'Keine $1-Untertitel gefunden']],
   [/^QR code for (.+)$/, ['$1 için QR kodu', 'Código QR de $1', 'Code QR pour $1', 'QR-Code für $1']],
+  [/^(.+) joined the party$/, ['$1 partiye katıldı', '$1 se unió a la sesión', '$1 a rejoint la session', '$1 ist der Party beigetreten']],
+  [/^(.+) left the party$/, ['$1 partiden ayrıldı', '$1 salió de la sesión', '$1 a quitté la session', '$1 hat die Party verlassen']],
+  [/^(.+) is watching (.+)$/, ['$1 şunu izliyor: $2', '$1 está viendo $2', '$1 regarde $2', '$1 schaut $2']],
   [/^Tip: (.+)$/, null]
 ].filter(p => p[1])

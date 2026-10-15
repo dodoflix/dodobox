@@ -36,7 +36,8 @@ export const rows = [
 /*install*/ 'Installato e pronto', 'Installato e pronto, usa la scheda grafica', 'Impossibile installare. Controlla la connessione internet, poi disattiva e riattiva l\'opzione.',
 /*ui2*/ 'Impossibile caricare altro.', 'Predefinito', 'In riproduzione', 'Lettura dei sottotitoli...', 'In attesa di altro download...', 'Note di rilascio', 'Aggiorna ora', 'Più tardi', 'Download dell\'aggiornamento...', 'L\'aggiornamento è pronto', 'Dodobox si riavvia per completare.', 'Riavvia per aggiornare', 'L\'aggiornamento non è riuscito', 'Chiudi', 'Riavvio di Dodobox...', 'Questa pagina si ricarica da sola.', 'Qualcosa è andato storto.', 'Scarica il nuovo programma di installazione ed eseguilo.', 'Scarica la nuova versione, oppure scarica il nuovo codice sorgente ed esegui npm install.', 'Al momento non è stato trovato nulla di riproducibile per questo titolo',
 /*more*/ 'Salvato', 'Nessun file riproducibile trovato nel torrent',
-/*more*/ 'non trovato', 'Nome obbligatorio', 'Aggiorna dal computer su cui gira Dodobox'
+/*more*/ 'non trovato', 'Nome obbligatorio', 'Aggiorna dal computer su cui gira Dodobox',
+/*more*/ 'Visione di gruppo', 'Avvia una sessione', 'Codice sessione', 'Unisciti', 'Anche i tuoi amici devono avere Dodobox. Condividi il codice con loro.', 'Cerco i tuoi amici...', 'Copia codice', 'Codice copiato', 'Esci dalla sessione', 'In visione', 'Guarda insieme', 'Non è un codice sessione', 'Sei già in una sessione', 'Non sei in una sessione'
 ]
 export const patterns = [
   'Ciao $1, rendilo tuo', 'Stagione $1', 'Stagione $1 · Episodio $2', 'Riprendi S$1 E$2', 'S$1 E$2$3', 'Esce il $1', '$1 h $2 min', '$1 min', '$1restano $2 h $3 min', '$1restano $2 min',
@@ -47,5 +48,5 @@ export const patterns = [
   'Preparazione della lingua... $1%', 'Traduzione... $1%',
   'Miglioramento della qualità... $1%',
   'Installazione... $1%',
-  'Dodobox $1 è disponibile', 'La versione $1 è disponibile', 'Hai la versione $1.', 'Scarica la nuova immagine e ricrea il container: $1', 'Solo forzati: $1', 'Nessun sottotitolo in $1 trovato', 'Codice QR per $1'
+  'Dodobox $1 è disponibile', 'La versione $1 è disponibile', 'Hai la versione $1.', 'Scarica la nuova immagine e ricrea il container: $1', 'Solo forzati: $1', 'Nessun sottotitolo in $1 trovato', 'Codice QR per $1', '$1 si è unito alla sessione', '$1 ha lasciato la sessione', '$1 sta guardando $2'
 ]

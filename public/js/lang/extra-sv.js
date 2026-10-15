@@ -36,7 +36,8 @@ export const rows = [
 /*install*/ 'Installerat och klart', 'Installerat och klart, använder grafikkortet', 'Det gick inte att installera. Kontrollera internetanslutningen och stäng sedan av och slå på igen.',
 /*ui2*/ 'Kunde inte ladda mer.', 'Standard', 'Spelas nu', 'Läser undertexter...', 'Väntar på mer av nedladdningen...', 'Versionsanteckningar', 'Uppdatera nu', 'Senare', 'Laddar ned uppdateringen...', 'Uppdateringen är klar', 'Dodobox startar om för att slutföra.', 'Starta om för att uppdatera', 'Uppdateringen misslyckades', 'Stäng', 'Startar om Dodobox...', 'Den här sidan laddas om automatiskt.', 'Något gick fel.', 'Ladda ned det nya installationsprogrammet och kör det.', 'Ladda ned den nya versionen, eller hämta den nya källkoden och kör npm install.', 'Inget spelbart hittades för den här titeln just nu',
 /*more*/ 'Sparad', 'Ingen spelbar fil hittades i torrenten',
-/*more*/ 'hittades inte', 'Namn krävs', 'Uppdatera från datorn där Dodobox körs'
+/*more*/ 'hittades inte', 'Namn krävs', 'Uppdatera från datorn där Dodobox körs',
+/*more*/ 'Tittarfest', 'Starta en tittarfest', 'Partykod', 'Gå med', 'Dina vänner behöver också Dodobox. Dela koden med dem.', 'Letar efter dina vänner...', 'Kopiera koden', 'Koden kopierad', 'Lämna tittarfesten', 'Tittar på', 'Titta tillsammans', 'Det där är ingen partykod', 'Du är redan i en tittarfest', 'Du är inte i en tittarfest'
 ]
 export const patterns = [
   'Hej $1, gör det till ditt', 'Säsong $1', 'Säsong $1 · Avsnitt $2', 'Återuppta S$1 A$2', 'S$1 A$2$3', 'Sänds $1', '$1 h $2 min', '$1 min', '$1$2 h $3 min kvar', '$1$2 min kvar',
@@ -47,5 +48,5 @@ export const patterns = [
   'Förbereder språket... $1 %', 'Översätter... $1 %',
   'Förbättrar kvaliteten... $1 %',
   'Installerar... $1 %',
-  'Dodobox $1 är tillgänglig', 'Version $1 är tillgänglig', 'Du har version $1.', 'Hämta den nya avbilden och skapa om containern: $1', 'Endast tvingade: $1', 'Inga $1-undertexter hittades', 'QR-kod för $1'
+  'Dodobox $1 är tillgänglig', 'Version $1 är tillgänglig', 'Du har version $1.', 'Hämta den nya avbilden och skapa om containern: $1', 'Endast tvingade: $1', 'Inga $1-undertexter hittades', 'QR-kod för $1', '$1 gick med i tittarfesten', '$1 lämnade tittarfesten', '$1 tittar på $2'
 ]

@@ -46,6 +46,12 @@ Phones and laptops use plain HTTP on the local network, so "install as app" give
 - **Audio**: starts on the title's original language, skipping dubs and commentaries. The track marked "Default" is the one Dodobox would choose.
 - **Subtitles**: picking a language only lists its files; choose a file on the right. Changing the subtitle stops an auto-translation that is still running.
 
+## Watch party
+
+Watch the same thing at the same time as friends who have Dodobox. In the player press the people icon, then Start a party, and send the code it shows. Friends open the profile menu, Watch party, type the code and press Join; when they see what you are watching they press Watch together. Anyone can pause, play or seek and everyone follows.
+
+Each person's Dodobox plays the video itself (a party does not stream your copy), so everyone needs the title to be available to them. Friends start on the same version you chose, so the timing matches. The code is the only secret: it finds the party on the torrent network and encrypts what is sent, so keep it between friends. The party ends for you when you press Leave party or quit Dodobox. If two people cannot connect, one of them is probably behind a strict router; try again from another network. Dodobox has no login, so anyone on your home network can also see the code.
+
 ## Subtitles
 
 Subtitles are searched in your language and English and ranked by how closely each file matches the version playing. Built-in tracks appear while the video is still downloading, greyed out ("after more download") until enough of the start has arrived. Subtitle files that come in the same download (next to the video or in a `Subs` folder) are listed too, under their file name.

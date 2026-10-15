@@ -36,7 +36,8 @@ export const rows = [
 /*install*/ 'Terpasang dan siap', 'Terpasang dan siap, memakai kartu grafis', 'Gagal memasang. Periksa koneksi internet, lalu matikan dan nyalakan lagi.',
 /*ui2*/ 'Tidak dapat memuat lebih banyak.', 'Bawaan', 'Sedang diputar', 'Membaca subtitel...', 'Menunggu unduhan lebih banyak...', 'Catatan rilis', 'Perbarui sekarang', 'Nanti', 'Mengunduh pembaruan...', 'Pembaruan siap', 'Dodobox dimulai ulang untuk menyelesaikannya.', 'Mulai ulang untuk memperbarui', 'Pembaruan gagal', 'Tutup', 'Memulai ulang Dodobox...', 'Halaman ini dimuat ulang sendiri.', 'Terjadi kesalahan.', 'Unduh penginstal baru lalu jalankan.', 'Unduh rilis baru, atau tarik kode sumber baru lalu jalankan npm install.', 'Tidak ada yang bisa diputar untuk judul ini saat ini',
 /*more*/ 'Tersimpan', 'Tidak ada berkas yang bisa diputar di dalam torrent',
-/*more*/ 'tidak ditemukan', 'Nama wajib diisi', 'Perbarui dari komputer tempat Dodobox berjalan'
+/*more*/ 'tidak ditemukan', 'Nama wajib diisi', 'Perbarui dari komputer tempat Dodobox berjalan',
+/*more*/ 'Nonton bareng', 'Mulai sesi nonton', 'Kode sesi', 'Gabung', 'Temanmu juga perlu Dodobox. Bagikan kodenya kepada mereka.', 'Mencari temanmu...', 'Salin kode', 'Kode disalin', 'Keluar dari sesi', 'Menonton', 'Tonton bersama', 'Itu bukan kode sesi', 'Kamu sudah berada di sesi', 'Kamu tidak berada di sesi'
 ]
 export const patterns = [
   'Hai $1, buat jadi milikmu', 'Musim $1', 'Musim $1 · Episode $2', 'Lanjutkan S$1 E$2', 'S$1 E$2$3', 'Tayang $1', '$1 j $2 mnt', '$1 mnt', '$1sisa $2 j $3 mnt', '$1sisa $2 mnt',
@@ -47,5 +48,5 @@ export const patterns = [
   'Menyiapkan bahasa... $1%', 'Menerjemahkan... $1%',
   'Meningkatkan kualitas... $1%',
   'Memasang... $1%',
-  'Dodobox $1 tersedia', 'Versi $1 tersedia', 'Anda memiliki versi $1.', 'Tarik image baru lalu buat ulang container: $1', 'Hanya paksa: $1', 'Subtitel $1 tidak ditemukan', 'Kode QR untuk $1'
+  'Dodobox $1 tersedia', 'Versi $1 tersedia', 'Anda memiliki versi $1.', 'Tarik image baru lalu buat ulang container: $1', 'Hanya paksa: $1', 'Subtitel $1 tidak ditemukan', 'Kode QR untuk $1', '$1 bergabung ke sesi', '$1 keluar dari sesi', '$1 sedang menonton $2'
 ]

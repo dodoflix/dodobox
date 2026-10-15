@@ -62,6 +62,7 @@ export async function watch (type, id, season, episode) {
         <span class="sp"></span>
         ${next ? `<button class="cbtn" id="nxt" aria-label="Next episode">${icon('next')}</button>` : ''}
         ${flat || vids.length < 2 ? '' : `<button class="cbtn" id="m-eps" aria-label="Episodes">${icon('list')}</button>`}
+        <button class="cbtn" id="m-party" aria-label="Watch party">${icon('party')}</button>
         <button class="cbtn hide-s" id="m-speed" aria-label="Speed">${icon('speed')}</button>
         <button class="cbtn" id="m-audio" aria-label="Audio" hidden>${icon('audio')}</button>
         <button class="cbtn" id="m-subs" aria-label="Subtitles">${icon('cc')}</button>
@@ -93,7 +94,7 @@ export async function watch (type, id, season, episode) {
   let startAt = (progress(type, id, season, episode) || [0, 1])
   startAt = startAt[0] / startAt[1] < 0.95 && startAt[0] > 10 ? startAt[0] : 0
   const timers = []; const tried = new Set()
-  let castCtl = null
+  let castCtl = null; let detachParty = null
 
   let picH = 0
   const applySize = () => root.style.setProperty('--sub', `${(isTV ? 33.6 : picH ? Math.min(28, Math.max(13, picH * 0.06)) : innerWidth < 700 ? 16 : 28) * (P.size ?? store.get('subsize', 1))}px`)
@@ -753,7 +754,7 @@ export async function watch (type, id, season, episode) {
   addEventListener('pagehide', save)
 
   const cleanup = () => {
-    dead = true; save(); clearTimeout(refreshT); stopTranslating(); clearTimeout(wd); clearTimeout(syncTimer); clearTimeout(probeTimer); hls?.destroy(); timers.forEach(clearInterval); clearTimeout(idleT); clearTimeout(upT); clearTimeout(clickT)
+    dead = true; detachParty?.(); save(); clearTimeout(refreshT); stopTranslating(); clearTimeout(wd); clearTimeout(syncTimer); clearTimeout(probeTimer); hls?.destroy(); timers.forEach(clearInterval); clearTimeout(idleT); clearTimeout(upT); clearTimeout(clickT)
     document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', fsChange); removeEventListener('pagehide', save)
     document.removeEventListener('visibilitychange', onVisible); removeEventListener('orientationchange', onRotate); subRO.disconnect()
     onBack.handler = null
@@ -766,6 +767,16 @@ export async function watch (type, id, season, episode) {
   }
   measureBandwidth()
   sync(); wake()
-  start()
+  // A watch party the page is in puts this title where the others are, on the version they chose.
+  let forced
+  try {
+    const party = await import('./party.js')
+    await party.ready()
+    const here = { type, id, season: flat ? null : season, episode: flat ? null : episode, title: m.name }
+    detachParty = party.attachPlayer({ v, root, item: here, hash: () => hash, button: $('#m-party', root) })
+    forced = party.sourceFor(here)
+    if (party.onThis(here)) startAt = party.nowPos()
+  } catch { $('#m-party', root).hidden = true }
+  start(forced)
   return cleanup
 }

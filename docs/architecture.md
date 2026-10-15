@@ -46,6 +46,12 @@ Outbound requests go through `src/http.js`: retries with jittered backoff, a per
 
 ffprobe lists audio tracks with language, title and default flag. The player starts on the track in the title's `originalLanguage` (from the production country, or Japanese for anime), skipping tracks titled as a dub or commentary, and falls back to the file's default flag. A track other than the file's own default always goes through HLS.
 
+## Watch party
+
+`src/party.js` joins a party by code. The code (80 random bits) goes through scrypt into a 20-byte torrent id and a 32-byte key. The server adds that id as a magnet-only torrent on its own small torrent client (the public WebRTC trackers and DHT find the other members, WebRTC gets through routers), and talks over a BitTorrent extension message (`dodobox_party`). Every message is AES-256-GCM sealed with the key, numbered per sender and timestamped, deduplicated, and passed on to the other neighbours, so members who cannot reach each other directly are bridged by one who can reach both. Messages are `hi` (presence), `st` (what is playing), `ld` (changed title), `pl`, `pa`, `sk` (play, pause, seek) and `tk` (heartbeat from whoever acted last). Titles and versions from other members are validated before they reach the page; the version is only an info hash, and `/api/play` accepts a version this server did not find itself only when it is the party's current one.
+
+The page (`public/js/party.js`) reads `/api/party/events` (server-sent events) and posts `/api/party/send`. The player reports its own play, pause and seek, and ignores the echo of what it just did on someone else's say. A joiner starts on the party's version and position.
+
 ## Interface
 
 Vanilla ES modules, no build step. `nav.js` handles arrow-key navigation and the Back key for TV remotes. The player draws its own controls and subtitles and supports Cast, AirPlay, Media Session, Picture-in-Picture and wake lock. `sw.js` caches the shell, catalog data and posters for offline browsing; bump its `VERSION` when a shell file changes. Per-title player options live in `localStorage` under `title:<profile>:<type>:<id>`.
