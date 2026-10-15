@@ -10,6 +10,7 @@ import WebTorrent from 'webtorrent'
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-e2e-'))
 process.env.DATA_DIR = path.join(tmp, 'data')
 process.env.NO_SPEEDTEST = '1'
+process.env.NO_UPDATE_CHECK = '1'
 process.env.NO_DHT = '1'
 process.env.NO_MDNS = '1'
 process.env.HOME = tmp

@@ -64,7 +64,7 @@ export async function settings (root) {
     <div class="group"><h3>This device</h3>
       <div class="set"><div class="l"><b>TV layout</b><span>Larger text and remote-control navigation. Turned on automatically on most smart TVs.</span></div>
         <button class="switch" role="switch" id="tv" aria-checked="${isTV}" aria-label="TV layout"></button></div>
-      <div class="set"><div class="l"><b>Dodobox ${esc(srv.version)}</b><span>Video encoder: ${esc(srv.encoder === 'libx264' ? 'software' : srv.encoder)}</span></div></div>
+      <div class="set"><div class="l"><b>Dodobox ${esc(srv.version)}</b><span>Video encoder: ${esc(srv.encoder === 'libx264' ? 'software' : srv.encoder)}${srv.update ? ` · <a href="${esc(srv.update.url)}" target="_blank" rel="noreferrer">Version ${esc(srv.update.version)} is available</a>` : ''}</span></div></div>
     </div>
   </div>`
 

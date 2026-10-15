@@ -24,6 +24,7 @@ import * as better from './src/translate-hq.js'
 import { translateSubtitle, translateBetter, stopBetter, targets as translateTargets, modelLang } from './src/translate.js'
 import { once } from './src/http.js'
 import { DATA } from './src/paths.js'
+import * as updates from './src/update.js'
 import { probe, playlist, segment, warm, embeddedSub, anyToVtt, SEG } from './src/transcode.js'
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url))
@@ -255,7 +256,7 @@ const routes = [
   ['GET', /^\/api\/health$/, (req, res) => json(req, res, { app: 'dodobox', version: VERSION })],
   ['GET', /^\/api\/server$/, async (req, res) => json(req, res, {
     version: VERSION, port, urls: lanAddresses().map(a => `http://${a}:${port}`), mdns: `http://dodobox.local:${port}`,
-    encoder: await encoder(), internetMbps: Math.round(speed.downMbps()), mediaDirs: local.dirs(), localCount: local.all().length
+    encoder: await encoder(), internetMbps: Math.round(speed.downMbps()), mediaDirs: local.dirs(), localCount: local.all().length, update: updates.available()
   })],
   ['GET', /^\/api\/speedtest$/, (req, res, _, q) => speed.sendTestBytes(res, +q.get('bytes'))],
   ['GET', /^\/api\/qr\.svg$/, (req, res, _, q) => {
@@ -513,6 +514,7 @@ export function start (listenPort = process.env.PORT === undefined ? 3000 : +pro
       downloads.init(play)
       refreshTrackers(); setInterval(refreshTrackers, 12 * 3600e3).unref()
       speed.start()
+      updates.watch(VERSION)
       setTimeout(warmCatalog, 3000).unref(); setInterval(warmCatalog, 2 * 3600e3).unref()
       encoder().then(e => console.log(`  Video encoder: ${e}`))
       resolve(server)

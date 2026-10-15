@@ -7,7 +7,8 @@ import path from 'node:path'
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-local-'))
 process.env.DATA_DIR = path.join(tmp, 'data'); process.env.HOME = tmp
-process.env.NO_SPEEDTEST = '1'; process.env.NO_DHT = '1'; process.env.NO_MDNS = '1'; process.env.MIN_LOCAL_BYTES = '1000'
+process.env.NO_SPEEDTEST = '1'
+process.env.NO_UPDATE_CHECK = '1'; process.env.NO_DHT = '1'; process.env.NO_MDNS = '1'; process.env.MIN_LOCAL_BYTES = '1000'
 let base; let items
 const get = (p, init) => fetch(base + p, init)
 const ff = (...a) => execFileSync('ffmpeg', ['-v', 'error', '-y', ...a])

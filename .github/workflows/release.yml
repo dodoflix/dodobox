@@ -110,4 +110,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.release-please.outputs.tag }}
-        run: gh release upload "$TAG" dist/Dodobox-* --clobber --repo "$GITHUB_REPOSITORY"
+        # latest.yml (Windows) and latest-linux.yml tell the installed app what is new. The macOS one is left out: the builds are not
+        # signed so they cannot update themselves, and the two architectures would overwrite each other's file.
+        run: |
+          files=(dist/Dodobox-*)
+          for f in dist/latest.yml dist/latest-linux.yml; do [ -f "$f" ] && files+=("$f"); done
+          gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"

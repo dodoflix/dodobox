@@ -29,6 +29,14 @@ Open the address the server prints (for example `http://192.168.1.20:3000`, or `
 | Chromecast | Press the cast button in the player on a phone or laptop (Chrome). |
 | Apple TV | Play on an iPhone, iPad or Mac in Safari and press the AirPlay button. |
 
+## Updates
+
+Dodobox checks the releases page for a newer version now and then.
+
+- **Desktop app**: it asks whether to update. On Windows (installer) and Linux (AppImage) choosing "Update now" downloads it, then offers to restart. The portable exe, the `.deb` and the macOS builds are not signed, so for those it opens the download page. "Check for updates" in the tray menu checks right away.
+- **Docker, npm and source**: it only writes a line in the log with how to update (`docker pull ghcr.io/dodoflix/dodobox:latest`, then recreate the container). Settings shows the new version next to the current one.
+- Set `NO_UPDATE_CHECK=1` to turn the check off.
+
 Phones and laptops use plain HTTP on the local network, so "install as app" gives a bookmark-style shortcut. That is a browser rule for non-HTTPS addresses.
 
 ## The player
@@ -84,6 +92,7 @@ Dodobox looks in your Videos and Movies folders (and `MEDIA_DIR`) and matches fi
 | `NO_DHT` | unset | Turn off DHT and local peer discovery |
 | `NO_MDNS` | unset | Do not announce `dodobox.local` on the network |
 | `NO_SPEEDTEST` | unset | Skip measuring the server's internet speed at start |
+| `NO_UPDATE_CHECK` | unset | Do not look for a newer release |
 
 Everything else (storage limit, subtitle language, quality, download size) is in Settings. Quality is Auto by default: Dodobox picks the best version your line and screen can use. Choose 4K, 1080p, 720p or Data saver to force it.
 

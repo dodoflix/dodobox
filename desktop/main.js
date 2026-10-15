@@ -1,5 +1,6 @@
 import { app, Menu, Tray, clipboard, dialog, nativeImage, shell } from 'electron'
 import path from 'node:path'
+import updater from 'electron-updater'
 import { fileURLToPath } from 'node:url'
 
 const build = path.join(path.dirname(fileURLToPath(import.meta.url)), 'build')
@@ -10,10 +11,11 @@ app.setAppUserModelId('io.github.dodoflix.dodobox')
 
 if (!app.requestSingleInstanceLock()) app.exit(0)
 
-// Read by the server when it loads, so it must be set before the import below.
+// Read by the server when it loads, so they must be set before the import below.
 process.env.DATA_DIR ||= path.join(app.getPath('userData'), 'data')
+process.env.DODOBOX_DESKTOP = '1' // the app asks about updates itself
 
-let url = ''; let quitting = false; let tray
+let url = ''; let quitting = false; let tray; let updateCheck = () => {}
 const hidden = argv => argv.includes('--hidden')
 const openUi = () => { if (url) shell.openExternal(url) }
 
@@ -49,6 +51,7 @@ async function boot () {
     ...(lan().length ? lan().map(a => ({ label: `Copy ${a}`, click: () => clipboard.writeText(a) })) : [{ label: 'No network address found', enabled: false }]),
     { type: 'separator' },
     ...(canAutoStart ? [{ label: 'Start when I sign in', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin, click: item => app.setLoginItemSettings({ openAtLogin: item.checked, args: ['--hidden'] }) }] : []),
+    { label: 'Check for updates', click: () => updateCheck(true) },
     { label: 'Show data folder', click: () => shell.openPath(process.env.DATA_DIR) },
     { type: 'separator' },
     { label: 'Quit', click: () => app.quit() }
@@ -59,6 +62,40 @@ async function boot () {
   tray.setContextMenu(menu())
   tray.on('click', openUi)
   tray.on('right-click', () => tray.popUpContextMenu(menu()))
+
+  // The Windows installer and the Linux AppImage replace themselves. The portable exe, the .deb and the macOS builds (not signed) cannot,
+  // so for those the user is taken to the download page.
+  const { autoUpdater } = updater
+  const RELEASES = 'https://github.com/dodoflix/dodobox/releases/latest'
+  const selfUpdates = app.isPackaged && ((process.platform === 'win32' && !process.env.PORTABLE_EXECUTABLE_DIR) || (process.platform === 'linux' && !!process.env.APPIMAGE))
+  let asked = ''
+  autoUpdater.autoDownload = false
+  autoUpdater.on('error', e => console.error('[update]', e.message))
+  autoUpdater.on('update-available', async info => {
+    if (asked === info.version) return
+    asked = info.version
+    const { response } = await dialog.showMessageBox({
+      type: 'info', title: 'Dodobox update', message: `Dodobox ${info.version} is available`,
+      detail: `You have ${app.getVersion()}. ` + (selfUpdates ? 'Update now? Dodobox restarts when the download is done.' : 'Open the download page?'),
+      buttons: [selfUpdates ? 'Update now' : 'Open download page', 'Later'], defaultId: 0, cancelId: 1
+    })
+    if (response !== 0) return
+    if (!selfUpdates) return shell.openExternal(RELEASES)
+    tray.setToolTip('Downloading the update...')
+    autoUpdater.downloadUpdate().catch(e => { tray.setToolTip(`Dodobox is running on port ${port}`); dialog.showErrorBox('Update failed', e.message) })
+  })
+  autoUpdater.on('update-downloaded', async () => {
+    const { response } = await dialog.showMessageBox({ type: 'info', title: 'Dodobox update', message: 'The update is ready', detail: 'Restart Dodobox to finish.', buttons: ['Restart now', 'Later'], defaultId: 0, cancelId: 1 })
+    tray.setToolTip(`Dodobox is running on port ${port}`)
+    if (response === 0) autoUpdater.quitAndInstall()
+  })
+  const checkUpdates = () => { if (app.isPackaged) autoUpdater.checkForUpdates().catch(() => {}) }
+  updateCheck = manual => {
+    if (!app.isPackaged) return dialog.showMessageBox({ message: 'Updates are checked in the installed app.' })
+    if (manual) { asked = ''; autoUpdater.once('update-not-available', () => dialog.showMessageBox({ type: 'info', message: 'Dodobox is up to date', detail: `Version ${app.getVersion()}` })) }
+    checkUpdates()
+  }
+  setTimeout(checkUpdates, 20e3); setInterval(checkUpdates, 6 * 3600e3)
 
   // Quitting stops the torrent client and saves state first, but never waits longer than a few seconds.
   app.on('before-quit', e => {
