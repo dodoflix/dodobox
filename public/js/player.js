@@ -639,7 +639,8 @@ export async function watch (type, id, season, episode) {
     }
   }
   timers.push(setInterval(async () => {
-    if (!hash || !info || dead) return
+    // Nothing more to learn once the file is complete, and nothing worth asking for in a hidden tab.
+    if (!hash || !info || dead || st.phase === 'done' || document.hidden) return
     try {
       const was = st.phase; const unlocked = subs.filter(s => s.embedded && embeddedOk(s)).length
       st = await api(`/api/status/${hash}?file=${st.fileIdx}`)

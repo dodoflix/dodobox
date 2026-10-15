@@ -81,7 +81,7 @@ export function poster (i, { progress, sub, href } = {}) {
   remember(i)
   const link = href || `#/title/${i.type}/${enc(i.id)}`
   return `<a class="poster" href="${link}">
-    <div class="art"><div class="ph" translate="no" style="--h:${hue(i.name)}"><b>${esc(initial(i.name))}</b><span>${esc(i.name)}</span></div>${i.poster ? `${lowres(i.poster) ? `<img class="lq in" loading="lazy" decoding="async" alt="" src="${esc(lowres(i.poster))}" onerror="this.remove()">` : ''}<img decoding="async" alt="" data-src="${esc(sized(i.poster, posterW()))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}</div>
+    <div class="art"><div class="ph" translate="no" style="--h:${hue(i.name)}"><b>${esc(initial(i.name))}</b><span>${esc(i.name)}</span></div>${i.poster ? `<img decoding="async" alt="" data-src="${esc(sized(i.poster, posterW()))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}</div>
     ${i.rating ? `<span class="badge">${icon('star')}${i.rating.toFixed(1)}</span>` : ''}
     <div class="cap" translate="no">${esc(i.name)}</div><div class="sub">${esc(sub ?? i.year ?? '')}</div>
     ${progress != null ? `<div class="prog"><i style="width:${Math.min(100, progress * 100)}%"></i></div>` : ''}

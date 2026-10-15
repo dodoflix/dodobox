@@ -221,7 +221,7 @@ export async function home (root, only = '') {
       $(`#s-${t} .rail`).innerHTML = `<p class="dim" style="padding:0 var(--pad)">Couldn't load this right now. It will retry when you come back.</p>`
     })
   }
-  api('/api/local', { ref: { prio: LATER } }).then(local => {
+  cget('/api/local', 60e3, LATER).then(local => {
     local = local.filter(e => !only || e.type === only)
     if (dead || !local.length) return
     const seen = new Set(); const uniq = local.filter(e => { const k = e.type + e.mid; return seen.has(k) ? false : (seen.add(k), true) })
@@ -247,7 +247,7 @@ export async function home (root, only = '') {
       dragScroll(rail)
     } catch { sec.remove() }
   }), { rootMargin: '700px 0px' })
-  api(`/api/shelves?country=${region()}${only ? '&type=' + only : ''}`, { ref: { prio: SOON } }).then(specs => {
+  cget(`/api/shelves?country=${region()}${only ? '&type=' + only : ''}`, 10 * 60e3, SOON).then(specs => {
     if (dead) return
     $('#s-more').innerHTML = specs.map(sp => `<section class="shelf" data-shelf="${esc(sp.id)}" ${sp.ranked ? 'data-ranked="1"' : ''}><div class="shelf-h"><h2>${esc(shelfTitle(sp.id))}</h2>${shelfHref(sp.id) ? `<a href="${shelfHref(sp.id)}">See all</a>` : ''}</div><div class="rail ${sp.ranked ? 'ranked' : ''}">${skeletons(8)}</div></section>`).join('')
     $('#s-more').querySelectorAll('.shelf').forEach(el => lazy.observe(el))

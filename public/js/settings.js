@@ -11,7 +11,9 @@ const SUBS = [['off', 'Off'], ...LANGUAGES.map(([, c, n]) => [c, n]), ['pob', 'P
 const CAPS = [20, 40, 100, 250, 500, 1000]
 const seg = (name, opts, cur) => `<div class="seg" data-seg="${name}">${opts.map(([v, l]) => `<button data-v="${v}" class="${String(v) === String(cur) ? 'on' : ''}">${l}</button>`).join('')}</div>`
 
+let stopPolling = () => {}
 export async function settings (root) {
+  stopPolling() // a redraw of the page replaces the previous one's follow-up calls
   calm()
   const [srv, g, st] = await Promise.all([api('/api/server'), api('/api/settings'), api('/api/storage')])
   const me = S.me
@@ -83,13 +85,18 @@ export async function settings (root) {
     if (t.dataset.k) setSetting(t.dataset.k, t.value)
     if (t.dataset.g) { await api('/api/settings', { method: 'PUT', body: { [t.dataset.g]: +t.value } }) }
   }
+  // The translator install is followed with a few calls spaced further and further apart, only while this page is open; it gives up after a while.
+  let dead = false; let pollT; let polls = 0
   async function hqStatus (start) {
-    const el = $('#hqstat'); if (!el || !root.contains(el)) return
+    clearTimeout(pollT)
+    const el = $('#hqstat'); if (dead || !el || !root.contains(el)) return
+    if (start !== false) polls = 0
     let r = await api('/api/translate/better', start ? { method: 'POST' } : {}).catch(() => null)
     if (r?.state === 'idle' && start === undefined && me.settings.bestTranslation) r = await api('/api/translate/better', { method: 'POST' }).catch(() => null)
     const on = !!S.me.settings.bestTranslation
     el.textContent = !on || !r ? '' : r.state === 'ready' ? (r.device === 'gpu' ? 'Installed and ready, using the graphics card' : 'Installed and ready') : r.state === 'installing' || r.state === 'idle' ? `Installing... ${Math.round((r.pct || 0) * 100)}%` : 'Could not install. Check the internet connection, then switch it off and on.'
-    if (on && r && (r.state === 'installing' || r.state === 'idle')) setTimeout(() => hqStatus(false), 1000)
+    // 'idle' right after switching on means the install is about to start; if it stays idle it is not going to, so stop asking.
+    if (on && r && (r.state === 'installing' || (r.state === 'idle' && polls < 4)) && ++polls < 60) pollT = setTimeout(() => hqStatus(false), Math.min(8000, 1000 + polls * 500))
   }
   if (me.settings.bestTranslation) hqStatus()
   root.onclick = async e => {
@@ -109,4 +116,6 @@ export async function settings (root) {
     await api('/api/settings', { method: 'PUT', body: { mediaDirs: [...new Set([...dirs, d])] } })
     settings(root)
   }
+  stopPolling = () => { dead = true; clearTimeout(pollT) }
+  return () => stopPolling()
 }

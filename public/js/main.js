@@ -72,7 +72,7 @@ async function route () {
     else if (page === 'search') cleanup = await (await import('./browse.js')).search(main, q)
     else if (page === 'title') cleanup = await (await import('./detail.js')).title(main, args[0], args[1])
     else if (page === 'library') cleanup = await (await import('./library.js')).library(main)
-    else if (page === 'settings') await (await import('./settings.js')).settings(main)
+    else if (page === 'settings') cleanup = await (await import('./settings.js')).settings(main)
     else cleanup = await home(main)
   } catch (e) {
     if (mine !== seq) return

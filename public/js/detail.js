@@ -1,6 +1,6 @@
 import { cget, api, NOW, LATER } from './api.js'
 import { S, progress, inList, toggleList, ratingOf, rate } from './session.js'
-import { $, esc, icon, enc, mins, sized, fullWidth, hue, lowres, thumbW, known, canTrailer, toast } from './util.js'
+import { $, esc, icon, enc, mins, sized, fullWidth, hue, lowres, thumbW, known, canTrailer, slowLink, toast } from './util.js'
 import { dragScroll } from './drag.js'
 import { glow } from './ambient.js'
 
@@ -52,7 +52,8 @@ export async function title (root, type, id) {
     ${flat ? '' : `<h2 class="sec-h">Episodes</h2><div class="eps-bar">${seasons.length > 1 ? `<div class="tabs" id="seasons">${seasons.map(s => `<button class="chip ${s === season ? 'on' : ''}" data-s="${s}">Season ${s}</button>`).join('')}</div>` : '<span></span>'}<button class="btn btn-ghost sm" id="dlseason">${icon('down')}Download season</button></div><div class="eps" id="eps"></div>`}
   </div>`
 
-  if (target) fetch(`/api/sources?${new URLSearchParams({ type, id, ...(target.season != null && { season: target.season, episode: target.episode }) })}`).catch(() => {})
+  // Finding a source takes several searches on the server, so it is only started for a title that is looked at for a moment (Play then starts sooner).
+  const warm = target && !slowLink() ? setTimeout(() => fetch(`/api/sources?${new URLSearchParams({ type, id, ...(target.season != null && { season: target.season, episode: target.episode }) })}`).catch(() => {}), 3000) : 0
   let dtr = null; let dwell
   const hero = $('.d-hero')
   if (m.trailer && canTrailer()) dwell = setTimeout(async () => { const { mountTrailer } = await import('./trailer.js'); dtr = mountTrailer($('#dtr'), m.trailer, { onPlaying: () => hero.classList.add('has-trailer'), onFail: () => { dtr = null } }) }, 1800)
@@ -115,7 +116,7 @@ export async function title (root, type, id) {
   }
   root.addEventListener('click', onClick)
   refreshDl()
-  detailCleanup = (prev => () => { prev(); clearTimeout(poll); root.removeEventListener('click', onClick) })(detailCleanup)
+  detailCleanup = (prev => () => { prev(); clearTimeout(poll); clearTimeout(warm); root.removeEventListener('click', onClick) })(detailCleanup)
   if (flat) return detailCleanup
 
   const draw = () => {

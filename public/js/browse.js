@@ -1,4 +1,4 @@
-import { cget, newPage, NOW, LATER } from './api.js'
+import { cget, newPage, NOW } from './api.js'
 import { $, esc, icon, poster, skeletons, enc, store } from './util.js'
 import { calm } from './ambient.js'
 import { dragScroll } from './drag.js'
@@ -43,7 +43,6 @@ export async function browse (root, type = 'movie', q) {
       if (!items.length) end = true
       if (page === 1 && !items.length) grid.innerHTML = `<div class="empty"><div class="eico">${icon('compass')}</div><h2>Nothing here</h2>Try another genre.</div>`
       page++
-      if (!end) cget(`/api/catalog?${params(page)}`, undefined, LATER).catch(() => {})
       busy = false
       if (!end && more.getBoundingClientRect().top < innerHeight + 1800) setTimeout(load, 60)
     } catch {

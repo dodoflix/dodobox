@@ -6,7 +6,7 @@ const DATA = /^\/api\/(catalog|meta|profiles|me|server)/
 const pending = new Map()
 self.addEventListener('message', e => { for (const id of e.data?.abort || []) pending.get(id)?.abort() })
 
-self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())) })
+self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => Promise.all(SHELL.map(u => fetch(u, { cache: 'force-cache' }).then(r => r.ok && c.put(u, r))))).then(() => self.skipWaiting())) })
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VERSION).map(k => caches.delete(k)))).then(() => self.clients.claim())) })
 
 self.addEventListener('fetch', e => {
