@@ -18,7 +18,6 @@ const shelf = (title, body, { href, wide, id } = {}) => `<section class="shelf" 
   <div class="shelf-h"><h2>${esc(title)}</h2>${href ? `<a href="${href}">See all</a>` : ''}</div>
   <div class="rail ${wide ? 'wide' : ''}">${body}</div></section>`
 
-const watchHref = i => `#/watch/${i.type}/${enc(i.id)}` + (i.season != null ? `/${i.season}/${i.episode}` : '')
 const TYPE_LABEL = { movie: 'Movie', series: 'Series', anime: 'Anime' }
 const WORD = { movie: 'movies', series: 'series', anime: 'anime' }
 const regionName = iso => { try { return new Intl.DisplayNames([document.documentElement.lang || 'en'], { type: 'region' }).of(iso) || iso } catch { return iso } }
@@ -66,22 +65,25 @@ export async function home (root, only = '') {
       <button class="hero-sound" id="hsound" aria-label="Turn trailer sound on" hidden>${icon('mute')}</button>
       <div class="dots" id="dots"></div>
     </section>
-    ${only ? `<div class="typebar"><a class="btn btn-ghost sm" href="#/browse/${only}?all=1">${icon('compass')}Browse all</a><div class="genres" id="tgenres" aria-label="Genres">${GENRES[only].map(g => `<a class="g" href="#/browse/${only}?genre=${enc(g)}">${esc(g)}</a>`).join('')}</div></div>` : ''}
+    ${only ? `<div class="typebar"><div class="genres" id="tgenres" aria-label="Genres"><a class="g all" href="#/browse/${only}?all=1">${icon('compass')}Browse all</a>${GENRES[only].map(g => `<a class="g" href="#/browse/${only}?genre=${enc(g)}">${esc(g)}</a>`).join('')}</div></div>` : ''}
     <div id="shelves">
-      ${recent.length ? shelf('Continue watching', recent.map(r => poster({ ...r, rating: null }, { href: watchHref(r), progress: r.pos / r.dur, sub: (r.season != null ? `S${r.season} E${r.episode} · ` : '') + mins(Math.max(60, r.dur - r.pos)) + ' left' })).join(''), { id: 's-recent' }) : ''}
+      ${recent.length ? shelf('Continue watching', recent.map(r => poster({ ...r, rating: null }, { progress: r.pos / r.dur, sub: (r.season != null ? `S${r.season} E${r.episode} · ` : '') + mins(Math.max(60, r.dur - r.pos)) + ' left' })).join(''), { id: 's-recent' }) : ''}
       ${mine.length ? shelf('My List', mine.map(i => poster(i)).join(''), { id: 's-list' }) : ''}
       <div id="s-local"></div><div id="s-picks"></div><div id="s-more"></div>
       ${order.map(t => shelf(SHELF_TITLE[t], skeletons(10), { href: `#/browse/${t}?all=1`, id: 's-' + t })).join('')}
     </div></div>`
 
   let items = []; let idx = 0; let dead = false
-  let pauseUntil = 0; let deadline = Date.now() + 7000
-  let trailer = null; let trailerUntil = 0; let dwell; let muted = true; let visible = true
+  // A slide stays DWELL seconds; one with a trailer stays as long as the trailer plays (TRAILER). Until it is known whether a trailer will play, the bar assumes it will.
+  const DWELL = 7; const TRAILER = 18; let pauseUntil = 0; let held = 0; let limit = DWELL
+  let trailer = null; let dwell; let muted = true; let visible = true
   dragScroll($('#tgenres'))
   const hero = $('#hero'); const bg = $('.bg', hero); const slot = $('#hero-slot'); const dots = $('#dots'); const htr = $('#htr'); const sound = $('#hsound')
   hero.querySelectorAll('.rail').forEach(dragScroll)
 
-  const paintDots = () => { dots.innerHTML = items.map((_, k) => `<button class="${k === idx ? 'on' : ''}" data-k="${k}" aria-label="Show featured title ${k + 1} of ${items.length}" aria-current="${k === idx}"></button>`).join('') }
+  // Each bar is a title; the current one fills over the dwell time, earlier ones stay full.
+  const paintDots = () => { dots.innerHTML = items.map((_, k) => `<button class="${k === idx ? 'on' : ''}" data-k="${k}" aria-label="Show featured title ${k + 1} of ${items.length}" aria-current="${k === idx}"><i style="--p:${k < idx ? 1 : k === idx ? Math.min(1, held / limit) : 0}"></i></button>`).join('') }
+  const fillDot = () => dots.children[idx]?.firstElementChild.style.setProperty('--p', Math.min(1, held / limit))
   const imgs = () => [...bg.querySelectorAll('img')]
   let track = null
   function place (animate, jump) {
@@ -111,7 +113,7 @@ export async function home (root, only = '') {
   function stopTrailer () {
     clearTimeout(dwell)
     trailer?.destroy(); trailer = null
-    hero.classList.remove('has-trailer'); sound.hidden = true; trailerUntil = 0
+    hero.classList.remove('has-trailer'); sound.hidden = true
   }
   async function startTrailer (k) {
     if (dead || k !== idx || !visible || !canTrailer()) return
@@ -120,12 +122,13 @@ export async function home (root, only = '') {
     const i = items[k]
     let id = i.trailer
     if (id === undefined) { try { id = (await cget(`/api/meta/${i.type}/${enc(i.id)}`, undefined, LATER)).trailer } catch { id = null }; i.trailer = id || null }
+    if (!id && k === idx) limit = DWELL
     if (!id || dead || k !== idx || !visible) return
     const { mountTrailer } = await import('./trailer.js')
     if (dead || k !== idx || !visible) return
     trailer = mountTrailer(htr, id, {
-      onPlaying: () => { hero.classList.add('has-trailer'); sound.hidden = false; trailerUntil = Date.now() + 18000; if (!muted) trailer.unmute() },
-      onFail: () => { trailer = null; i.trailer = null }
+      onPlaying: () => { hero.classList.add('has-trailer'); sound.hidden = false; limit = held + TRAILER; if (!muted) trailer.unmute() },
+      onFail: () => { trailer = null; i.trailer = null; if (k === idx) limit = DWELL }
     })
   }
 
@@ -140,8 +143,8 @@ export async function home (root, only = '') {
     place(true, jump)
     slot.style.opacity = ''
     slot.innerHTML = heroHTML(i)
+    held = 0; limit = canTrailer() && i.trailer !== null ? DWELL + TRAILER - 3 : DWELL
     paintDots(); glow(i.poster)
-    deadline = Date.now() + 7000
     if (user) pauseUntil = Date.now() + 20000
     dwell = setTimeout(() => startTrailer(k), 2200)
   }
@@ -157,9 +160,10 @@ export async function home (root, only = '') {
 
   const tick = setInterval(() => {
     const now = Date.now()
-    if (document.hidden || !visible || items.length < 2) { deadline = now + 7000; return }
-    if (now < pauseUntil || (trailer?.playing && now < trailerUntil)) { deadline = Math.max(deadline, now + 2000); return }
-    if (now >= deadline) show(idx + 1)
+    if (document.hidden || !visible || items.length < 2) { held = 0; fillDot(); return }
+    if (now < pauseUntil) { held = Math.min(held, limit - 2); fillDot(); return }
+    held++; fillDot()
+    if (held >= limit) show(idx + 1)
   }, 1000)
 
   // Vertical scrolling still belongs to the page (touch-action: pan-y).
@@ -218,7 +222,7 @@ export async function home (root, only = '') {
       add(Array.from({ length: only ? 8 : 3 }, (_, n) => n).flatMap(n => order.map(o => picks[o]?.[n]).filter(Boolean)))
     }).catch(() => {
       if (dead) return
-      $(`#s-${t} .rail`).innerHTML = `<p class="dim" style="padding:0 var(--pad)">Couldn't load this right now. It will retry when you come back.</p>`
+      $(`#s-${t} .rail`).innerHTML = `<p class="dim pad-x">Couldn't load this right now. It will retry when you come back.</p>`
     })
   }
   cget('/api/local', 60e3, LATER).then(local => {

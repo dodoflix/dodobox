@@ -62,6 +62,7 @@ export async function watch (type, id, season, episode) {
         <span class="sp"></span>
         ${next ? `<button class="cbtn" id="nxt" aria-label="Next episode">${icon('next')}</button>` : ''}
         ${flat || vids.length < 2 ? '' : `<button class="cbtn" id="m-eps" aria-label="Episodes">${icon('list')}</button>`}
+        <button class="cbtn only-s" id="m-settings" aria-label="Settings">${icon('gear')}</button>
         <button class="cbtn" id="m-party" aria-label="Watch party">${icon('party')}</button>
         <button class="cbtn hide-s" id="m-speed" aria-label="Speed">${icon('speed')}</button>
         <button class="cbtn" id="m-audio" aria-label="Audio" hidden>${icon('audio')}</button>
@@ -227,6 +228,16 @@ export async function watch (type, id, season, episode) {
     if (menuKind === 'speed') h = '<h4>Speed</h4>' + SPEEDS.map(s => row(s === 1 ? 'Normal' : s + '×', { on: v.playbackRate === s, data: `data-speed="${s}"` })).join('')
     if (menuKind === 'quality') h = '<h4>Quality</h4>' + QUALITIES.filter(([q]) => q === 'auto' || +q <= (info?.tier || 2160) || q === quality).map(([q, n]) => row(n, { on: quality === q, data: `data-q="${q}"`, extra: q === 'auto' && autoH ? `<small>${autoH}p for your connection</small>` : '' })).join('') +
       '<hr><h4>Speed</h4>' + SPEEDS.map(sp => row(sp === 1 ? 'Normal' : sp + '×', { on: v.playbackRate === sp, data: `data-speed="${sp}"` })).join('')
+    // On a phone the audio, subtitles, quality, speed and party buttons are one Settings button that lists them.
+    if (menuKind === 'settings') {
+      const q = QUALITIES.find(x => x[0] === quality)
+      h = '<h4>Settings</h4>' + [
+        ['subs', 'Subtitles', subSel ? subSel.label : 'Off'],
+        info?.audio?.length > 1 ? ['audio', 'Audio', LANG(info.audio.find(a => a.i === audio)?.lang || 'und')] : null,
+        ['quality', 'Quality and speed', `${q ? q[1] : quality}${v.playbackRate !== 1 ? ` · ${v.playbackRate}×` : ''}`],
+        partyPanel ? ['party', 'Watch party', ''] : null
+      ].filter(Boolean).map(([k, n, x]) => row(n, { data: `data-menu="${k}"`, extra: `${x ? `<small>${esc(x)}</small>` : ''}${icon('right')}` })).join('')
+    }
     if (menuKind === 'audio') h = '<h4>Audio</h4>' + info.audio.map(a => row(esc(LANG(a.lang || 'und')) + (a.title ? ` · ${esc(a.title)}` : '') + (a.i === bestAudio() ? '<small class="hint">Default</small>' : ''), { on: a.i === audio, data: `data-a="${a.i}"`, extra: `<small>${esc(a.codec)}</small>` })).join('')
     if (menuKind === 'subs') return drawSubsMenu()
     if (menuKind === 'eps') return drawEpsMenu()
@@ -283,7 +294,7 @@ export async function watch (type, id, season, episode) {
     ;['.sm-langs', '.sm-files'].forEach((q, i) => { menu.querySelector(q).scrollTop = keep[i] })
   }
   const open = k => { if (menuKind === k) return closeMenu(); menuKind = k; epSeason = season; menu.hidden = false; drawMenu(); wake(); (k === 'eps' && menu.querySelector('.ep.cur') || menu.querySelector('[data-autofocus]') || menu.querySelector('button:not(:disabled), .ep'))?.focus() }
-  $('#m-speed', root).onclick = () => open('speed'); $('#m-quality', root).onclick = () => open('quality')
+  $('#m-speed', root).onclick = () => open('speed'); $('#m-quality', root).onclick = () => open('quality'); $('#m-settings', root).onclick = () => open('settings')
   $('#m-eps', root)?.addEventListener('click', () => open('eps'))
   $('#m-audio', root).onclick = () => open('audio'); $('#m-subs', root).onclick = () => open('subs')
   $('#m-party', root).onclick = () => { if (partyPanel) open('party') }
@@ -295,6 +306,7 @@ export async function watch (type, id, season, episode) {
     if (a) { e.preventDefault(); const [s2, e2] = a.dataset.ee.split('/').map(Number); if (s2 !== season || e2 !== episode) go({ season: s2, episode: e2 }); return closeMenu() }
     const b = e.target.closest('button'); if (!b || b.disabled) return
     const d = b.dataset
+    if (d.menu) return open(d.menu)
     if (d.speed) { v.defaultPlaybackRate = v.playbackRate = +d.speed; keep('speed', +d.speed); closeMenu() }
     if (d.q) { quality = d.q; keep('quality', quality); closeMenu(); startAt = v.currentTime; if (info) { chooseMode(); attach() } }
     if (d.a) { audio = +d.a; const t = info.audio.find(x => x.i === audio); keep('audio', { lang: t?.lang || null, title: t?.title || '' }); closeMenu(); startAt = v.currentTime; chooseMode(); attach() }
@@ -684,9 +696,9 @@ export async function watch (type, id, season, episode) {
     upShown = true
     const box = $('#up', root); box.hidden = false
     const auto = S.me.settings.autoNext !== false
-    box.innerHTML = `<b>Up next</b><div>${esc(next.title)}<div class="dim" style="font-size:.88rem">Season ${next.season} · Episode ${next.episode}</div></div>
+    box.innerHTML = `<b>Up next</b><div>${esc(next.title)}<div class="dim small">Season ${next.season} · Episode ${next.episode}</div></div>
       ${auto ? '<div class="hair"><i style="--t:' + Math.max(4, Math.min(8, v.duration - v.currentTime)) + 's"></i></div>' : ''}
-      <div class="actions" style="margin:0"><button class="btn btn-ink sm" id="upgo" data-autofocus>${icon('play')}Play now</button><button class="btn btn-quiet sm" id="upx">Not now</button></div>`
+      <div class="actions flush"><button class="btn btn-ink sm" id="upgo" data-autofocus>${icon('play')}Play now</button><button class="btn btn-quiet sm" id="upx">Not now</button></div>`
     $('#upgo', root).onclick = () => go(next); $('#upx', root).onclick = () => { box.hidden = true; clearTimeout(upT); upShown = 'dismissed' }
     if (auto) upT = setTimeout(() => { if (!dead && !$('#up', root).hidden) go(next) }, Math.max(4, Math.min(8, v.duration - v.currentTime)) * 1000)
   }

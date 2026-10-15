@@ -89,7 +89,14 @@ addEventListener('hashchange', route)
 addEventListener('scroll', () => $('#top').classList.toggle('solid', scrollY > 40), { passive: true })
 addEventListener('online', () => toast('Back online'))
 addEventListener('offline', () => toast('You are offline. Saved titles still play.'))
-document.addEventListener('keydown', e => { if (e.key === '/' && !e.target.matches('input, textarea')) { e.preventDefault(); location.hash = '#/search' } })
+// Search opens over the current page; the TV layout keeps the search page, which a remote navigates better.
+const quickSearch = () => import('./quicksearch.js').then(m => m.openSearch())
+document.addEventListener('click', e => {
+  const a = e.target.closest('a[data-nav="search"]')
+  if (!a || isTV || e.button || e.metaKey || e.ctrlKey || e.shiftKey) return
+  e.preventDefault(); quickSearch()
+})
+document.addEventListener('keydown', e => { if (e.key === '/' && !e.target.matches('input, textarea')) { e.preventDefault(); isTV ? location.hash = '#/search' : quickSearch() } })
 
 async function boot () {
   setLang(savedUiLang())
@@ -105,7 +112,7 @@ async function boot () {
   if (!S.me.settings.onboarded) await profileOnboarding()
   store.set('ui', uiLangFor(S.me.settings.lang))
   await initI18n(S.me.settings.lang)
-  installTip(toast)
+  installTip()
   initProfileMenu()
   initLoader()
   await route()

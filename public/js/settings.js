@@ -20,7 +20,7 @@ export async function settings (root) {
   const url = srv.urls[0] || `http://localhost:${srv.port}`
   const dirs = srv.mediaDirs
   root.innerHTML = `<div class="view page">
-    <div class="page-h"><h1>${esc(me.name)}</h1></div>
+    <div class="page-h prof"><span class="avatar big" style="--c:${esc(me.color)}" aria-hidden="true">${esc(me.name[0].toUpperCase())}</span><h1 translate="no">${esc(me.name)}</h1><button class="btn btn-ghost sm" id="switch">${icon('user')}Switch profile</button></div>
     <div class="cols"><div class="col">
     <div class="group"><h3>Playback</h3>
       <div class="set"><div class="l"><b>Language</b><span>Titles and descriptions are translated when a translation exists.</span></div>
@@ -41,14 +41,10 @@ export async function settings (root) {
         <button class="switch" role="switch" data-k="bestTranslation" aria-checked="${!!me.settings.bestTranslation}" aria-label="Best translation quality"></button></div>
     </div>
 
-    <div class="group"><h3>Profile</h3>
-      <div class="set"><div class="l"><b>Switch profile</b><span>Each person keeps their own progress and My List.</span></div><button class="btn btn-ghost sm" id="switch">${icon('user')}Switch</button></div>
-    </div>
-
     </div><div class="col">
     <div class="group"><h3>Connect a phone or TV</h3>
       <div class="connect"><img alt="QR code for ${esc(url)}" src="/api/qr.svg?text=${encodeURIComponent(url)}">
-        <div><b>Scan with a phone camera, or type:</b><code>${esc(url)}</code>${srv.urls.slice(1).map(u => `<code class="dim" style="font-size:.95rem">${esc(u)}</code>`).join('')}
+        <div><b>Scan with a phone camera, or type:</b><code>${esc(url)}</code>${srv.urls.slice(1).map(u => `<code class="dim">${esc(u)}</code>`).join('')}
         <ol class="steps"><li><b>Phone:</b> open the link, then Share, Add to Home Screen.</li><li><b>TV or Android TV:</b> open the browser and enter the address, or cast from your phone with the cast button in the player.</li><li><b>Apple TV:</b> play on iPhone, iPad or Mac in Safari and tap the AirPlay button.</li></ol></div></div>
     </div>
 
@@ -61,7 +57,7 @@ export async function settings (root) {
     <div class="group"><h3>Your own files</h3>
       <div class="set"><div class="l"><b>${srv.localCount} titles found</b><span>${dirs.length ? 'Looking in: ' + dirs.map(esc).join(', ') : 'Dodobox checks your Videos and Movies folders automatically.'}</span></div>
         <button class="btn btn-ghost sm" id="rescan">${icon('refresh')}Scan now</button></div>
-      <form class="set" id="addDir"><input class="field" name="dir" placeholder="Add another folder, e.g. /media/movies" style="flex:1"><button class="btn btn-ghost sm" type="submit">${icon('plus')}Add</button></form>
+      <form class="set" id="addDir"><input class="field grow" name="dir" placeholder="Add another folder, e.g. /media/movies"><button class="btn btn-ghost sm" type="submit">${icon('plus')}Add</button></form>
     </div>
 
     <div class="group"><h3>This device</h3>
