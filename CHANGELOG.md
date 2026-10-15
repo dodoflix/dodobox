@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.4.0](https://github.com/dodoflix/dodobox/compare/v0.3.0...v0.4.0) (2026-10-15)
+
+
+### Features
+
+* search without leaving the page, hero progress bars, episode ranges ([#24](https://github.com/dodoflix/dodobox/issues/24)) ([565dad7](https://github.com/dodoflix/dodobox/commit/565dad7002f68d11a994042575b9b55e757e043f))
+* watch party over the torrent network ([#21](https://github.com/dodoflix/dodobox/issues/21)) ([b31ecd7](https://github.com/dodoflix/dodobox/commit/b31ecd7637c749fbd349194f06f49a6d31ec3ca8))
+
+
+### Bug fixes
+
+* hardware encoder fails on 1440p and 2160p, fall back to the processor ([#22](https://github.com/dodoflix/dodobox/issues/22)) ([8acb5a8](https://github.com/dodoflix/dodobox/commit/8acb5a84a48d69a40c95fa067ab3b36a598226de))
+* ship standard-size Linux icons ([#18](https://github.com/dodoflix/dodobox/issues/18)) ([419413c](https://github.com/dodoflix/dodobox/commit/419413c9bad6eca1c2cccae73399ba240617f204))
+
+
+### Performance
+
+* render only what is on screen, disable text selection ([#25](https://github.com/dodoflix/dodobox/issues/25)) ([74efb6b](https://github.com/dodoflix/dodobox/commit/74efb6bef2dafd9fbf58cb22050d73df86e2e8ba))
+* smaller desktop releases, no separate ffprobe ([#20](https://github.com/dodoflix/dodobox/issues/20)) ([e53b09a](https://github.com/dodoflix/dodobox/commit/e53b09a7d4d64afc8407449d2a03a64d7f3a30a3))
+
 ## [0.3.0](https://github.com/dodoflix/dodobox/compare/v0.2.0...v0.3.0) (2026-10-15)
 
 
