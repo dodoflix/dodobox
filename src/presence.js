@@ -71,26 +71,28 @@ async function setActivity (activity) {
 export const clear = () => { clearTimeout(idle); last = null; if (sock) setActivity(null).catch(() => {}) }
 
 const REPO = 'https://github.com/dodoflix/dodobox'
-const BUTTONS = [{ label: 'Get Dodobox', url: REPO }, { label: 'Releases', url: `${REPO}/releases/latest` }]
 const LOGO = { large_image: 'logo', large_text: 'Dodobox' }
+const EN = { browsing: 'Browsing', looking: 'Looking for something to watch', party: 'In a watch party', picking: 'Picking something to watch', paused: 'Paused', episode: '', get: 'Get Dodobox', releases: 'Releases' }
 
-// b: { state: 'playing' | 'paused' | 'browsing' | 'off', name, art, season, episode, pos, dur, party }, sent by the page every 15 s.
-// party: { id, size, max } when in a watch party.
+// b: { state: 'playing' | 'paused' | 'browsing' | 'off', name, art, season, episode, pos, dur, party, t }, sent by the page every 15 s.
+// party: { id, size, max } when in a watch party. t: the page's translations of the words in EN.
 export function report (b) {
   if (process.env.NO_DISCORD) return
   if (b.state === 'off') return clear()
   clearTimeout(idle)
   idle = setTimeout(clear, IDLE_MS)
   idle.unref()
-  const activity = { type: 3, buttons: BUTTONS }
+  const t = { ...EN }
+  for (const k of Object.keys(EN)) if (typeof b.t?.[k] === 'string') t[k] = b.t[k].slice(0, 100)
+  const activity = { type: 3, buttons: [{ label: t.get, url: REPO }, { label: t.releases, url: `${REPO}/releases/latest` }] }
   if (b.party) activity.party = { id: b.party.id, size: [b.party.size, b.party.max] }
-  if (b.state === 'browsing') Object.assign(activity, { details: b.party ? 'In a watch party' : 'Browsing', state: b.party ? 'Picking something to watch' : 'Looking for something to watch', assets: LOGO })
+  if (b.state === 'browsing') Object.assign(activity, { details: b.party ? t.party : t.browsing, state: b.party ? t.picking : t.looking, assets: LOGO })
   else {
-    const ep = b.season != null ? `Season ${b.season}, episode ${b.episode}` : ''
     const name = String(b.name || 'Dodobox').slice(0, 128)
+    const ep = b.season != null ? t.episode || `Season ${b.season} · Episode ${b.episode}` : ''
     Object.assign(activity, {
       details: name,
-      state: b.state === 'paused' ? (ep ? `${ep} (paused)` : 'Paused') : ep || undefined,
+      state: b.state === 'paused' ? [ep, t.paused].filter(Boolean).join(' · ') : ep || undefined,
       assets: b.art ? { large_image: b.art, large_text: name, small_image: 'logo', small_text: 'Dodobox' } : LOGO
     })
     if (b.state === 'playing') {
