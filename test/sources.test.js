@@ -43,7 +43,8 @@ test('series: text searches for the episode, the season and the whole series run
   })
   try {
     const list = await findSources({ type: 'series', id: 'tt9000002', title: 'Stub Show', season: 2, episode: 3 })
-    assert.ok(net.calls.includes('apibay.org') && net.calls.includes('api.knaben.org'))
+    const hosts = new Set(net.calls)
+    assert.ok(hosts.has('apibay.org') && hosts.has('api.knaben.org'))
     assert.equal(net.calls.filter(h => h === 'apibay.org').length, 3, 'episode, season and complete queries')
     assert.deepEqual(list.map(r => r.infoHash).sort(), [HASH(10), HASH(13)], 'another episode and another show are dropped')
     assert.ok(list.every(r => r.pack), 'both are packs, so the engine picks the file')

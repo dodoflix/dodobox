@@ -2,14 +2,13 @@
 //   --kind series|anime (default both)   uses the edge set
 // Old single episodes live in season packs, so the shapes include pack queries.
 import { req, sleep } from '../lib/net.js'
+import { xml, unxml } from '../lib/xml.js'
 import { goldSet } from '../lib/store.js'
 import { targetOf, labelOf } from '../lib/targets.js'
 import { matchRelease } from '../../src/release.js'
 
 const p2 = n => String(n).padStart(2, '0')
 const clean = s => (s || '').replace(/[^\p{L}\p{N} ]+/gu, ' ').trim()
-const xml = (s, tag) => (s.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`)) || [])[1] || ''
-const unxml = s => s.replace(/<!\[CDATA\[|\]\]>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n))
 
 const SEARCH = {
   tpb: async q => (await req(`https://apibay.org/q.php?q=${encodeURIComponent(q)}&cat=200`)).body?.filter?.(x => x.info_hash && !/^0+$/.test(x.info_hash)).map(x => ({ title: x.name, seeders: +x.seeders })) || [],

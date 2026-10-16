@@ -1,14 +1,13 @@
 // One adapter per torrent source. run(gold) resolves to { ok, status, ms, rows, skip? }; a row is
 // { src, title, hash, seeders, size, fileIdx?, release? } so every source can be compared the same way.
 import { req } from './net.js'
+import { xml, unxml } from './xml.js'
 import { aniZip, fribb } from './store.js'
 
 const BYTES = { KB: 1e3, KIB: 1024, MB: 1e6, MIB: 1048576, GB: 1e9, GIB: 1073741824, TB: 1e12, TIB: 1099511627776 }
 const toBytes = (n, unit) => parseFloat(n) * BYTES[unit.toUpperCase()]
 const row = (src, title, hash, seeders, size, extra = {}) => ({ src, title, hash: (hash || '').toLowerCase(), seeders: +seeders || 0, size: +size || 0, ...extra })
 const p2 = n => String(n).padStart(2, '0')
-const xml = (s, tag) => (s.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`)) || [])[1] || ''
-const unxml = s => s.replace(/<!\[CDATA\[|\]\]>/g, '').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n)).replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
 
 let AZ; let FR
 const az = () => (AZ ||= aniZip())
