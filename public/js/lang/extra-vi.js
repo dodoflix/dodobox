@@ -38,7 +38,7 @@ export const rows = [
 /*more*/ 'Đã lưu', 'Không tìm thấy tệp phát được trong torrent',
 /*more*/ 'không tìm thấy', 'Cần nhập tên', 'Hãy cập nhật từ máy tính đang chạy Dodobox',
 /*more*/ 'Xem chung', 'Bắt đầu phòng xem chung', 'Mã phòng', 'Tham gia', 'Bạn bè cũng cần có Dodobox. Hãy chia sẻ mã với họ.', 'Đang tìm bạn bè của bạn...', 'Sao chép mã', 'Đã sao chép mã', 'Rời phòng', 'Đang xem', 'Xem cùng', 'Đó không phải mã phòng', 'Bạn đã ở trong một phòng', 'Bạn không ở trong phòng nào',
-/*more*/ 'Lấy một mã để chia sẻ, rồi cùng xem bất cứ thứ gì, hết tập này đến tập khác.', 'hoặc', 'Tham gia bằng mã', 'Chọn nội dung bất kỳ, mọi người sẽ cùng xem.'
+/*more*/ 'Lấy một mã để chia sẻ, rồi cùng xem bất cứ thứ gì, hết tập này đến tập khác.', 'hoặc', 'Tham gia bằng mã', 'Chọn nội dung bất kỳ, mọi người sẽ cùng xem.', 'Nhắn cho nhóm', 'Tin nhắn', 'Gửi', 'Hiện ảnh', 'Biểu tượng cảm xúc'
 ]
 export const patterns = [
   'Chào $1, hãy biến nó thành của bạn', 'Mùa $1', 'Mùa $1 · Tập $2', 'Tiếp tục S$1 E$2', 'S$1 E$2$3', 'Phát sóng $1', '$1 giờ $2 phút', '$1 phút', '$1còn $2 giờ $3 phút', '$1còn $2 phút',
@@ -49,5 +49,5 @@ export const patterns = [
   'Đang chuẩn bị ngôn ngữ... $1%', 'Đang dịch... $1%',
   'Đang cải thiện chất lượng... $1%',
   'Đang cài đặt... $1%',
-  'Dodobox $1 đã có sẵn', 'Phiên bản $1 đã có sẵn', 'Bạn đang dùng phiên bản $1.', 'Kéo image mới và tạo lại container: $1', 'Chỉ phụ đề bắt buộc: $1', 'Không tìm thấy phụ đề $1', 'Mã QR cho $1', '$1 đã vào phòng', '$1 đã rời phòng', '$1 đang xem $2'
+  'Dodobox $1 đã có sẵn', 'Phiên bản $1 đã có sẵn', 'Bạn đang dùng phiên bản $1.', 'Kéo image mới và tạo lại container: $1', 'Chỉ phụ đề bắt buộc: $1', 'Không tìm thấy phụ đề $1', 'Mã QR cho $1', '$1 đã vào phòng', '$1 đã rời phòng', '$1 đang xem $2', '$1 đã tạm dừng phát', '$1 đã tiếp tục phát', '$1 đã tua đến $2'
 ]

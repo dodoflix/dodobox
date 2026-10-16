@@ -241,7 +241,7 @@ export async function watch (type, id, season, episode) {
     if (menuKind === 'audio') h = '<h4>Audio</h4>' + info.audio.map(a => row(esc(LANG(a.lang || 'und')) + (a.title ? ` · ${esc(a.title)}` : '') + (a.i === bestAudio() ? '<small class="hint">Default</small>' : ''), { on: a.i === audio, data: `data-a="${a.i}"`, extra: `<small>${esc(a.codec)}</small>` })).join('')
     if (menuKind === 'subs') return drawSubsMenu()
     if (menuKind === 'eps') return drawEpsMenu()
-    if (menuKind === 'party') { menu.className = 'party-pop in-player'; menu.innerHTML = partyPanel.html(); return }
+    if (menuKind === 'party') { menu.className = 'party-pop in-player'; partyPanel.render(menu); return }
     menu.className = 'pl-menu'
     menu.innerHTML = h
   }

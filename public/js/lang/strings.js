@@ -353,7 +353,12 @@ export const ROWS = [
   ['Get a code to share, then watch anything together, episode after episode.', 'Paylaşmak için bir kod al, sonra her şeyi birlikte izleyin, bölüm bölüm.', 'Obtén un código para compartir y mira lo que quieras juntos, episodio tras episodio.', 'Obtenez un code à partager, puis regardez tout ensemble, épisode après épisode.', 'Hol dir einen Code zum Teilen und schaut alles zusammen, Folge für Folge.'],
   ['or', 'veya', 'o', 'ou', 'oder'],
   ['Join with a code', 'Kodla katıl', 'Unirse con un código', 'Rejoindre avec un code', 'Mit Code beitreten'],
-  ['Pick anything to watch and everyone follows.', 'İstediğini seç, herkes seninle izlesin.', 'Elige lo que quieras ver y todos te siguen.', 'Choisissez ce que vous voulez voir et tout le monde suit.', 'Such dir etwas aus, alle schauen mit.']
+  ['Pick anything to watch and everyone follows.', 'İstediğini seç, herkes seninle izlesin.', 'Elige lo que quieras ver y todos te siguen.', 'Choisissez ce que vous voulez voir et tout le monde suit.', 'Such dir etwas aus, alle schauen mit.'],
+  ['Message the party', 'Partiye mesaj yaz', 'Escribe a la sesión', 'Écrire à la session', 'Nachricht an die Party'],
+  ['Messages', 'Mesajlar', 'Mensajes', 'Messages', 'Nachrichten'],
+  ['Send', 'Gönder', 'Enviar', 'Envoyer', 'Senden'],
+  ['Show image', 'Görseli göster', 'Mostrar imagen', 'Afficher l\'image', 'Bild anzeigen'],
+  ['Emoji', 'Emoji', 'Emojis', 'Émojis', 'Emojis']
 ]
 
 // Patterns for text that carries numbers or names. $1, $2 refer to captured groups; the same order for every language.
@@ -406,5 +411,8 @@ export const PATTERNS = [
   [/^(.+) joined the party$/, ['$1 partiye katıldı', '$1 se unió a la sesión', '$1 a rejoint la session', '$1 ist der Party beigetreten']],
   [/^(.+) left the party$/, ['$1 partiden ayrıldı', '$1 salió de la sesión', '$1 a quitté la session', '$1 hat die Party verlassen']],
   [/^(.+) is watching (.+)$/, ['$1 şunu izliyor: $2', '$1 está viendo $2', '$1 regarde $2', '$1 schaut $2']],
+  [/^(.+) paused playback$/, ['$1 oynatmayı duraklattı', '$1 pausó la reproducción', '$1 a mis la lecture en pause', '$1 hat die Wiedergabe pausiert']],
+  [/^(.+) resumed playback$/, ['$1 oynatmaya devam etti', '$1 reanudó la reproducción', '$1 a repris la lecture', '$1 hat die Wiedergabe fortgesetzt']],
+  [/^(.+) skipped to (.+)$/, ['$1 şuraya atladı: $2', '$1 saltó a $2', '$1 est allé à $2', '$1 ist zu $2 gesprungen']],
   [/^Tip: (.+)$/, null]
 ].filter(p => p[1])

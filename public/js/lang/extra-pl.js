@@ -38,7 +38,7 @@ export const rows = [
 /*more*/ 'Zapisane', 'Nie znaleziono pliku do odtworzenia w torrencie',
 /*more*/ 'nie znaleziono', 'Nazwa jest wymagana', 'Zaktualizuj z komputera, na którym działa Dodobox',
 /*more*/ 'Wspólny seans', 'Rozpocznij seans', 'Kod seansu', 'Dołącz', 'Znajomi też potrzebują Dodobox. Udostępnij im kod.', 'Szukamy twoich znajomych...', 'Kopiuj kod', 'Skopiowano kod', 'Opuść seans', 'Oglądają', 'Oglądaj razem', 'To nie jest kod seansu', 'Jesteś już w seansie', 'Nie jesteś w seansie',
-/*more*/ 'Zdobądź kod do udostępnienia i oglądajcie razem wszystko, odcinek po odcinku.', 'lub', 'Dołącz z kodem', 'Wybierz, co oglądać, a wszyscy dołączą.'
+/*more*/ 'Zdobądź kod do udostępnienia i oglądajcie razem wszystko, odcinek po odcinku.', 'lub', 'Dołącz z kodem', 'Wybierz, co oglądać, a wszyscy dołączą.', 'Napisz do grupy', 'Wiadomości', 'Wyślij', 'Pokaż obraz', 'Emoji'
 ]
 export const patterns = [
   'Cześć $1, dostosuj to do siebie', 'Sezon $1', 'Sezon $1 · Odcinek $2', 'Wznów S$1 O$2', 'S$1 O$2$3', 'Premiera $1', '$1 godz. $2 min', '$1 min', '$1zostało $2 godz. $3 min', '$1zostało $2 min',
@@ -49,5 +49,5 @@ export const patterns = [
   'Przygotowywanie języka... $1%', 'Tłumaczenie... $1%',
   'Poprawianie jakości... $1%',
   'Instalowanie... $1%',
-  'Dostępny jest Dodobox $1', 'Dostępna jest wersja $1', 'Masz wersję $1.', 'Pobierz nowy obraz i utwórz kontener ponownie: $1', 'Tylko wymuszone: $1', 'Nie znaleziono napisów: $1', 'Kod QR dla $1', 'Do seansu dołącza: $1', 'Seans opuszcza: $1', '$1 ogląda: $2'
+  'Dostępny jest Dodobox $1', 'Dostępna jest wersja $1', 'Masz wersję $1.', 'Pobierz nowy obraz i utwórz kontener ponownie: $1', 'Tylko wymuszone: $1', 'Nie znaleziono napisów: $1', 'Kod QR dla $1', 'Do seansu dołącza: $1', 'Seans opuszcza: $1', '$1 ogląda: $2', '$1 wstrzymał(a) odtwarzanie', '$1 wznowił(a) odtwarzanie', '$1 przewinął(-ęła) do $2'
 ]

@@ -60,20 +60,31 @@ export const isTV = /DodoboxTV|Tizen|Web0S|WebOS|SMART-TV|SmartTV|AFTT|AFTM|AFTS
 export const isIPhone = /iPhone|iPod/.test(ua)
 export const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(ua)
 
-export function toast (msg, { action, ms = 3600 } = {}) {
+// A few at a time, each dissolving when its time is up. A toast with the same key replaces the one before it (a busy chat is one toast, not a stack).
+const MAX_TOASTS = () => (matchMedia('(max-width: 700px)').matches ? 2 : 3)
+function dismiss (el) {
+  if (el.out) return
+  el.out = true; clearTimeout(el.timer)
+  el.classList.add('out')
+  setTimeout(() => el.remove(), 320)
+}
+export function toast (msg, { action, key, ms = Math.max(3600, msg.length * 55) } = {}) {
   const host = $('#toasts')
+  if (key) for (const old of host.querySelectorAll('.toast')) if (old.key === key) { clearTimeout(old.timer); old.remove() }
   const el = document.createElement('div')
-  el.className = 'toast'
+  el.className = 'toast'; el.key = key
   el.setAttribute('role', 'status')
   el.append(document.createTextNode(msg))
   if (action) {
     const b = document.createElement('button')
     b.className = 'btn btn-ink sm'; b.textContent = action.label
-    b.onclick = () => { action.run(); el.remove() }
+    b.onclick = () => { action.run(); dismiss(el) }
     el.append(b)
   }
   host.append(el)
-  setTimeout(() => el.remove(), ms)
+  const live = [...host.querySelectorAll('.toast:not(.out)')]
+  for (const old of live.slice(0, Math.max(0, live.length - MAX_TOASTS()))) dismiss(old)
+  el.timer = setTimeout(() => dismiss(el), ms)
 }
 
 export const hue = n => { let h = 0; for (const c of String(n || '')) h = (h * 31 + c.charCodeAt(0)) % 360; return h }

@@ -38,7 +38,7 @@ export const rows = [
 /*more*/ 'Salvato', 'Nessun file riproducibile trovato nel torrent',
 /*more*/ 'non trovato', 'Nome obbligatorio', 'Aggiorna dal computer su cui gira Dodobox',
 /*more*/ 'Visione di gruppo', 'Avvia una sessione', 'Codice sessione', 'Unisciti', 'Anche i tuoi amici devono avere Dodobox. Condividi il codice con loro.', 'Cerco i tuoi amici...', 'Copia codice', 'Codice copiato', 'Esci dalla sessione', 'In visione', 'Guarda insieme', 'Non è un codice sessione', 'Sei già in una sessione', 'Non sei in una sessione',
-/*more*/ 'Ottieni un codice da condividere e guardate tutto insieme, episodio dopo episodio.', 'oppure', 'Unisciti con un codice', 'Scegli cosa guardare e tutti ti seguono.'
+/*more*/ 'Ottieni un codice da condividere e guardate tutto insieme, episodio dopo episodio.', 'oppure', 'Unisciti con un codice', 'Scegli cosa guardare e tutti ti seguono.', 'Scrivi al gruppo', 'Messaggi', 'Invia', 'Mostra immagine', 'Emoji'
 ]
 export const patterns = [
   'Ciao $1, rendilo tuo', 'Stagione $1', 'Stagione $1 · Episodio $2', 'Riprendi S$1 E$2', 'S$1 E$2$3', 'Esce il $1', '$1 h $2 min', '$1 min', '$1restano $2 h $3 min', '$1restano $2 min',
@@ -49,5 +49,5 @@ export const patterns = [
   'Preparazione della lingua... $1%', 'Traduzione... $1%',
   'Miglioramento della qualità... $1%',
   'Installazione... $1%',
-  'Dodobox $1 è disponibile', 'La versione $1 è disponibile', 'Hai la versione $1.', 'Scarica la nuova immagine e ricrea il container: $1', 'Solo forzati: $1', 'Nessun sottotitolo in $1 trovato', 'Codice QR per $1', '$1 si è unito alla sessione', '$1 ha lasciato la sessione', '$1 sta guardando $2'
+  'Dodobox $1 è disponibile', 'La versione $1 è disponibile', 'Hai la versione $1.', 'Scarica la nuova immagine e ricrea il container: $1', 'Solo forzati: $1', 'Nessun sottotitolo in $1 trovato', 'Codice QR per $1', '$1 si è unito alla sessione', '$1 ha lasciato la sessione', '$1 sta guardando $2', '$1 ha messo in pausa', '$1 ha ripreso la riproduzione', '$1 è passato a $2'
 ]
