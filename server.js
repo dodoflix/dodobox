@@ -17,6 +17,7 @@ import * as local from './src/local.js'
 import * as downloads from './src/downloads.js'
 import { chartItems } from './src/charts.js'
 import * as state from './src/state.js'
+import { watching } from './src/presence.js'
 import { image } from './src/images.js'
 import { lanAddresses, openBrowser } from './src/net.js'
 import { encoder } from './src/bin.js'
@@ -318,7 +319,7 @@ const routes = [
     json(req, res, { ...me, list: await localizeItems(me.list, lang), recent: await localizeItems(me.recent, lang), history: await localizeItems(me.history, lang), ratings: Object.fromEntries((await localizeItems(Object.values(me.ratings), lang)).map(r => [`${r.type}:${r.id}`, r])) })
   }],
   ['PATCH', /^\/api\/me$/, async (req, res) => { needProfile(req); state.updateProfile(pid(req), await jbody(req)); json(req, res, state.me(pid(req))) }],
-  ['PUT', /^\/api\/progress$/, async (req, res) => { needProfile(req); json(req, res, { ok: state.saveProgress(pid(req), await jbody(req)) }) }],
+  ['PUT', /^\/api\/progress$/, async (req, res) => { needProfile(req); const b = await jbody(req); const ok = state.saveProgress(pid(req), b); if (ok) watching(b); json(req, res, { ok }) }],
   ['PUT', /^\/api\/rating$/, async (req, res) => { needProfile(req); const b = await jbody(req); for (const k of picksCache.keys()) if (k.startsWith(pid(req) + ':')) picksCache.delete(k); json(req, res, state.setRating(pid(req), b.item, b.value)) }],
   ['GET', /^\/api\/picks$/, async (req, res) => { needProfile(req); json(req, res, await picksFor(pid(req), req.headers['x-lang'], safeOf(req))) }],
   ['GET', /^\/api\/shelves$/, (req, res, _, q) => { const p = needProfile(req); const c = (q.get('country') || '').toUpperCase(); json(req, res, shelvesFor(p, /^[A-Z]{2}$/.test(c) ? c : '', TYPES.includes(q.get('type')) ? q.get('type') : '')) }],
