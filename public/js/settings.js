@@ -6,6 +6,7 @@ import { showPicker } from './profiles.js'
 import { LANGUAGES, langOf, SOURCE_MODES } from './onboarding.js'
 import { upgradeSelects, syncSelect } from './dropdown.js'
 import { uiLangFor } from './i18n.js'
+import { pingPresence } from './presence.js'
 
 const SUBS = [['off', 'Off'], ...LANGUAGES.map(([, c, n]) => [c, n]), ['pob', 'Português (Brasil)']]
 const CAPS = [20, 40, 100, 250, 500, 1000]
@@ -39,6 +40,11 @@ export async function settings (root) {
         <button class="switch" role="switch" data-k="adultFilter" aria-checked="${!!me.settings.adultFilter}" aria-label="Adult content filter"></button></div>
       <div class="set"><div class="l"><b>Best translation quality</b><span>Auto-translated subtitles use a larger translator. It downloads about 2 GB the first time, and each subtitle improves gradually while you watch.</span><span id="hqstat" class="dim"></span></div>
         <button class="switch" role="switch" data-k="bestTranslation" aria-checked="${!!me.settings.bestTranslation}" aria-label="Best translation quality"></button></div>
+    </div>
+
+    <div class="group"><h3>Discord</h3>
+      <div class="set"><div class="l"><b>Discord presence</b><span>Show what you are watching in Discord, when it runs on this computer.</span></div>
+        <button class="switch" role="switch" data-k="discordPresence" aria-checked="${me.settings.discordPresence !== false}" aria-label="Discord presence"></button></div>
     </div>
 
     </div><div class="col">
@@ -97,7 +103,7 @@ export async function settings (root) {
   if (me.settings.bestTranslation) hqStatus()
   root.onclick = async e => {
     const sw = e.target.closest('.switch')
-    if (sw && sw.dataset.k) { const v = sw.getAttribute('aria-checked') !== 'true'; sw.setAttribute('aria-checked', v); setSetting(sw.dataset.k, v); if (sw.dataset.k === 'bestTranslation') hqStatus(v) }
+    if (sw && sw.dataset.k) { const v = sw.getAttribute('aria-checked') !== 'true'; sw.setAttribute('aria-checked', v); setSetting(sw.dataset.k, v); if (sw.dataset.k === 'bestTranslation') hqStatus(v); if (sw.dataset.k === 'discordPresence') pingPresence() }
     if (sw && sw.id === 'tv') { const v = sw.getAttribute('aria-checked') !== 'true'; store.set('tv', v); location.reload() }
     const it = e.target.closest('#interests button')
     if (it) { it.classList.toggle('on'); setSetting('interests', [...root.querySelectorAll('#interests .on')].map(b => b.dataset.t)); return }

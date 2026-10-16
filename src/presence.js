@@ -74,14 +74,17 @@ const REPO = 'https://github.com/dodoflix/dodobox'
 const BUTTONS = [{ label: 'Get Dodobox', url: REPO }, { label: 'Releases', url: `${REPO}/releases/latest` }]
 const LOGO = { large_image: 'logo', large_text: 'Dodobox' }
 
-// b: { state: 'playing' | 'paused' | 'browsing', name, art, season, episode, pos, dur }, sent by the page every 15 s.
+// b: { state: 'playing' | 'paused' | 'browsing' | 'off', name, art, season, episode, pos, dur, party }, sent by the page every 15 s.
+// party: { id, size, max } when in a watch party.
 export function report (b) {
   if (process.env.NO_DISCORD) return
+  if (b.state === 'off') return clear()
   clearTimeout(idle)
   idle = setTimeout(clear, IDLE_MS)
   idle.unref()
   const activity = { type: 3, buttons: BUTTONS }
-  if (b.state === 'browsing') Object.assign(activity, { details: 'Browsing', state: 'Looking for something to watch', assets: LOGO })
+  if (b.party) activity.party = { id: b.party.id, size: [b.party.size, b.party.max] }
+  if (b.state === 'browsing') Object.assign(activity, { details: b.party ? 'In a watch party' : 'Browsing', state: b.party ? 'Picking something to watch' : 'Looking for something to watch', assets: LOGO })
   else {
     const ep = b.season != null ? `Season ${b.season}, episode ${b.episode}` : ''
     const name = String(b.name || 'Dodobox').slice(0, 128)

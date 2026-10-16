@@ -119,7 +119,7 @@ async function boot () {
   // Offline caching and the hover preview start once the page is up, so they never compete with it.
   import('./preview.js').then(m => m.initPreview())
   import('./update.js').then(m => m.initUpdates())
-  import('./presence.js').then(m => m.initPresence())
+  import('./presence.js').then(m => m.initPresence(() => S.me.settings.discordPresence !== false))
   import('./party.js').then(m => m.initParty())
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) setTimeout(() => navigator.serviceWorker.register('/sw.js').catch(() => {}), 4000)
 }

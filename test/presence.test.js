@@ -19,7 +19,7 @@ test('report sends playing, paused and browsing activities after the handshake',
     })
   }).listen(path.join(dir, 'discord-ipc-0'))
   const next = n => new Promise(resolve => { wake = () => frames.length >= n && resolve(); wake() })
-  const { report, clear } = await import('../src/presence.js')
+  const { report } = await import('../src/presence.js')
 
   const play = { name: 'Show', art: 'https://images.metahub.space/poster/large/tt1/img', season: 2, episode: 3, pos: 100, dur: 1300 }
   report({ ...play, state: 'playing' })
@@ -42,9 +42,14 @@ test('report sends playing, paused and browsing activities after the handshake',
   assert.equal(frames[2].details, 'Browsing')
   assert.equal(frames[2].assets.large_image, 'logo')
 
-  clear()
+  report({ state: 'browsing', party: { id: 'abc', size: 3, max: 12 } })
   await next(4)
-  assert.equal(frames[3], null)
+  assert.deepEqual(frames[3].party, { id: 'abc', size: [3, 12] })
+  assert.equal(frames[3].details, 'In a watch party')
+
+  report({ state: 'off' })
+  await next(5)
+  assert.equal(frames[4], null)
   peer.destroy()
   srv.close()
   fs.rmSync(dir, { recursive: true })

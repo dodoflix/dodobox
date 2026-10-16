@@ -359,7 +359,9 @@ export const ROWS = [
   ['Send', 'Gönder', 'Enviar', 'Envoyer', 'Senden'],
   ['Show image', 'Görseli göster', 'Mostrar imagen', 'Afficher l\'image', 'Bild anzeigen'],
   ['Emoji', 'Emoji', 'Emojis', 'Émojis', 'Emojis'],
-  ['Chat is hidden in full screen on iPhone', 'iPhone tam ekranında sohbet gizlenir', 'El chat se oculta en pantalla completa en iPhone', 'Le chat est masqué en plein écran sur iPhone', 'Im iPhone-Vollbild ist der Chat ausgeblendet']
+  ['Chat is hidden in full screen on iPhone', 'iPhone tam ekranında sohbet gizlenir', 'El chat se oculta en pantalla completa en iPhone', 'Le chat est masqué en plein écran sur iPhone', 'Im iPhone-Vollbild ist der Chat ausgeblendet'],
+  ['Discord presence', 'Discord durumu', 'Presencia en Discord', 'Présence Discord', 'Discord-Status'],
+  ['Show what you are watching in Discord, when it runs on this computer.', 'Discord bu bilgisayarda açıksa izlediğin şeyi Discord\'da gösterir.', 'Muestra en Discord lo que estás viendo, si se ejecuta en este equipo.', 'Affiche dans Discord ce que vous regardez, si Discord tourne sur cet ordinateur.', 'Zeigt in Discord, was du schaust, wenn Discord auf diesem Computer läuft.'],
 ]
 
 // Patterns for text that carries numbers or names. $1, $2 refer to captured groups; the same order for every language.

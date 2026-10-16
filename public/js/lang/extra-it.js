@@ -38,7 +38,8 @@ export const rows = [
 /*more*/ 'Salvato', 'Nessun file riproducibile trovato nel torrent',
 /*more*/ 'non trovato', 'Nome obbligatorio', 'Aggiorna dal computer su cui gira Dodobox',
 /*more*/ 'Visione di gruppo', 'Avvia una sessione', 'Codice sessione', 'Unisciti', 'Anche i tuoi amici devono avere Dodobox. Condividi il codice con loro.', 'Cerco i tuoi amici...', 'Copia codice', 'Codice copiato', 'Esci dalla sessione', 'In visione', 'Guarda insieme', 'Non è un codice sessione', 'Sei già in una sessione', 'Non sei in una sessione',
-/*more*/ 'Ottieni un codice da condividere e guardate tutto insieme, episodio dopo episodio.', 'oppure', 'Unisciti con un codice', 'Scegli cosa guardare e tutti ti seguono.', 'Scrivi al gruppo', 'Messaggi', 'Invia', 'Mostra immagine', 'Emoji', 'La chat è nascosta a schermo intero su iPhone'
+/*more*/ 'Ottieni un codice da condividere e guardate tutto insieme, episodio dopo episodio.', 'oppure', 'Unisciti con un codice', 'Scegli cosa guardare e tutti ti seguono.', 'Scrivi al gruppo', 'Messaggi', 'Invia', 'Mostra immagine', 'Emoji', 'La chat è nascosta a schermo intero su iPhone',
+/*more*/ 'Presenza su Discord', 'Mostra su Discord cosa stai guardando, se è in esecuzione su questo computer.',
 ]
 export const patterns = [
   'Ciao $1, rendilo tuo', 'Stagione $1', 'Stagione $1 · Episodio $2', 'Riprendi S$1 E$2', 'S$1 E$2$3', 'Esce il $1', '$1 h $2 min', '$1 min', '$1restano $2 h $3 min', '$1restano $2 min',
