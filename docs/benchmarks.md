@@ -20,6 +20,7 @@ command produces them.
 | `pick` | no | File choice inside real multi-file torrents (`--show n` prints disagreements) |
 | `rank` | no (needs `sources --set core`) | Top result under seven viewer situations, and ranking time |
 | `orchestrate` | no (needs `sources --set core`) | Simulated lookup plans with injected failures: time to answer and recall |
+| `app` | yes | The app's own `findSources()` on the gold titles, cold: seeded results and time |
 | `scrape` | yes | Live tracker seeder counts against the numbers sources report |
 | `search` | yes | Title search relevance and latency |
 | `idmap` | yes | Anime id mapping coverage and agreement |
@@ -187,6 +188,19 @@ Top 300 AniList entries. Fribb anime-lists, 7.5 MB read once: IMDb 300, TVDB 287
 network at lookup time. ani.zip (60 asked): all found, 58 with IMDb, p50 100 ms, answers 429 after about 60 quick calls;
 it is the only source with per-episode AniDB, TVDB and absolute numbers. animeapi.my.id answered 30 of 60. Where two
 sources have an IMDb id they agree every time.
+
+### The app itself (`app --set edge`)
+
+`findSources()` from `src/sources.js` on the 90 hard titles, cold, one at a time.
+
+| kind | titles | with a seeded release | with 20 or more seeders | p50 ms | p95 ms |
+|---|---|---|---|---|---|
+| movie | 30 | 30 | 30 | 350 | 535 |
+| series | 30 | 30 | 28 | 349 | 366 |
+| anime | 30 | 30 | 29 | 474 | 850 |
+
+The time includes the tracker scrape of the best fifteen candidates (about 250 ms) and, for anime, the first-use ani.zip
+lookup. A second request for the same title is served from the cache in a few milliseconds.
 
 ### Not pursued
 

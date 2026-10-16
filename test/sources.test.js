@@ -1,6 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { findSources, runTiers } from '../src/sources.js'
+import { findSources, runTiers, hooks } from '../src/sources.js'
+
+hooks.scrape = async () => new Map() // no tracker traffic from tests
 
 const json = body => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } })
 const HASH = n => String(n).padStart(40, '0')
@@ -72,4 +74,16 @@ test('lookup: a failing primary starts the name searches at once, not after the 
   assert.ok(started[0] < 200, `fallback started after ${started[0]} ms`)
   assert.equal(r.failed, true)
   assert.ok(r.rows.length >= 3 && Date.now() - t0 < 900, 'returns at the cap with what the searches found')
+})
+
+test('live tracker counts replace a stale seeder number', async () => {
+  const net = stub([stream(21, 'The.Live.Movie.2002.1080p.BluRay', '2 GB'), stream(22, 'The.Live.Movie.2002.1080p.WEB', '2 GB'), stream(23, 'The.Live.Movie.2002.720p.WEB', '2 GB')].map((s, i) => ({ ...s, title: s.title.replace('👤 50', `👤 ${[900, 80, 60][i]}`) })))
+  const real = hooks.scrape
+  hooks.scrape = async hashes => new Map(hashes.map(h => [h, h === HASH(21) ? { seeders: 3, trackers: 4 } : { seeders: 70, trackers: 4 }]))
+  try {
+    const list = await findSources({ type: 'movie', id: 'tt9000003', title: 'The Live Movie', year: 2002 })
+    assert.notEqual(list[0].infoHash, HASH(21), 'listed with 900 seeders but only 3 are left')
+    assert.equal(list.find(r => r.infoHash === HASH(21)).seeders, 3)
+    assert.equal(list.find(r => r.infoHash === HASH(21)).reportedSeeders, 900)
+  } finally { hooks.scrape = real; net.restore() }
 })

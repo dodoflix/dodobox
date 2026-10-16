@@ -14,4 +14,4 @@ npm run bench -- coverage --set core   # report on the stored answers
 Optional third-party matchers for `match`: `npm --prefix bench install`.
 
 Commands, methodology, results and how to extend: [docs/benchmarks.md](../docs/benchmarks.md).
-What the results mean for the backend: [docs/backend-plan.md](../docs/backend-plan.md).
+What the results mean for the backend: [docs/backend-decisions.md](../docs/backend-decisions.md).

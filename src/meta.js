@@ -145,10 +145,17 @@ const CINE_SORT = { popular: 'top', rating: 'imdbRating', new: 'year', airing: '
 
 const checkType = type => { if (!['movie', 'series', 'anime'].includes(type)) throw Object.assign(new Error('unknown type'), { code: 400 }) }
 
+// Reciprocal-rank fusion of two result lists of items with the same ids; the richer item (the second list's) is kept.
+export function fuse (first, second) {
+  const score = new Map(); const items = new Map()
+  for (const list of [first, second]) list.forEach((it, i) => { score.set(it.id, (score.get(it.id) || 0) + 1 / (60 + i)); if (list === second || !items.has(it.id)) items.set(it.id, it) })
+  return [...score].sort((a, b) => b[1] - a[1]).map(([id]) => items.get(id))
+}
+
 export const catalog = ({ type, q, genre, page = 1, sort = 'popular', safe = false }) => {
   checkType(type)
   if (!ANIME_SORT[sort]) sort = 'popular'
-  return cached(`cat7:${type}:${q}:${genre}:${page}:${sort}:${safe ? 1 : 0}`, 3 * 3600e3, async () => {
+  return cached(`cat8:${type}:${q}:${genre}:${page}:${sort}:${safe ? 1 : 0}`, 3 * 3600e3, async () => {
     if (type === 'anime') {
       const tag = ANIME_TAGS.includes(genre)
       const media = await anilist({
@@ -161,20 +168,22 @@ export const catalog = ({ type, q, genre, page = 1, sort = 'popular', safe = fal
       const items = media.map(aniItem).map(({ videos, ...x }) => x)
       return q ? items : [...await Promise.all(items.slice(0, 10).map(withArt)), ...items.slice(10)]
     }
-    // The catalog's own search is fuzzy; a suggestion endpoint finds exact titles, so it goes first.
-    if (q && !genre && page === 1) {
-      const hits = await imdbSuggest(q, type).catch(() => [])
-      if (hits.length) return hits
-    }
     // Its "year" catalog is keyed by year instead of genre, so "newest" is this year's titles, filtered by genre afterwards.
     const byYear = sort === 'new' && !q
     const cat = q ? 'top' : CINE_SORT[sort]
     const year = new Date().getFullYear()
     const extra = [q && `search=${encodeURIComponent(q)}`, byYear ? `genre=${year - Math.floor((page - 1) / 2)}` : genre && `genre=${encodeURIComponent(genre)}`, page > 1 && `skip=${(byYear ? (page - 1) % 2 : page - 1) * 50}`].filter(Boolean).join('&')
-    const j = await getJSON(`${CINEMETA}/catalog/${type}/${cat}${extra ? '/' + extra : ''}.json`)
-    let items = j.metas.map(m => cineItem(m, type))
-    if (byYear && genre) items = items.filter(i => i.genres.includes(genre))
-    return items
+    const fromCatalog = async () => {
+      const j = await getJSON(`${CINEMETA}/catalog/${type}/${cat}${extra ? '/' + extra : ''}.json`)
+      const items = j.metas.map(m => cineItem(m, type))
+      return byYear && genre ? items.filter(i => i.genres.includes(genre)) : items
+    }
+    // A suggestion endpoint finds exact titles and the catalog's own search forgives typos and abbreviations: ask both, fuse the rankings.
+    if (q && !genre && page === 1) {
+      const [suggested, searched] = await Promise.all([imdbSuggest(q, type).catch(() => []), fromCatalog().catch(() => [])])
+      return fuse(suggested, searched)
+    }
+    return fromCatalog()
   })
 }
 

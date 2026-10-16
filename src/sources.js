@@ -1,6 +1,7 @@
 import { getJSON as fetchJSON, getText, once } from './http.js'
 import { matchRelease, titleVerdict, isPack, isEpisode, seasonOf, entrySeason } from './release.js'
 import { animeIds, episodeNumbers } from './ids.js'
+import { scrape } from './tracker.js'
 
 // Torrent discovery: stream and search providers for movies and series, an anime tracker for anime.
 const TRACKERS = [
@@ -276,6 +277,25 @@ export async function runTiers (tiers, { deadline = DEADLINE_MS, cap = HARD_CAP_
   return { rows: [...got], failed, done: all.then(() => [...got]) }
 }
 
+// Live seeder counts. A source's number can be days old, so the best candidates are asked of the trackers themselves; a count
+// is used only when at least two trackers knew the torrent (one tracker not knowing it says little).
+export const hooks = { scrape }
+const seen = new Map()
+const SEEN_FRESH_MS = 10 * 60e3
+const SCRAPED = 15
+const withLive = list => list.map(r => { const s = seen.get(r.infoHash); return s?.trackers >= 2 ? { ...r, seeders: s.seeders, reportedSeeders: r.seeders } : r })
+async function refreshSeeders (hashes) {
+  const trackers = [...new Set([...TRACKERS, ...live])].filter(t => t.startsWith('udp://'))
+  const found = await hooks.scrape(hashes, trackers)
+  for (const [hash, s] of found) seen.set(hash, { ...s, at: Date.now() })
+  if (seen.size > 5000) for (const k of [...seen.keys()].slice(0, 1000)) seen.delete(k)
+}
+async function rankLive (list, sctx) {
+  const stale = rank(withLive(list), sctx).slice(0, SCRAPED).filter(r => !(seen.get(r.infoHash)?.at > Date.now() - SEEN_FRESH_MS)).map(r => r.infoHash)
+  if (stale.length) await Promise.race([refreshSeeders(stale).catch(() => {}), wait(700)])
+  return rank(withLive(list), sctx).slice(0, 25)
+}
+
 const LIST_TTL = 90 * 60e3
 const NOTHING_TTL = 5 * 60e3
 const cache = new Map()
@@ -284,7 +304,7 @@ async function find (item, ctx) {
   const key = JSON.stringify([item.type, item.id, item.season, item.episode])
   const hit = cache.get(key)
   const sctx = { ...ctx, runtimeMin: item.runtimeMin || RUNTIME[item.type], year: item.year, kind: item.type }
-  if (hit && Date.now() - hit.at < hit.ttl) return rank(hit.list, sctx).slice(0, 25)
+  if (hit && Date.now() - hit.at < hit.ttl) return rankLive(hit.list, sctx)
 
   const { type, season, episode } = item
   const tiers = type === 'movie' ? movieTiers(item) : type === 'series' ? seriesTiers(item) : await animeTiers(item)
@@ -308,5 +328,5 @@ async function find (item, ctx) {
   else if (!failed) cache.set(key, { at: Date.now(), list, ttl: NOTHING_TTL })
   // Sources that answered after the deadline top up the cached list for the next request.
   done.then(late => { const full = build(late); if (full.length > list.length) cache.set(key, { at: Date.now(), list: full, ttl: LIST_TTL }) }).catch(() => {})
-  return rank(list, sctx).slice(0, 25)
+  return rankLive(list, sctx)
 }
