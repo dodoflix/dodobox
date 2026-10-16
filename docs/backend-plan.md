@@ -27,21 +27,10 @@ by running the matching `npm run bench` command, not by argument.
 
 ## Changes, in dependency order
 
-Landed: `src/release.js`, the single release-name parser, `src/ids.js`, and the two-tier lookups in `src/sources.js` for
-movies, series and anime (see [how it works](architecture.md)). The sections below are what is left; their acceptance numbers come from the commands
-named in each.
-
-### Orchestration: `findSources`
-
-- The id-keyed source is the primary. When it answers with at least three usable rows, wait until the 300 ms mark for its
-  tier-mates, then return; never later than the whole tier finishing. Late results merge into the cached list and the
-  next call sees them. Do not return on whichever source answers first: a fast text source wins that race with only
-  60 to 70% of the top results (`orchestrate`, "first answer").
-- A 429 or timeout from the primary starts the fallback tier immediately instead of at the end of the timeout.
-- Keep the 90-minute list cache, add a short negative cache for "nothing found", and prefetch the next episode's list
-  when playback starts.
-- Done when: `orchestrate` shows p95 time to answer at or under 300 ms with a failing primary, with the same top-5 recall
-  as waiting for everything once late results land.
+Landed (see [how it works](architecture.md)): `src/release.js` (one release-name parser), `src/ids.js`, and two-tier lookups in
+`src/sources.js` for movies, series and anime, with a 300 ms deadline, an immediate fallback when the primary fails, a
+short "nothing found" cache and next-episode prefetch. The sections below are what is left; their acceptance numbers come
+from the commands named in each.
 
 ### Ranking: `score` and `rank`
 
@@ -61,9 +50,8 @@ named in each.
 
 ## Order of work
 
-1. Orchestration deadline and cache changes.
-2. Ranking rewrite with the tracker scrape.
-3. Search fusion.
+1. Ranking rewrite with the tracker scrape.
+2. Search fusion.
 
 Each step lands as its own change with the before and after numbers of the relevant command in the description.
 

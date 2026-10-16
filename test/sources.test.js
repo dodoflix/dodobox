@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { findSources } from '../src/sources.js'
+import { findSources, runTiers } from '../src/sources.js'
 
 const json = body => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } })
 const HASH = n => String(n).padStart(40, '0')
@@ -46,4 +46,30 @@ test('series: text searches for the episode, the season and the whole series run
     assert.deepEqual(list.map(r => r.infoHash).sort(), [HASH(10), HASH(13)], 'another episode and another show are dropped')
     assert.ok(list.every(r => r.pack), 'both are packs, so the engine picks the file')
   } finally { net.restore() }
+})
+
+const row = (n, seeders = 30) => ({ title: `Stub.Show.S01E01.${n}`, release: `Stub.Show.S01E01.${n}`, infoHash: HASH(n), seeders, size: 1e9, quality: 1080 })
+const later = (ms, rows) => new Promise(resolve => setTimeout(() => resolve(rows), ms))
+const laterFail = ms => new Promise((_, reject) => setTimeout(() => reject(new Error('429')), ms))
+
+test('lookup: a healthy primary returns at the deadline, slow tier-mates top up afterwards', async () => {
+  let searched = false
+  const t0 = Date.now()
+  const r = await runTiers({ first: [later(20, [row(1), row(2), row(3)]), later(1500, [row(4)])], fallback: () => { searched = true; return [] } }, { deadline: 200 })
+  assert.ok(Date.now() - t0 < 600, 'does not wait for the slow source')
+  assert.equal(r.rows.length, 3)
+  assert.equal(searched, false)
+  assert.equal((await r.done).length, 4, 'the late row is delivered through done')
+})
+
+test('lookup: a failing primary starts the name searches at once, not after the slow tier-mates', async () => {
+  const started = []
+  const t0 = Date.now()
+  const r = await runTiers({
+    first: [laterFail(10), later(1500, [row(4)])],
+    fallback: () => { started.push(Date.now() - t0); return [later(30, [row(5), row(6), row(7)])] }
+  }, { deadline: 200, cap: 400 })
+  assert.ok(started[0] < 200, `fallback started after ${started[0]} ms`)
+  assert.equal(r.failed, true)
+  assert.ok(r.rows.length >= 3 && Date.now() - t0 < 900, 'returns at the cap with what the searches found')
 })

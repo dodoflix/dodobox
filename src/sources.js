@@ -252,34 +252,61 @@ async function animeTiers (item) {
   return { first, fallback }
 }
 
-const gather = async jobs => (await Promise.allSettled(jobs)).flatMap(s => {
-  if (s.status === 'rejected') { console.warn('[sources]', s.reason.message); return [] }
-  return s.value
-})
+const usable = rows => rows.filter(r => r.seeders > 0).length
+const wait = ms => new Promise(resolve => setTimeout(resolve, Math.max(0, ms)))
+const DEADLINE_MS = 300
+const HARD_CAP_MS = 4000
 
+// Runs a lookup's tiers. tiers.first[0] is the primary source. When it answers with enough seeded releases the lookup returns
+// at the deadline with whatever its tier-mates managed by then; when it fails or comes back thin, the name searches start
+// at once instead of after the slow tier-mates. Everything still in flight lands in `done`, so the caller can top up its cache.
+export async function runTiers (tiers, { deadline = DEADLINE_MS, cap = HARD_CAP_MS } = {}) {
+  const t0 = Date.now()
+  const got = []
+  let failed = false
+  const track = job => job.then(rows => { got.push(...rows) }, e => { failed = true; console.warn('[sources]', e.message) })
+  const first = tiers.first.map(track)
+  let all = Promise.all(first)
+  await first[0]
+  if (usable(got) >= MIN_FIRST_TIER) await Promise.race([all, wait(deadline - (Date.now() - t0))])
+  else {
+    all = Promise.all([...first, ...tiers.fallback().map(track)])
+    await Promise.race([all, wait(cap - (Date.now() - t0))])
+  }
+  return { rows: [...got], failed, done: all.then(() => [...got]) }
+}
+
+const LIST_TTL = 90 * 60e3
+const NOTHING_TTL = 5 * 60e3
 const cache = new Map()
 export const findSources = (item, ctx = {}) => once('src:' + JSON.stringify([item.type, item.id, item.season, item.episode]), () => find(item, ctx))
 async function find (item, ctx) {
   const key = JSON.stringify([item.type, item.id, item.season, item.episode])
   const hit = cache.get(key)
   const sctx = { ...ctx, runtimeMin: item.runtimeMin || RUNTIME[item.type], year: item.year, kind: item.type }
-  if (hit && Date.now() - hit.at < 90 * 60e3) return rank(hit.list, sctx).slice(0, 25)
+  if (hit && Date.now() - hit.at < hit.ttl) return rank(hit.list, sctx).slice(0, 25)
 
   const { type, season, episode } = item
   const tiers = type === 'movie' ? movieTiers(item) : type === 'series' ? seriesTiers(item) : await animeTiers(item)
-  let rows = await gather(tiers.first)
-  if (rows.filter(r => r.seeders > 0).length < MIN_FIRST_TIER) rows = rows.concat(await gather(tiers.fallback()))
-  const byHash = new Map()
-  for (const r of rows) if (!byHash.has(r.infoHash) || byHash.get(r.infoHash).seeders < r.seeders) byHash.set(r.infoHash, r)
-  for (const r of byHash.values()) {
-    if (type === 'series') r.pack = !isEpisode(r.release, { type, season, episode })
-    else if (type === 'anime' && !item.movie) {
-      r.pack = r.files != null ? r.files > 1 : isPack(r.release)
-      r.wrongSeason = !r.idKeyed && seasonOf(r.release) !== entrySeason([item.title, ...(item.altTitles || [])])
+  const build = rows => {
+    const byHash = new Map()
+    for (const r of rows) if (!byHash.has(r.infoHash) || byHash.get(r.infoHash).seeders < r.seeders) byHash.set(r.infoHash, { ...r })
+    for (const r of byHash.values()) {
+      if (type === 'series') r.pack = !isEpisode(r.release, { type, season, episode })
+      else if (type === 'anime' && !item.movie) {
+        r.pack = r.files != null ? r.files > 1 : isPack(r.release)
+        r.wrongSeason = !r.idKeyed && seasonOf(r.release) !== entrySeason([item.title, ...(item.altTitles || [])])
+      }
+      else r.pack = /\b(pack|collection|trilogy|anthology|saga|complete)\b|\b\d-\d\b/i.test(r.release)
     }
-    else r.pack = /\b(pack|collection|trilogy|anthology|saga|complete)\b|\b\d-\d\b/i.test(r.release)
+    return [...byHash.values()]
   }
-  const all = [...byHash.values()]
-  if (all.length) cache.set(key, { at: Date.now(), list: all })
-  return rank(all, sctx).slice(0, 25)
+  const { rows, failed, done } = await runTiers(tiers)
+  const list = build(rows)
+  // Nothing found is remembered briefly, unless a source errored: that says nothing about the title.
+  if (list.length) cache.set(key, { at: Date.now(), list, ttl: LIST_TTL })
+  else if (!failed) cache.set(key, { at: Date.now(), list, ttl: NOTHING_TTL })
+  // Sources that answered after the deadline top up the cached list for the next request.
+  done.then(late => { const full = build(late); if (full.length > list.length) cache.set(key, { at: Date.now(), list: full, ttl: LIST_TTL }) }).catch(() => {})
+  return rank(list, sctx).slice(0, 25)
 }

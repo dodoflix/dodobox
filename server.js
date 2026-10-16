@@ -114,6 +114,8 @@ async function play (b) {
   const rivals = b.infoHash || b.pin ? [first] : list.filter(s => s.seeders > 0 && !s.wrongSeason && score(s, ctxOf(b)) >= score(first, ctxOf(b)) - 45).slice(0, 3)
   const pick = rivals.length > 1 ? await race(rivals, start) : first
   const e = start(pick)
+  // The next episode is usually what is watched next: its list is ready by then.
+  if (!flat && !b.infoHash) findSources({ ...item, episode: item.episode + 1 }, ctxOf(b)).catch(() => {})
   engine.evict(state.settings().maxStorageGB * 1e9).catch(() => {})
   return engine.status(e.hash, false)
 }
