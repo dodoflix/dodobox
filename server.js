@@ -86,6 +86,7 @@ const audioOf = req => state.profile(pid(req))?.settings.lang
 const sublangOf = req => state.profile(pid(req))?.settings.sublang
 
 const wrong = new Set() // ponytail: forgotten on restart, which costs one more wrong download; persist if that bites
+const notAired = date => !!date && new Date(date) > new Date()
 async function play (b) {
   const m = await meta(b.type, b.id)
   const flat = b.type === 'movie' || m.movie
@@ -101,6 +102,9 @@ async function play (b) {
     if (have && item.type === 'anime' && titleVerdict(engine.status(have.hash, true, have.file)?.name || '', [item.title, ...(item.altTitles || [])]) === 'other') { await engine.remove(have.hash, have.file); have = null }
     if (have && !exclude.includes(have.hash)) { if (b.pin) engine.pin(have.hash); return engine.status(have.hash, false, have.file) }
   }
+  // Cancelled, unreleased, or an episode that has not aired: say so instead of searching for something that does not exist.
+  const aired = flat ? null : m.videos?.find(v => v.season === item.season && v.episode === item.episode)
+  if (m.unplayable || notAired(aired?.released)) throw Object.assign(new Error(m.unplayable || 'This episode has not aired yet'), { code: 409 })
   const list = (await findSources(item, ctxOf(b))).filter(s => !exclude.includes(s.infoHash) && !wrong.has(`${b.type}:${b.id}:${s.infoHash}`))
   // The version a watch party is on is accepted even when this server's own search does not list it (the page asked for it after the user said yes).
   const first = b.infoHash ? list.find(s => s.infoHash === b.infoHash) || (party.status().now?.source?.infoHash === b.infoHash ? { infoHash: b.infoHash, magnet: magnetFor(b.infoHash), seeders: 1, size: 0, quality: 0 } : undefined) : list[0]

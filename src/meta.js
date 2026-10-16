@@ -43,7 +43,11 @@ export async function cached (key, maxAge, fn) {
 const COUNTRY_LANG = { 'United States': 'eng', 'United Kingdom': 'eng', Canada: 'eng', Australia: 'eng', Ireland: 'eng', 'New Zealand': 'eng', Japan: 'jpn', 'South Korea': 'kor', China: 'chi', 'Hong Kong': 'chi', Taiwan: 'chi', France: 'fre', Germany: 'ger', Spain: 'spa', Italy: 'ita', Turkey: 'tur', Russia: 'rus', India: 'hin', Brazil: 'por', Portugal: 'por', Netherlands: 'dut', Poland: 'pol', Sweden: 'swe', Indonesia: 'ind', Vietnam: 'vie', Greece: 'ell', Israel: 'heb' }
 const ANI_LANG = { JP: 'jpn', KR: 'kor', CN: 'chi', TW: 'chi' }
 
-const cineItem = (m, type) => ({
+// Nothing to play: not out yet, or cancelled. Shown instead of Play, and refused by the server before any search.
+const notYet = date => !!date && new Date(date) > new Date()
+const NOT_RELEASED = 'Not released yet'
+
+export const cineItem = (m, type) => ({
   id: m.imdb_id || m.id,
   type,
   name: m.name,
@@ -57,7 +61,8 @@ const cineItem = (m, type) => ({
   runtime: m.runtime,
   cast: m.cast,
   originalLanguage: COUNTRY_LANG[String(m.country || '').split(',')[0].trim()] || null,
-  imdb: m.imdb_id || m.id
+  imdb: m.imdb_id || m.id,
+  unplayable: type === 'movie' && (m.released ? notYet(m.released) : parseInt(m.year || m.releaseInfo, 10) > new Date().getFullYear()) ? NOT_RELEASED : null
 })
 
 const ANILIST = `
@@ -105,6 +110,7 @@ export const aniItem = m => {
     movie,
     trailer: m.trailer?.site === 'youtube' ? m.trailer.id : null,
     status: m.status,
+    unplayable: m.status === 'CANCELLED' ? 'Cancelled' : m.status === 'NOT_YET_RELEASED' || (!movie && aired === 0) ? NOT_RELEASED : null,
     originalLanguage: ANI_LANG[m.countryOfOrigin] || null,
     mal: m.idMal,
     videos: Array.from({ length: movie ? 1 : aired }, (_, i) => ({
@@ -156,7 +162,7 @@ export function fuse (first, second) {
 export const catalog = ({ type, q, genre, page = 1, sort = 'popular', safe = false }) => {
   checkType(type)
   if (!ANIME_SORT[sort]) sort = 'popular'
-  return cached(`cat8:${type}:${q}:${genre}:${page}:${sort}:${safe ? 1 : 0}`, 3 * 3600e3, async () => {
+  return cached(`cat9:${type}:${q}:${genre}:${page}:${sort}:${safe ? 1 : 0}`, 3 * 3600e3, async () => {
     if (type === 'anime') {
       const tag = ANIME_TAGS.includes(genre)
       const media = await anilist({
@@ -203,7 +209,7 @@ async function kitsuEpisodes (anilistId, count) {
 
 export const meta = (type, id) => {
   checkType(type)
-  return cached(`meta5:${type}:${id}`, 12 * 3600e3, async () => {
+  return cached(`meta6:${type}:${id}`, 12 * 3600e3, async () => {
     if (type === 'anime') {
       const [m] = await anilist({ page: 1, perPage: 1, id: +id.replace('al:', '') })
       if (!m) throw Object.assign(new Error('not found'), { code: 404 })
@@ -223,7 +229,7 @@ export const meta = (type, id) => {
       const full = enrich()
       const quick = await Promise.race([full, new Promise(resolve => setTimeout(resolve, 800))])
       if (quick) return quick
-      full.then(item => { ttl.set(`meta5:${type}:${id}`, { at: Date.now(), v: item }); saveCache() }).catch(() => {})
+      full.then(item => { ttl.set(`meta6:${type}:${id}`, { at: Date.now(), v: item }); saveCache() }).catch(() => {})
       return base
     }
     const { meta: m } = await getJSON(`${CINEMETA}/meta/${type}/${id}.json`)
@@ -234,6 +240,8 @@ export const meta = (type, id) => {
         thumbnail: proxied(v.thumbnail), released: v.released
       })).sort((a, b) => a.season - b.season || a.episode - b.episode)
     }
+    // A series with no episode out yet has nothing to play.
+    if (type === 'series') item.unplayable = item.videos.every(v => notYet(v.released)) ? NOT_RELEASED : null
     return item
   })
 }

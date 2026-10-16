@@ -1,0 +1,31 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { aniItem, cineItem } from '../src/meta.js'
+
+const entry = extra => ({ id: 1, title: { romaji: 'Show', english: 'Show' }, coverImage: { extraLarge: '' }, format: 'TV', episodes: 12, status: 'RELEASING', ...extra })
+
+test('a running anime lists only the episodes that have aired', () => {
+  assert.equal(aniItem(entry({ nextAiringEpisode: { episode: 2 } })).videos.length, 1, 'episode 2 airs next, so one is out')
+  assert.equal(aniItem(entry({ nextAiringEpisode: { episode: 8 } })).videos.length, 7)
+})
+
+test('a finished anime lists its whole run, an unaired one nothing', () => {
+  assert.equal(aniItem(entry({ status: 'FINISHED', nextAiringEpisode: null })).videos.length, 12)
+  assert.equal(aniItem(entry({ status: 'NOT_YET_RELEASED', nextAiringEpisode: { episode: 1 } })).videos.length, 0)
+  assert.equal(aniItem(entry({ episodes: null, nextAiringEpisode: null })).videos.length, 0, 'no count and no schedule')
+})
+
+test('cancelled and unreleased titles have nothing to play', () => {
+  assert.equal(aniItem(entry({ status: 'CANCELLED', format: 'MOVIE', episodes: 1, nextAiringEpisode: null })).unplayable, 'Cancelled')
+  assert.equal(aniItem(entry({ status: 'NOT_YET_RELEASED', nextAiringEpisode: null, episodes: null })).unplayable, 'Not released yet')
+  assert.equal(aniItem(entry({ status: 'RELEASING', nextAiringEpisode: { episode: 1 } })).unplayable, 'Not released yet', 'running but nothing aired')
+  assert.equal(aniItem(entry({ status: 'RELEASING', nextAiringEpisode: { episode: 3 } })).unplayable, null)
+  assert.equal(aniItem(entry({ status: 'FINISHED', nextAiringEpisode: null })).unplayable, null)
+})
+
+test('a movie dated in the future is not playable, a released one is', () => {
+  const future = new Date(Date.now() + 90 * 864e5).toISOString()
+  assert.equal(cineItem({ id: 'tt1', name: 'Soon', released: future, year: String(new Date(future).getFullYear()) }, 'movie').unplayable, 'Not released yet')
+  assert.equal(cineItem({ id: 'tt2', name: 'Old', released: '2001-05-05T00:00:00.000Z', year: '2001' }, 'movie').unplayable, null)
+  assert.equal(cineItem({ id: 'tt3', name: 'Show', released: future, year: '2030' }, 'series').unplayable, null, 'series are judged by their episodes')
+})
