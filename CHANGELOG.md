@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0](https://github.com/dodoflix/dodobox/compare/v0.5.0...v0.6.0) (2026-10-16)
+
+
+### Features
+
+* watch party chat with emoji, reactions and activity lines ([#30](https://github.com/dodoflix/dodobox/issues/30)) ([e0547dc](https://github.com/dodoflix/dodobox/commit/e0547dca32bda2d1f7dac326777f92b004c68b31))
+
+
+### Documentation
+
+* add a screenshot banner to the README ([#32](https://github.com/dodoflix/dodobox/issues/32)) ([8dbed79](https://github.com/dodoflix/dodobox/commit/8dbed79edba54b1680f659b155cb3fb42c5dcfd4))
+
 ## [0.5.0](https://github.com/dodoflix/dodobox/compare/v0.4.0...v0.5.0) (2026-10-16)
 
 
