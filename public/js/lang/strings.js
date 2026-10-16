@@ -358,7 +358,8 @@ export const ROWS = [
   ['Messages', 'Mesajlar', 'Mensajes', 'Messages', 'Nachrichten'],
   ['Send', 'Gönder', 'Enviar', 'Envoyer', 'Senden'],
   ['Show image', 'Görseli göster', 'Mostrar imagen', 'Afficher l\'image', 'Bild anzeigen'],
-  ['Emoji', 'Emoji', 'Emojis', 'Émojis', 'Emojis']
+  ['Emoji', 'Emoji', 'Emojis', 'Émojis', 'Emojis'],
+  ['Chat is hidden in full screen on iPhone', 'iPhone tam ekranında sohbet gizlenir', 'El chat se oculta en pantalla completa en iPhone', 'Le chat est masqué en plein écran sur iPhone', 'Im iPhone-Vollbild ist der Chat ausgeblendet']
 ]
 
 // Patterns for text that carries numbers or names. $1, $2 refer to captured groups; the same order for every language.

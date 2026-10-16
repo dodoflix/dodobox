@@ -38,7 +38,7 @@ export const rows = [
 /*more*/ 'Zapisane', 'Nie znaleziono pliku do odtworzenia w torrencie',
 /*more*/ 'nie znaleziono', 'Nazwa jest wymagana', 'Zaktualizuj z komputera, na którym działa Dodobox',
 /*more*/ 'Wspólny seans', 'Rozpocznij seans', 'Kod seansu', 'Dołącz', 'Znajomi też potrzebują Dodobox. Udostępnij im kod.', 'Szukamy twoich znajomych...', 'Kopiuj kod', 'Skopiowano kod', 'Opuść seans', 'Oglądają', 'Oglądaj razem', 'To nie jest kod seansu', 'Jesteś już w seansie', 'Nie jesteś w seansie',
-/*more*/ 'Zdobądź kod do udostępnienia i oglądajcie razem wszystko, odcinek po odcinku.', 'lub', 'Dołącz z kodem', 'Wybierz, co oglądać, a wszyscy dołączą.', 'Napisz do grupy', 'Wiadomości', 'Wyślij', 'Pokaż obraz', 'Emoji'
+/*more*/ 'Zdobądź kod do udostępnienia i oglądajcie razem wszystko, odcinek po odcinku.', 'lub', 'Dołącz z kodem', 'Wybierz, co oglądać, a wszyscy dołączą.', 'Napisz do grupy', 'Wiadomości', 'Wyślij', 'Pokaż obraz', 'Emoji', 'Czat jest ukryty na pełnym ekranie w iPhonie'
 ]
 export const patterns = [
   'Cześć $1, dostosuj to do siebie', 'Sezon $1', 'Sezon $1 · Odcinek $2', 'Wznów S$1 O$2', 'S$1 O$2$3', 'Premiera $1', '$1 godz. $2 min', '$1 min', '$1zostało $2 godz. $3 min', '$1zostało $2 min',

@@ -38,7 +38,7 @@ export const rows = [
 /*more*/ 'Tersimpan', 'Tidak ada berkas yang bisa diputar di dalam torrent',
 /*more*/ 'tidak ditemukan', 'Nama wajib diisi', 'Perbarui dari komputer tempat Dodobox berjalan',
 /*more*/ 'Nonton bareng', 'Mulai sesi nonton', 'Kode sesi', 'Gabung', 'Temanmu juga perlu Dodobox. Bagikan kodenya kepada mereka.', 'Mencari temanmu...', 'Salin kode', 'Kode disalin', 'Keluar dari sesi', 'Menonton', 'Tonton bersama', 'Itu bukan kode sesi', 'Kamu sudah berada di sesi', 'Kamu tidak berada di sesi',
-/*more*/ 'Dapatkan kode untuk dibagikan, lalu tonton apa saja bersama, episode demi episode.', 'atau', 'Gabung dengan kode', 'Pilih tontonan dan semua ikut.', 'Kirim pesan ke pesta', 'Pesan', 'Kirim', 'Tampilkan gambar', 'Emoji'
+/*more*/ 'Dapatkan kode untuk dibagikan, lalu tonton apa saja bersama, episode demi episode.', 'atau', 'Gabung dengan kode', 'Pilih tontonan dan semua ikut.', 'Kirim pesan ke pesta', 'Pesan', 'Kirim', 'Tampilkan gambar', 'Emoji', 'Obrolan disembunyikan di layar penuh iPhone'
 ]
 export const patterns = [
   'Hai $1, buat jadi milikmu', 'Musim $1', 'Musim $1 · Episode $2', 'Lanjutkan S$1 E$2', 'S$1 E$2$3', 'Tayang $1', '$1 j $2 mnt', '$1 mnt', '$1sisa $2 j $3 mnt', '$1sisa $2 mnt',

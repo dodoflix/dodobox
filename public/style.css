@@ -760,9 +760,9 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 .party-pop .pp-say button.icon-btn { flex: none; background: var(--ink); color: var(--on-ink); }
 .party-pop .pp-say button.icon-btn:hover { background: var(--ink); color: var(--on-ink); }
 .party-pop .pp-say button.icon-btn:not(:disabled):hover { filter: brightness(.88); }
-.party-chip.unread::after, .cbtn.unread#m-party::after { content: ""; width: .5rem; height: .5rem; border-radius: 50%; background: rgb(var(--glow)); }
-.cbtn.unread#m-party { position: relative; }
-.cbtn.unread#m-party::after { position: absolute; top: .45rem; right: .45rem; }
+.party-chip.unread::after, .cbtn.unread#m-party::after, .cbtn.unread#m-settings::after { content: ""; width: .5rem; height: .5rem; border-radius: 50%; background: rgb(var(--glow)); }
+.cbtn.unread#m-party, .cbtn.unread#m-settings { position: relative; }
+.cbtn.unread#m-party::after, .cbtn.unread#m-settings::after { position: absolute; top: .45rem; right: .45rem; }
 .pp-pings { position: absolute; z-index: 7; left: max(var(--pad), env(safe-area-inset-left)); bottom: calc(var(--safe-b) + 6.2rem); display: grid; gap: .4rem; justify-items: start; max-width: min(24rem, calc(100% - 2 * var(--pad))); pointer-events: none; }
 .pp-pings p.sys { background: rgb(22 22 30 / .85); color: var(--ink2); font-size: var(--fs-s); }
 .pp-pings p { margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; padding: .5rem .9rem; border-radius: var(--r-row); background: var(--panel); box-shadow: var(--shadow-float); line-height: 1.4; overflow-wrap: anywhere; animation: rise .4s var(--ease) both; }
@@ -856,3 +856,16 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 html.tv .party-pop.in-page { top: 1rem; }
 html.tv .party-pop.in-page:has(.pp-chat) { height: calc(100vh - 2rem); height: calc(100svh - 2rem); }
 html.tv .pp-now .pp-poster { display: none; }
+
+/* A phone turned sideways (full screen) has little height and plenty of width: the panel puts the party on the left and the chat beside it. */
+@media (max-height: 520px) and (min-width: 560px) {
+  .party-pop:has(.pp-chat) { display: grid; grid-template-columns: 14.5rem minmax(0, 1fr); grid-template-rows: repeat(4, auto) 1fr; gap: .6rem 1rem; width: min(40rem, calc(100vw - 2rem)); overflow-x: hidden; }
+  .party-pop:has(.pp-chat) > * { grid-column: 1; }
+  .party-pop:has(.pp-chat) > .pp-note { display: none; }
+  .party-pop:has(.pp-chat) > .pp-leave { grid-row: 5; align-self: end; margin-top: 0; }
+  .party-pop:has(.pp-chat) > .pp-chat { grid-column: 2; grid-row: 1 / -1; padding-top: 0; border-top: 0; }
+  .party-pop:has(.pp-chat) { grid-template-columns: 15rem minmax(0, 1fr); padding-block: .7rem; gap: .5rem 1rem; }
+  .party-pop:has(.pp-chat) .pp-codeline b { font-size: .95rem; letter-spacing: .04em; }
+  .party-pop:has(.pp-chat) .pp-h h3 { font-size: 1.3rem; }
+  .party-pop:has(.pp-chat) .pp-poster { display: none; }
+}

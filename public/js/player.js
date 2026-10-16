@@ -191,12 +191,20 @@ export async function watch (type, id, season, episode) {
 
   const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement
   const toggleFS = () => {
-    if (fsEl()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); screen.orientation?.unlock?.() } else if (root.requestFullscreen) root.requestFullscreen().then(() => screen.orientation?.lock?.('landscape').catch(() => {})).catch(() => {})
-    else if (v.webkitEnterFullscreen) v.webkitEnterFullscreen()
+    const rf = root.requestFullscreen || root.webkitRequestFullscreen
+    if (fsEl()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); screen.orientation?.unlock?.() } else if (rf) Promise.resolve(rf.call(root)).then(() => screen.orientation?.lock?.('landscape').catch(() => {})).catch(() => {})
+    else if (v.webkitEnterFullscreen) {
+      // iPhone only shows the video itself in full screen, so nothing of ours (the chat included) can be on top of it: in a party it asks first.
+      const enter = () => v.webkitEnterFullscreen()
+      if (detachParty) import('./party.js').then(p => (p.active() ? toast('Chat is hidden in full screen on iPhone', { key: 'fs', ms: 7000, action: { label: 'Full screen', run: enter } }) : enter())).catch(enter)
+      else enter()
+    }
   }
   $('#fs', root).onclick = toggleFS
-  const fsChange = () => { $('#fs', root).innerHTML = icon(fsEl() ? 'exitfs' : 'fs') }
-  document.addEventListener('fullscreenchange', fsChange)
+  // The layout changes with the screen (a phone turned sideways to watch), so a menu left open from the other layout is closed instead of left half-drawn.
+  const fsChange = () => { $('#fs', root).innerHTML = icon(fsEl() ? 'exitfs' : 'fs'); closeMenu() }
+  document.addEventListener('fullscreenchange', fsChange); document.addEventListener('webkitfullscreenchange', fsChange)
+  const narrow = matchMedia('(max-width: 700px)'); narrow.addEventListener('change', () => closeMenu())
   if (document.pictureInPictureEnabled && !isTV) { $('#pip', root).hidden = false; $('#pip', root).onclick = () => (document.pictureInPictureElement ? document.exitPictureInPicture() : v.requestPictureInPicture()).catch(() => {}) }
   if (window.WebKitPlaybackTargetAvailabilityEvent) {
     v.addEventListener('webkitplaybacktargetavailabilitychanged', e => { $('#airplay', root).hidden = e.availability !== 'available' })
@@ -808,7 +816,7 @@ export async function watch (type, id, season, episode) {
 
   const cleanup = () => {
     dead = true; detachParty?.(); save(); if (hash && st?.fileIdx != null) navigator.sendBeacon?.(`/api/release/${hash}/${st.fileIdx}`); clearTimeout(refreshT); stopTranslating(); clearTimeout(wd); clearTimeout(syncTimer); clearTimeout(probeTimer); hls?.destroy(); timers.forEach(clearInterval); clearTimeout(idleT); clearTimeout(upT); clearTimeout(clickT)
-    document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', fsChange); removeEventListener('pagehide', save)
+    document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', fsChange); document.removeEventListener('webkitfullscreenchange', fsChange); removeEventListener('pagehide', save)
     document.removeEventListener('visibilitychange', onVisible); removeEventListener('orientationchange', onRotate); subRO.disconnect()
     if (onBack.handler === backHandler) onBack.handler = null
     try { lock?.release() } catch {}
@@ -826,7 +834,7 @@ export async function watch (type, id, season, episode) {
     const party = await import('./party.js')
     await party.ready()
     const here = { type, id, season: flat ? null : season, episode: flat ? null : episode, title: m.name }
-    detachParty = party.attachPlayer({ v, root, item: here, hash: () => hash, button: $('#m-party', root), menu: { isParty: () => menuKind === 'party', redraw: drawMenu, close: closeMenu } })
+    detachParty = party.attachPlayer({ v, root, item: here, hash: () => hash, button: $('#m-party', root), alt: $('#m-settings', root), menu: { isParty: () => menuKind === 'party', redraw: drawMenu, close: closeMenu } })
     partyPanel = detachParty.panel
     forced = party.sourceFor(here)
     if (party.onThis(here)) startAt = party.nowPos()

@@ -247,7 +247,7 @@ function behaviour (ctx, host) {
     render (el) {
       const log = el.querySelector('.pp-log'); const typing = el.querySelector('.pp-say input') === document.activeElement
       const atEnd = !log || stuck.get(log) !== false; const top = log?.scrollTop
-      el.innerHTML = html(ctx); unread = 0; ctx?.button?.classList.remove('unread'); chip?.classList.remove('unread')
+      el.innerHTML = html(ctx); unread = 0; ctx?.button?.classList.remove('unread'); ctx?.alt?.classList.remove('unread'); chip?.classList.remove('unread')
       const now = el.querySelector('.pp-log')
       if (now) { stuck.set(now, atEnd); now.scrollTop = atEnd ? now.scrollHeight : top; pin.observe(now) }
       if (typing) { const f = el.querySelector('.pp-say input'); f.focus(); f.setSelectionRange(f.value.length, f.value.length) }
@@ -375,7 +375,7 @@ export function attachPlayer (ctx) {
     else if (e.k === 'sk') { seekTo(e.pos) } else if (e.k === 'tk') follow(e.pos, !!e.paused, LAG, DRIFT)
   }
   sinks.add(sink)
-  const mark = () => { ctx.button?.classList.toggle('on', status.active); ctx.button?.classList.toggle('unread', unread > 0) }
+  const mark = () => { ctx.button?.classList.toggle('on', status.active); for (const b of [ctx.button, ctx.alt]) b?.classList.toggle('unread', unread > 0) }
   sinks.add(mark); mark()
   // A message that arrives while the panel is shut shows over the picture for a few seconds, which also works in full screen.
   const ping = e => {
