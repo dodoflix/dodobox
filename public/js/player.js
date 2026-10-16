@@ -609,7 +609,7 @@ export async function watch (type, id, season, episode) {
   let runId = 0
   const aborted = Object.assign(new Error('superseded'), { abort: true })
   async function ready (my) {
-    const t0 = Date.now(); let lastBytes = -1; let lastAt = Date.now(); let probing = null; let probeAt = 0
+    const t0 = Date.now(); let lastBytes = 0; let lastAt = Date.now(); let probing = null; let probeAt = 0
     while (!dead) {
       if (my !== runId) throw aborted
       st = await api(`/api/status/${hash}`)
@@ -620,9 +620,10 @@ export async function watch (type, id, season, episode) {
         if (done?.r) { info = done.r; return }
         if (done?.e) throw Object.assign(done.e, { stall: true })
       }
-      if (st.downloaded > lastBytes) { lastBytes = st.downloaded; lastAt = Date.now() }
+      // A swarm that only trickles keeps bytes arriving forever, so progress is judged over a window: 300 kB in 15 s, or the version is given up.
+      if (Date.now() - lastAt > 15000 && st.phase !== 'metadata') { if (st.downloaded - lastBytes < 300e3) throw Object.assign(new Error('stalled'), { stall: true }); lastBytes = st.downloaded; lastAt = Date.now() }
       const waited = (Date.now() - t0) / 1000
-      if (st.phase === 'metadata' ? waited > 40 : Date.now() - lastAt > 25000) throw Object.assign(new Error('stalled'), { stall: true })
+      if (st.phase === 'metadata' && waited > 20) throw Object.assign(new Error('stalled'), { stall: true })
       if (probing && Date.now() - probeAt > 18000) showSlowLink()
       if (probing && Date.now() - probeAt > 120000) throw Object.assign(new Error('probe timeout'), { stall: true })
       const need = Math.min(st.length || 3e6, 3e6)
@@ -640,6 +641,7 @@ export async function watch (type, id, season, episode) {
     try {
       hls?.destroy(); v.removeAttribute('src'); v.load(); info = null; subSel = null; subs = []
       setLoad({ title: m.name, line: 'Finding the best version...', pct: null, actions: '' })
+      const began = Date.now()
       for (let attempt = 0; attempt < 5 && !dead; attempt++) {
         st = await api('/api/play', { method: 'POST', body: { type, id, season, episode, infoHash: forced, exclude: [...tried], prefer: quality, display: displayPx() } })
         hash = st.hash; forced = undefined
@@ -652,7 +654,8 @@ export async function watch (type, id, season, episode) {
           if (!e.stall) throw e
           tried.add(hash); info = null
           setLoad({ line: 'That version is slow. Trying another...', pct: null, actions: '' })
-          if (attempt === 4) throw new Error('No version of this title is available right now.', { cause: e })
+          // Versions nobody is sharing take a while to give up on one by one: after 90 s the title is called unavailable.
+          if (attempt === 4 || Date.now() - began > 90000) throw new Error('No version of this title is available right now.', { cause: e })
         }
       }
       if (dead || !info) return

@@ -81,8 +81,9 @@ async function anilist (variables) {
   return j.data.Page.media
 }
 
-const aniItem = m => {
-  const aired = m.episodes ?? (m.nextAiringEpisode ? m.nextAiringEpisode.episode - 1 : 0)
+export const aniItem = m => {
+  // A running show lists only what has aired; the total episode count would offer episodes nobody has released yet.
+  const aired = m.nextAiringEpisode ? m.nextAiringEpisode.episode - 1 : m.episodes ?? 0
   const eps = {}
   for (const s of m.streamingEpisodes || []) {
     const n = s.title.match(/^Episode (\d+)\s*-?\s*(.*)$/)
@@ -202,7 +203,7 @@ async function kitsuEpisodes (anilistId, count) {
 
 export const meta = (type, id) => {
   checkType(type)
-  return cached(`meta4:${type}:${id}`, 12 * 3600e3, async () => {
+  return cached(`meta5:${type}:${id}`, 12 * 3600e3, async () => {
     if (type === 'anime') {
       const [m] = await anilist({ page: 1, perPage: 1, id: +id.replace('al:', '') })
       if (!m) throw Object.assign(new Error('not found'), { code: 404 })
@@ -222,7 +223,7 @@ export const meta = (type, id) => {
       const full = enrich()
       const quick = await Promise.race([full, new Promise(resolve => setTimeout(resolve, 800))])
       if (quick) return quick
-      full.then(item => { ttl.set(`meta4:${type}:${id}`, { at: Date.now(), v: item }); saveCache() }).catch(() => {})
+      full.then(item => { ttl.set(`meta5:${type}:${id}`, { at: Date.now(), v: item }); saveCache() }).catch(() => {})
       return base
     }
     const { meta: m } = await getJSON(`${CINEMETA}/meta/${type}/${id}.json`)

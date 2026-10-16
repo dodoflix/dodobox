@@ -67,8 +67,9 @@ export async function title (root, type, id) {
   detailCleanup = () => { stop(); io.disconnect() }
   $('#lede').onclick = e => e.currentTarget.setAttribute('aria-expanded', e.currentTarget.classList.toggle('open'))
   $('#list').onclick = async e => {
+    const button = e.currentTarget // gone once the handler has awaited
     await toggleList({ type, id, name: m.name, poster: m.poster, year: m.year, rating: m.rating })
-    e.currentTarget.innerHTML = inL() ? icon('check') + 'In My List' : icon('plus') + 'My List'
+    button.innerHTML = inL() ? icon('check') + 'In My List' : icon('plus') + 'My List'
   }
   const paintRate = () => root.querySelectorAll('.rate button').forEach(b => b.classList.toggle('on', +b.dataset.r === ratingOf(type, id)))
   paintRate()
