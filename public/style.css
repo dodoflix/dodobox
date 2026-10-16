@@ -768,8 +768,7 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 .pp-pings p { margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; padding: .5rem .9rem; border-radius: var(--r-row); background: var(--panel); box-shadow: var(--shadow-float); line-height: 1.4; overflow-wrap: anywhere; animation: rise .4s var(--ease) both; }
 .pp-pings b { margin-right: .25rem; color: color-mix(in srgb, var(--c, #888) 60%, var(--ink)); }
 @media (max-width: 700px) { .party-pop.in-page { left: 1rem; right: 1rem; width: auto; top: 4.2rem; } }
-/* Where there is little room, the people and the title shrink and the panel takes the whole height, so the messages get what is left
-   and the box to type in is always on screen. */
+/* Where there is little room, the people and the title shrink so the whole panel stays about as tall as what is in it. */
 @media (max-width: 700px), (max-height: 760px) {
   .party-pop { gap: .75rem; padding-block: .9rem; }
   .pp-members { display: flex; flex-wrap: wrap; gap: .5rem 1.1rem; padding-top: .75rem; }
@@ -780,12 +779,7 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
   .pp-now { display: flex; align-items: center; gap: .75rem; }
   .pp-now .pp-show { flex: 1; min-width: 0; }
   .pp-now .btn { flex: none; width: auto; }
-  .party-pop:has(.pp-chat) { display: flex; flex-direction: column; }
-  .party-pop:has(.pp-chat) > * { flex: none; }
-  .party-pop:has(.pp-chat) > .pp-chat { flex: 1 1 auto; min-height: 8.5rem; display: flex; flex-direction: column; }
-  .party-pop.in-page:has(.pp-chat) { height: calc(100vh - 4.4rem - 1rem); height: calc(100svh - 4.4rem - 1rem); }
-  .party-pop.in-player:has(.pp-chat) { height: calc(100% - var(--safe-b) - 6.2rem - var(--safe-t) - 1rem); }
-  .pp-chat .pp-log { flex: 1 1 4rem; max-height: none; min-height: 4rem; }
+  .pp-log { max-height: clamp(5rem, 22vh, 12rem); }
 }
 .party-pop button.icon-btn { border: 0; padding: 0; background: transparent; color: var(--ink2); }
 .party-pop button.icon-btn:hover { background: rgb(255 255 255 / .1); color: var(--ink); }
@@ -854,7 +848,6 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 
 /* On a TV the type is large, so the panel gives back the room it can: it starts near the top and drops the poster. */
 html.tv .party-pop.in-page { top: 1rem; }
-html.tv .party-pop.in-page:has(.pp-chat) { height: calc(100vh - 2rem); height: calc(100svh - 2rem); }
 html.tv .pp-now .pp-poster { display: none; }
 
 /* A phone turned sideways (full screen) has little height and plenty of width: the panel puts the party on the left and the chat beside it. */
@@ -868,4 +861,5 @@ html.tv .pp-now .pp-poster { display: none; }
   .party-pop:has(.pp-chat) .pp-codeline b { font-size: .95rem; letter-spacing: .04em; }
   .party-pop:has(.pp-chat) .pp-h h3 { font-size: 1.3rem; }
   .party-pop:has(.pp-chat) .pp-poster { display: none; }
+  .party-pop:has(.pp-chat) .pp-log { max-height: 9rem; }
 }
