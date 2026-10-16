@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/dodoflix/dodobox/compare/v0.4.0...v0.5.0) (2026-10-16)
+
+
+### Features
+
+* id-first source discovery, one release parser, backend benchmarks ([#28](https://github.com/dodoflix/dodobox/issues/28)) ([853a5a6](https://github.com/dodoflix/dodobox/commit/853a5a6973a5b8f89f3226d73972d109534a8955))
+
 ## [0.4.0](https://github.com/dodoflix/dodobox/compare/v0.3.0...v0.4.0) (2026-10-15)
 
 
