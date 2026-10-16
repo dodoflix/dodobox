@@ -15,6 +15,14 @@ const WIDTHS = [64, 160, 240, 360, 480, 640, 800, 1080, 1280, 1920]
 export const snap = w => WIDTHS.find(x => x >= w) || WIDTHS.at(-1)
 
 export const proxied = u => u && HOSTS.test(safeHost(u)) ? `/img?u=${encodeURIComponent(u)}` : u
+// The https address behind a /img?u= link, sized for Discord, or '' when it is not a known picture host.
+export const remote = p => {
+  try {
+    const u = new URL(p, 'http://x'); const o = u.pathname === '/img' ? u.searchParams.get('u') : p
+    const r = HOSTS.test(safeHost(o)) ? upstream(o, 512) : ''
+    return r.length <= 256 ? r : ''
+  } catch { return '' }
+}
 const safeHost = u => { try { const x = new URL(u); return x.protocol === 'https:' ? x.hostname : '' } catch { return '' } }
 
 const cancelled = () => Object.assign(new Error('cancelled'), { cancelled: true })

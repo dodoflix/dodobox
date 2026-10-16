@@ -96,7 +96,7 @@ Dodobox looks in your Videos and Movies folders (and `MEDIA_DIR`) and matches fi
 | `MIN_LOCAL_BYTES` | `30000000` | Smallest file counted as a video when scanning your own folders |
 | `TRANSLATE_BEAM` | `5` | Beam size of the subtitle translator (lower is faster, rougher) |
 | `NO_DHT` | unset | Turn off DHT and local peer discovery |
-| `DISCORD_CLIENT_ID` | built-in | Discord application used for Rich Presence (shown while something plays, when Discord runs on the same computer as the server) |
+| `DISCORD_CLIENT_ID` | built-in | Discord application used for Rich Presence (browsing, playing or paused, when Discord runs on the same computer as the server) |
 | `NO_DISCORD` | unset | Do not show what is playing in Discord |
 | `NO_MDNS` | unset | Do not announce `dodobox.local` on the network |
 | `NO_SPEEDTEST` | unset | Skip measuring the server's internet speed at start |

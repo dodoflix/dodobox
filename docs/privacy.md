@@ -12,7 +12,7 @@ Your server contacts other services to do its job: catalog and artwork providers
 
 ## Discord Rich Presence
 
-While something plays, the server tells the Discord app on the same computer the title, the season and episode, and the playback time. Discord shows it on your profile according to your Discord activity settings. Set `NO_DISCORD=1` to turn this off. The Discord application used for this has no bot and receives no data from Dodobox.
+While Dodobox is open, the server tells the Discord app on the same computer that you are browsing, or, while a video plays or is paused, the title, its poster address, the season and episode, and the playback time. Discord shows it on your profile according to your Discord activity settings. Set `NO_DISCORD=1` to turn this off. The Discord application used for this has no bot and receives no data from Dodobox.
 
 ## Contact
 
