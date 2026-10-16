@@ -2,6 +2,7 @@
 import http from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'
+import crypto from 'node:crypto'
 import zlib from 'node:zlib'
 import qr from 'qrcode-generator'
 import { Bonjour } from 'bonjour-service'
@@ -10,14 +11,15 @@ import { catalog, meta, animeImdb } from './src/meta.js'
 import { findSources, measured, score, refreshTrackers, magnetFor, lengthFits } from './src/sources.js'
 import { titleVerdict } from './src/release.js'
 import { episodeNumbers, warm as warmIds } from './src/ids.js'
-import { party, newCode, cleanItem } from './src/party.js'
+import { party, newCode, cleanItem, LIMITS } from './src/party.js'
 import { listSubtitles, allowedSubUrl, fetchSubtitle, srtToVtt, decode, toVtt, legacyEncoding } from './src/subs.js'
 import * as engine from './src/engine.js'
 import * as local from './src/local.js'
 import * as downloads from './src/downloads.js'
 import { chartItems } from './src/charts.js'
 import * as state from './src/state.js'
-import { image } from './src/images.js'
+import { report as presence } from './src/presence.js'
+import { image, remote } from './src/images.js'
 import { lanAddresses, openBrowser } from './src/net.js'
 import { encoder } from './src/bin.js'
 import * as speed from './src/speed.js'
@@ -319,6 +321,7 @@ const routes = [
   }],
   ['PATCH', /^\/api\/me$/, async (req, res) => { needProfile(req); state.updateProfile(pid(req), await jbody(req)); json(req, res, state.me(pid(req))) }],
   ['PUT', /^\/api\/progress$/, async (req, res) => { needProfile(req); json(req, res, { ok: state.saveProgress(pid(req), await jbody(req)) }) }],
+  ['PUT', /^\/api\/presence$/, async (req, res) => { needProfile(req); const b = await jbody(req); presence({ ...b, art: remote(b.poster), party: party.phase === 'idle' ? null : { id: crypto.createHash('sha1').update(party.code).digest('hex').slice(0, 16), size: party.members.size, max: LIMITS.members } }); json(req, res, { ok: true }) }],
   ['PUT', /^\/api\/rating$/, async (req, res) => { needProfile(req); const b = await jbody(req); for (const k of picksCache.keys()) if (k.startsWith(pid(req) + ':')) picksCache.delete(k); json(req, res, state.setRating(pid(req), b.item, b.value)) }],
   ['GET', /^\/api\/picks$/, async (req, res) => { needProfile(req); json(req, res, await picksFor(pid(req), req.headers['x-lang'], safeOf(req))) }],
   ['GET', /^\/api\/shelves$/, (req, res, _, q) => { const p = needProfile(req); const c = (q.get('country') || '').toUpperCase(); json(req, res, shelvesFor(p, /^[A-Z]{2}$/.test(c) ? c : '', TYPES.includes(q.get('type')) ? q.get('type') : '')) }],

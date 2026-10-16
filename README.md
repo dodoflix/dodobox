@@ -24,6 +24,6 @@ Also: watch parties with chat, subtitles that sync and translate themselves, qua
 - [How it works](docs/architecture.md)
 - [Benchmarks](docs/benchmarks.md) and the [backend decisions](docs/backend-decisions.md)
 - [Android TV app](apps/android/README.md)
-- [Contributing](CONTRIBUTING.md) and [security policy](SECURITY.md)
+- [Contributing](CONTRIBUTING.md), [security policy](SECURITY.md), [privacy](docs/privacy.md) and [terms](docs/terms.md)
 
 Use it only for content you are allowed to download and watch. See the [legal notice](LEGAL.md).

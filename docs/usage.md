@@ -52,6 +52,10 @@ Watch the same thing at the same time as friends who have Dodobox. Open the prof
 
 Each person's Dodobox plays the video itself (a party does not stream your copy), so everyone needs the title to be available to them. Friends start on the same version you chose, so the timing matches. The code is the only secret: it finds the party on the torrent network and encrypts what is sent, so keep it between friends. The party ends for you when you press Leave party or quit Dodobox. If two people cannot connect, one of them is probably behind a strict router; try again from another network. Dodobox has no login, so anyone on your home network can also see the code.
 
+## Discord
+
+When Discord runs on the same computer as the server, it shows that you are browsing, or what is playing or paused with its poster and a timer. In a watch party it also shows how many are in it. It has Get Dodobox and Releases buttons (other people see them, you do not). It is on by default: switch it off per profile in Settings, Discord, or for the whole server with `NO_DISCORD=1`. Joining a party from Discord is not supported, because the join secret would pass the party code, which is also its encryption key, through Discord.
+
 ## Subtitles
 
 Subtitles are searched in your language and English and ranked by how closely each file matches the version playing. Built-in tracks appear while the video is still downloading, greyed out ("after more download") until enough of the start has arrived. Subtitle files that come in the same download (next to the video or in a `Subs` folder) are listed too, under their file name.
@@ -96,6 +100,8 @@ Dodobox looks in your Videos and Movies folders (and `MEDIA_DIR`) and matches fi
 | `MIN_LOCAL_BYTES` | `30000000` | Smallest file counted as a video when scanning your own folders |
 | `TRANSLATE_BEAM` | `5` | Beam size of the subtitle translator (lower is faster, rougher) |
 | `NO_DHT` | unset | Turn off DHT and local peer discovery |
+| `DISCORD_CLIENT_ID` | built-in | Discord application used for Rich Presence (browsing, playing or paused, when Discord runs on the same computer as the server) |
+| `NO_DISCORD` | unset | Do not show what is playing in Discord |
 | `NO_MDNS` | unset | Do not announce `dodobox.local` on the network |
 | `NO_SPEEDTEST` | unset | Skip measuring the server's internet speed at start |
 | `NO_UPDATE_CHECK` | unset | Do not look for a newer release |

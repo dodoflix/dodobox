@@ -38,7 +38,8 @@ export const rows = [
 /*more*/ 'Opgeslagen', 'Geen afspeelbaar bestand gevonden in de torrent',
 /*more*/ 'niet gevonden', 'Naam vereist', 'Werk bij vanaf de computer waarop Dodobox draait',
 /*more*/ 'Kijkfeestje', 'Start een kijkfeestje', 'Partycode', 'Deelnemen', 'Je vrienden hebben ook Dodobox nodig. Deel de code met hen.', 'Je vrienden zoeken...', 'Code kopiëren', 'Code gekopieerd', 'Verlaat het kijkfeestje', 'Kijkt naar', 'Samen kijken', 'Dat is geen partycode', 'Je zit al in een kijkfeestje', 'Je zit niet in een kijkfeestje',
-/*more*/ 'Haal een code om te delen en kijk alles samen, aflevering na aflevering.', 'of', 'Deelnemen met een code', 'Kies iets om te kijken en iedereen volgt.', 'Bericht aan de groep', 'Berichten', 'Verstuur', 'Afbeelding tonen', 'Emoji', 'De chat is verborgen op volledig scherm op iPhone'
+/*more*/ 'Haal een code om te delen en kijk alles samen, aflevering na aflevering.', 'of', 'Deelnemen met een code', 'Kies iets om te kijken en iedereen volgt.', 'Bericht aan de groep', 'Berichten', 'Verstuur', 'Afbeelding tonen', 'Emoji', 'De chat is verborgen op volledig scherm op iPhone',
+/*more*/ 'Discord-status', 'Toont in Discord wat je kijkt, als Discord op deze computer draait.',
 ]
 export const patterns = [
   'Hoi $1, maak het van jou', 'Seizoen $1', 'Seizoen $1 · Aflevering $2', 'Hervat S$1 A$2', 'S$1 A$2$3', 'Verschijnt $1', '$1 u $2 min', '$1 min', '$1nog $2 u $3 min', '$1nog $2 min',

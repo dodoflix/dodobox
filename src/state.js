@@ -12,7 +12,7 @@ let db = { profiles: {}, settings: {} }
 try { db = { ...db, ...JSON.parse(fs.readFileSync(FILE, 'utf8')) } } catch {}
 
 for (const p of Object.values(db.profiles)) { p.history ||= {}; p.ratings ||= {}; p.settings = { ...DEFAULTS_INIT(), ...p.settings } }
-function DEFAULTS_INIT () { return { sublang: 'off', lang: 'en', interests: [], autoNext: true, quality: 'auto', sourceMode: 'balanced', adultFilter: false, bestTranslation: false, onboarded: false } }
+function DEFAULTS_INIT () { return { sublang: 'off', lang: 'en', interests: [], autoNext: true, quality: 'auto', sourceMode: 'balanced', adultFilter: false, bestTranslation: false, discordPresence: true, onboarded: false } }
 
 let timer
 function persist () {
@@ -26,7 +26,7 @@ export function flush () {
   fs.renameSync(tmp, FILE)
 }
 
-const DEFAULTS = { sublang: 'off', lang: 'en', interests: [], autoNext: true, quality: 'auto', sourceMode: 'balanced', adultFilter: false, bestTranslation: false, onboarded: false }
+const DEFAULTS = { sublang: 'off', lang: 'en', interests: [], autoNext: true, quality: 'auto', sourceMode: 'balanced', adultFilter: false, bestTranslation: false, discordPresence: true, onboarded: false }
 export const profiles = () => Object.values(db.profiles).map(({ id, name, color }) => ({ id, name, color }))
 export const profile = id => db.profiles[id]
 

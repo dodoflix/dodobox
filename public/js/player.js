@@ -1,5 +1,6 @@
 import { api, cget, getProfile } from './api.js'
 import { S, progress, recordProgress } from './session.js'
+import { nowPlaying, pingPresence } from './presence.js'
 import { mapTime, offsetAt, classify } from './syncmap.js'
 import { $, esc, icon, enc, clock, bytes, store, sleep, toast, isTV, isSafari, lowres, sized, thumbW, hue } from './util.js'
 import { glow } from './ambient.js'
@@ -147,7 +148,7 @@ export async function watch (type, id, season, episode) {
     $('#big', root).innerHTML = icon(p ? 'play' : 'pause')
     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = p ? 'paused' : 'playing'
   }
-  v.addEventListener('play', sync); v.addEventListener('pause', () => { sync(); save(); wake() })
+  v.addEventListener('play', () => { sync(); pingPresence() }); v.addEventListener('pause', () => { sync(); save(); wake(); pingPresence() }); v.addEventListener('seeked', pingPresence)
   v.addEventListener('playing', () => { clearTimeout(wd); clearTimeout(slowT); $('#slow', root).hidden = true; hideLoad(); $('.pl-spin', root).hidden = true; sync(); wake(); wakeLock() })
   let spinT
   let slowT
@@ -724,6 +725,7 @@ export async function watch (type, id, season, episode) {
     if (e.target.closest('#another')) { tried.add(hash); $('#slow', root).hidden = true; start() }
   })
 
+  nowPlaying(() => v.duration > 0 && !castCtl ? { state: v.paused ? 'paused' : 'playing', name: m.originalName || m.name, poster: m.poster, season, episode, pos: v.currentTime, dur: v.duration } : { state: 'browsing' })
   let lastSave = 0
   function save () {
     if (!v.duration || !isFinite(v.duration) || v.currentTime < 5 || castCtl) return
@@ -815,7 +817,7 @@ export async function watch (type, id, season, episode) {
   addEventListener('pagehide', save)
 
   const cleanup = () => {
-    dead = true; detachParty?.(); save(); if (hash && st?.fileIdx != null) navigator.sendBeacon?.(`/api/release/${hash}/${st.fileIdx}`); clearTimeout(refreshT); stopTranslating(); clearTimeout(wd); clearTimeout(syncTimer); clearTimeout(probeTimer); hls?.destroy(); timers.forEach(clearInterval); clearTimeout(idleT); clearTimeout(upT); clearTimeout(clickT)
+    dead = true; nowPlaying(null); detachParty?.(); save(); if (hash && st?.fileIdx != null) navigator.sendBeacon?.(`/api/release/${hash}/${st.fileIdx}`); clearTimeout(refreshT); stopTranslating(); clearTimeout(wd); clearTimeout(syncTimer); clearTimeout(probeTimer); hls?.destroy(); timers.forEach(clearInterval); clearTimeout(idleT); clearTimeout(upT); clearTimeout(clickT)
     document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', fsChange); document.removeEventListener('webkitfullscreenchange', fsChange); removeEventListener('pagehide', save)
     document.removeEventListener('visibilitychange', onVisible); removeEventListener('orientationchange', onRotate); subRO.disconnect()
     if (onBack.handler === backHandler) onBack.handler = null

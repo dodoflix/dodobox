@@ -48,6 +48,7 @@ export async function profileOnboarding () {
   const interests = new Set(S.me.settings.interests || [])
   let mode = S.me.settings.sourceMode || 'balanced'
   let adult = !!S.me.settings.adultFilter
+  let discord = S.me.settings.discordPresence !== false
   const draw = () => {
     const l = stage(`<h1>Hi ${esc(S.me.name)}, make it yours</h1>
       <div class="ob-form">
@@ -61,6 +62,8 @@ export async function profileOnboarding () {
           <div class="chips">${SOURCE_MODES.map(([m, n]) => `<button class="chip ${m === mode ? 'on' : ''}" data-m="${m}" aria-pressed="${m === mode}">${n}</button>`).join('')}</div></div>
         <div class="ob-row"><span><b>Adult content filter</b><small>Hide titles that are marked as adult. Off by default.</small></span>
           <button class="switch" role="switch" id="ob-adult" aria-checked="${adult}" aria-label="Adult content filter"></button></div>
+        <div class="ob-row"><span><b>Discord presence</b><small>Show what you are watching in Discord, when it runs on this computer.</small></span>
+          <button class="switch" role="switch" id="ob-discord" aria-checked="${discord}" aria-label="Discord presence"></button></div>
       </div>
       <div class="actions"><button class="btn btn-ink" data-save data-autofocus>Start watching</button></div>`, 0, 1)
     return l
@@ -73,12 +76,13 @@ export async function profileOnboarding () {
       const sw = e.target.closest('#ob-subs'); if (sw) { subs = !subs; sw.setAttribute('aria-checked', subs) }
       const c = e.target.closest('[data-i]'); if (c) { interests.has(c.dataset.i) ? interests.delete(c.dataset.i) : interests.add(c.dataset.i); c.classList.toggle('on'); c.setAttribute('aria-pressed', interests.has(c.dataset.i)) }
       const ad = e.target.closest('#ob-adult'); if (ad) { adult = !adult; ad.setAttribute('aria-checked', adult) }
+      const dc = e.target.closest('#ob-discord'); if (dc) { discord = !discord; dc.setAttribute('aria-checked', discord) }
       const mb = e.target.closest('[data-m]'); if (mb) { mode = mb.dataset.m; l.querySelectorAll('[data-m]').forEach(x => { x.classList.toggle('on', x === mb); x.setAttribute('aria-pressed', x === mb) }) }
       if (e.target.closest('[data-save]')) resolve()
     }
   })
   const [code, sub3] = langOf(lang)
-  await Promise.all([setSetting('lang', code), setSetting('sublang', subs ? sub3 : 'off'), setSetting('interests', [...interests]), setSetting('sourceMode', mode), setSetting('adultFilter', adult), setSetting('onboarded', true)])
+  await Promise.all([setSetting('lang', code), setSetting('sublang', subs ? sub3 : 'off'), setSetting('interests', [...interests]), setSetting('sourceMode', mode), setSetting('adultFilter', adult), setSetting('discordPresence', discord), setSetting('onboarded', true)])
   done()
   // The interface follows the language: reload once so every screen starts in it.
   store.set('ui', uiLangFor(code))
