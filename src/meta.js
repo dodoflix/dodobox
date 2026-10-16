@@ -162,7 +162,7 @@ export function fuse (first, second) {
 export const catalog = ({ type, q, genre, page = 1, sort = 'popular', safe = false }) => {
   checkType(type)
   if (!ANIME_SORT[sort]) sort = 'popular'
-  return cached(`cat9:${type}:${q}:${genre}:${page}:${sort}:${safe ? 1 : 0}`, 3 * 3600e3, async () => {
+  return cached(`cat10:${type}:${q}:${genre}:${page}:${sort}:${safe ? 1 : 0}`, 3 * 3600e3, async () => {
     if (type === 'anime') {
       const tag = ANIME_TAGS.includes(genre)
       const media = await anilist({
@@ -187,8 +187,11 @@ export const catalog = ({ type, q, genre, page = 1, sort = 'popular', safe = fal
     }
     // A suggestion endpoint finds exact titles and the catalog's own search forgives typos and abbreviations: ask both, fuse the rankings.
     if (q && !genre && page === 1) {
-      const [suggested, searched] = await Promise.all([imdbSuggest(q, type).catch(() => []), fromCatalog().catch(() => [])])
-      return fuse(suggested, searched)
+      const [suggested, searched] = await Promise.allSettled([imdbSuggest(q, type), fromCatalog()])
+      const items = fuse(suggested.value || [], searched.value || [])
+      // A search that failed is not an answer: caching "no results" would hide the title for hours.
+      if (!items.length && (suggested.reason || searched.reason)) throw suggested.reason || searched.reason
+      return items
     }
     return fromCatalog()
   })
