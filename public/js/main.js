@@ -96,7 +96,7 @@ document.addEventListener('click', e => {
   if (!a || isTV || e.button || e.metaKey || e.ctrlKey || e.shiftKey) return
   e.preventDefault(); quickSearch()
 })
-document.addEventListener('keydown', e => { if (e.key === '/' && !e.target.matches('input, textarea')) { e.preventDefault(); isTV ? location.hash = '#/search' : quickSearch() } })
+document.addEventListener('keydown', e => { if (e.key === '/' && !e.target.matches?.('input, textarea')) { e.preventDefault(); isTV ? location.hash = '#/search' : quickSearch() } })
 
 async function boot () {
   setLang(savedUiLang())

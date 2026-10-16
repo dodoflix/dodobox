@@ -159,7 +159,10 @@ export const ANIME_TAGS = ['Isekai', 'School', 'Shounen', 'Seinen', 'Shoujo', 'M
 const ANIME_SORT = { popular: ['TRENDING_DESC', 'POPULARITY_DESC'], rating: ['SCORE_DESC'], new: ['START_DATE_DESC'], airing: ['POPULARITY_DESC'] }
 const CINE_SORT = { popular: 'top', rating: 'imdbRating', new: 'year', airing: 'top' }
 
+const checkType = type => { if (!['movie', 'series', 'anime'].includes(type)) throw Object.assign(new Error('unknown type'), { code: 400 }) }
+
 export const catalog = ({ type, q, genre, page = 1, sort = 'popular', safe = false }) => {
+  checkType(type)
   if (!ANIME_SORT[sort]) sort = 'popular'
   return cached(`cat7:${type}:${q}:${genre}:${page}:${sort}:${safe ? 1 : 0}`, 3 * 3600e3, async () => {
     if (type === 'anime') {
@@ -204,11 +207,12 @@ async function kitsuEpisodes (anilistId, count) {
   } catch { return {} }
 }
 
-export const meta = (type, id) =>
-  cached(`meta4:${type}:${id}`, 12 * 3600e3, async () => {
+export const meta = (type, id) => {
+  checkType(type)
+  return cached(`meta4:${type}:${id}`, 12 * 3600e3, async () => {
     if (type === 'anime') {
       const [m] = await anilist({ page: 1, perPage: 1, id: +id.replace('al:', '') })
-      if (!m) throw new Error('not found')
+      if (!m) throw Object.assign(new Error('not found'), { code: 404 })
       const base = aniItem(m)
       const enrich = async () => {
         const [item, k] = await Promise.all([withArt(base), !base.movie && base.videos.some(v => !v.thumbnail) ? kitsuEpisodes(m.id, base.videos.length) : {}])
@@ -238,3 +242,4 @@ export const meta = (type, id) =>
     }
     return item
   })
+}

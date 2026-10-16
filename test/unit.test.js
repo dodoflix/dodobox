@@ -1,8 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { releaseSubLangs, showVerdict, animeShowName, isAnimePack, matchAnimeEpisode, matchSeriesEpisode, animeSeason, pickFile, parseQuality, rank, nameHasTitle, measured } from '../src/sources.js'
+import { releaseSubLangs, showVerdict, animeShowName, isAnimePack, matchAnimeEpisode, matchSeriesEpisode, animeSeason, pickFile, parseQuality, rank, nameHasTitle, releaseIsTitle, lengthFits, measured } from '../src/sources.js'
 import { srtToVtt, allowedSubUrl, sameShow, plausible } from '../src/subs.js'
-import { playlist } from '../src/transcode.js'
+import { playlist, run } from '../src/transcode.js'
 import { upstream } from '../src/images.js'
 import * as updates from '../src/update.js'
 import { parseProbe } from '../src/transcode.js'
@@ -59,6 +59,15 @@ test('ranking prefers healthy 1080p over huge, dead or cam releases', () => {
   assert.equal(parseQuality('Movie.2160p.HDR'), 2160)
   assert.ok(nameHasTitle('The.Matrix.1999.1080p', 'The Matrix'))
   assert.ok(!nameHasTitle('Matrix.Reloaded', 'The Matrix'))
+})
+
+test('a release is the title, not a longer title containing it', () => {
+  assert.ok(releaseIsTitle('The.Prince.S01.COMPLETE.720p.HMAX.WEBRip', 'The Prince'))
+  assert.ok(releaseIsTitle('Prince S01E02 1080p', 'The Prince'))
+  assert.ok(releaseIsTitle('[Grp] The Prince (2023) S01E01 1080p', 'The Prince'))
+  assert.ok(releaseIsTitle('The.Matrix.1999.1080p', 'The Matrix'))
+  assert.ok(releaseIsTitle('1883.S01E01.720p', '1883'))
+  for (const n of ['The.Dragon.Prince.S01.1080p', 'The Fresh Prince Of Bel-Air S01', 'The.Prince.of.Tennis.S01E01', 'Andrew The Problem Prince 2023 S01', 'Matrix.Reloaded.2003']) assert.ok(!releaseIsTitle(n, n.startsWith('Matrix') ? 'The Matrix' : 'The Prince'), n)
 })
 
 test('srt to vtt', () => {
@@ -334,4 +343,22 @@ test('the encoder level covers the frame size, so 1440p and 2160p do not fail to
   for (const name of ['libx264', 'h264_nvenc']) { assert.equal(level(name, 1080), '4.1'); assert.equal(level(name, 720), '4.1'); assert.equal(level(name, 1440), '5.1'); assert.equal(level(name, 2160), '5.1') }
   assert.equal(level('h264_videotoolbox', 1080), '4.2')
   assert.equal(level('h264_videotoolbox', 2160), '5.1')
+})
+
+test('an ffmpeg job stops when cancelled or when it runs too long', async () => {
+  const slow = ['-f', 'lavfi', '-re', '-i', 'testsrc=size=64x64:rate=25', '-t', '60', '-f', 'null', '-']
+  const ctl = new AbortController()
+  setTimeout(() => ctl.abort(), 200)
+  await assert.rejects(run(slow, null, 30000, ctl.signal), /cancelled/)
+  await assert.rejects(run(slow, null, 300), /timed out/)
+})
+
+test('same-titled shows are told apart by year and by length', () => {
+  const r = (title, seeders = 5) => ({ title, release: title, infoHash: title, seeders, size: 1e9, quality: 1080 })
+  const ctx = { year: 2023, kind: 'series', runtimeMin: 48 }
+  const [first] = rank([r('The Prince S01 1080p HMAX WEBRip', 9), r('The.Prince.2023.S01E03.1080p.WEB.h264-BETTY'), r('The.Prince.2012.S01E03.1080p')], ctx)
+  assert.match(first.title, /2023/)
+  assert.ok(lengthFits(2760, 48) && lengthFits(5400, 48))
+  assert.ok(!lengthFits(782, 48) && !lengthFits(14400, 48))
+  assert.ok(lengthFits(0, 48) && lengthFits(782, 0))
 })

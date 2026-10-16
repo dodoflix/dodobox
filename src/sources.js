@@ -94,14 +94,29 @@ export function score (r, ctx = {}) {
   if (r.pack) s -= r.fileIdx != null ? 8 : 25
   if (r.pack && r.fileIdx == null && r.size > 100e9) s -= 40 // a whole-series batch: thousands of files to index before the first byte
   if (r.wrongSeason) s -= 80
+  // Different shows share a title ("The Prince" is a 2023 Turkish drama and a cartoon): a year in the name settles which.
+  const years = ctx.kind !== 'anime' && ctx.year ? [...r.title.matchAll(/\b(?:19|20)\d\d\b(?![px])/g)].map(m => +m[0]) : []
+  if (years.length) s += years.some(y => Math.abs(y - ctx.year) <= 1) ? 40 : -60
   return s
 }
+// A video far shorter or longer than the title's runtime is another title with the same name.
+export const lengthFits = (seconds, runtimeMin) => !seconds || !runtimeMin || (seconds / 60 >= runtimeMin * 0.35 && seconds / 60 <= runtimeMin * 3)
 export const rank = (list, ctx) => [...list].sort((a, b) => score(b, ctx) - score(a, ctx))
 
 const words = s => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter(Boolean)
 export const nameHasTitle = (name, title) => {
   const n = new Set(words(name))
   return words(title).every(w => n.has(w))
+}
+
+// A release is the title only when the title is followed by a season, year, quality or source tag: "The Prince" must not pick
+// "The Dragon Prince" or "The Prince of Tennis" (which merely contain its words).
+const AFTER_TITLE = /^(s\d+(e\d+)?|e\d+|\d+x\d+|seasons?|complete|pack|collection|(19|20)\d\d|\d{3,4}p|4k|uhd|us|uk|au|nz|ca|nf|amzn|hmax|dsnp|atvp|web|webrip|webdl|hdtv|bluray|bdrip|brrip|dvdrip|hdrip|x264|x265|h264|h265|hevc|remux|proper|repack|multi|dual|extended|unrated|imax|internal|hdr|dv|remastered)$/
+export const releaseIsTitle = (release, title) => {
+  const lead = w => (w[0] === 'the' || w[0] === 'a') && w.length > 1 ? w.slice(1) : w
+  const n = lead(words(release.replace(/^\s*(\[[^\]]*\]\s*)+/, '').replace(/^(www\.)?[\w-]+\.(com|org|net|to|io)\s*-\s*/i, '')))
+  const t = lead(words(title))
+  return !!t.length && t.every((w, i) => n[i] === w) && (n.length === t.length || AFTER_TITLE.test(n[t.length]))
 }
 
 export function matchAnimeEpisode (name, ep) {
@@ -241,7 +256,7 @@ export const findSources = (item, ctx = {}) => once('src:' + JSON.stringify([ite
 async function find (item, ctx) {
   const key = JSON.stringify([item.type, item.id, item.season, item.episode])
   const hit = cache.get(key)
-  const sctx = { ...ctx, runtimeMin: item.runtimeMin || RUNTIME[item.type] }
+  const sctx = { ...ctx, runtimeMin: item.runtimeMin || RUNTIME[item.type], year: item.year, kind: item.type }
   if (hit && Date.now() - hit.at < 90 * 60e3) return rank(hit.list, sctx).slice(0, 25)
 
   const { type, season, episode } = item
@@ -249,12 +264,12 @@ async function find (item, ctx) {
   if (type === 'movie') {
     jobs.push(torrentio(`movie/${item.id}`))
     // The search is fuzzy: trust its catalog tag when present, else title + year in the name.
-    jobs.push(apibay(`${item.title} ${item.year || ''}`.trim(), (n, r) => r.imdb ? r.imdb === item.id : nameHasTitle(n, item.title) && (!item.year || n.includes(String(item.year)))))
+    jobs.push(apibay(`${item.title} ${item.year || ''}`.trim(), (n, r) => r.imdb ? r.imdb === item.id : releaseIsTitle(n, item.title) && (!item.year || n.includes(String(item.year)))))
   } else if (type === 'series') {
     jobs.push(torrentio(`series/${item.id}:${season}:${episode}`))
     const tag = `S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`
-    jobs.push(apibay(`${item.title} ${tag}`, n => nameHasTitle(n, item.title) && matchSeriesEpisode(n, season, episode)))
-    jobs.push(apibay(`${item.title} S${String(season).padStart(2, '0')}`, n => nameHasTitle(n, item.title) && isSeasonPack(n, season)))
+    jobs.push(apibay(`${item.title} ${tag}`, n => releaseIsTitle(n, item.title) && matchSeriesEpisode(n, season, episode)))
+    jobs.push(apibay(`${item.title} S${String(season).padStart(2, '0')}`, n => releaseIsTitle(n, item.title) && isSeasonPack(n, season)))
   } else {
     const ep = String(episode).padStart(2, '0')
     const titles = [...new Set([item.title, ...(item.altTitles || [])].filter(Boolean))].slice(0, 2)

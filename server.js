@@ -7,7 +7,7 @@ import qr from 'qrcode-generator'
 import { Bonjour } from 'bonjour-service'
 import { fileURLToPath } from 'node:url'
 import { catalog, meta, animeImdb } from './src/meta.js'
-import { findSources, measured, score, refreshTrackers, showVerdict, magnetFor } from './src/sources.js'
+import { findSources, measured, score, refreshTrackers, showVerdict, magnetFor, lengthFits } from './src/sources.js'
 import { party, newCode, cleanItem } from './src/party.js'
 import { listSubtitles, allowedSubUrl, fetchSubtitle, srtToVtt, decode, toVtt, legacyEncoding } from './src/subs.js'
 import * as engine from './src/engine.js'
@@ -27,7 +27,7 @@ import { once } from './src/http.js'
 import { langOfName } from './src/sidecar.js'
 import { DATA } from './src/paths.js'
 import * as updates from './src/update.js'
-import { probe, playlist, segment, warm, embeddedSub, anyToVtt, SEG } from './src/transcode.js'
+import { probe, playlist, segment, warm, cancel, embeddedSub, anyToVtt, SEG } from './src/transcode.js'
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url))
 const PUBLIC = path.join(ROOT, 'public')
@@ -83,6 +83,7 @@ const modeOf = req => state.profile(pid(req))?.settings.sourceMode
 const audioOf = req => state.profile(pid(req))?.settings.lang
 const sublangOf = req => state.profile(pid(req))?.settings.sublang
 
+const wrong = new Set() // ponytail: forgotten on restart, which costs one more wrong download; persist if that bites
 async function play (b) {
   const m = await meta(b.type, b.id)
   const flat = b.type === 'movie' || m.movie
@@ -98,10 +99,12 @@ async function play (b) {
     if (have && item.type === 'anime' && showVerdict(engine.status(have.hash, true, have.file)?.name || '', [item.title, ...(item.altTitles || [])]) === 'other') { await engine.remove(have.hash, have.file); have = null }
     if (have && !exclude.includes(have.hash)) { if (b.pin) engine.pin(have.hash); return engine.status(have.hash, false, have.file) }
   }
-  const list = (await findSources(item, ctxOf(b))).filter(s => !exclude.includes(s.infoHash))
+  const list = (await findSources(item, ctxOf(b))).filter(s => !exclude.includes(s.infoHash) && !wrong.has(`${b.type}:${b.id}:${s.infoHash}`))
   // The version a watch party is on is accepted even when this server's own search does not list it (the page asked for it after the user said yes).
   const first = b.infoHash ? list.find(s => s.infoHash === b.infoHash) || (party.status().now?.source?.infoHash === b.infoHash ? { infoHash: b.infoHash, magnet: magnetFor(b.infoHash), seeders: 1, size: 0, quality: 0 } : undefined) : list[0]
   if (!first) throw Object.assign(new Error('Nothing playable found for this title right now'), { code: 404 })
+  // A download that failed earlier (no playable file, bad torrent) is dropped so the version gets a fresh try instead of failing again at once.
+  for (const r of [first, ...list.slice(0, 3)]) if (engine.status(r.infoHash, true)?.phase === 'error') await engine.remove(r.infoHash).catch(() => {})
   const start = pick => engine.add({ hash: pick.infoHash, magnet: pick.magnet, ctx: { type: item.type, id: item.id, title: m.name, poster: m.poster, season: item.season, episode: item.episode, release: pick.release }, fileIdx: pick.fileIdx, pinned: !!b.pin })
   // Seeder counts say little about real speed, so the best few versions race for a moment.
   const rivals = b.infoHash || b.pin ? [first] : list.filter(s => s.seeders > 0 && !s.wrongSeason && score(s, ctxOf(b)) >= score(first, ctxOf(b)) - 45).slice(0, 3)
@@ -349,10 +352,21 @@ const routes = [
   ['POST', /^\/api\/party\/send$/, async (req, res) => { const b = await jbody(req); party.send(b.k, b); json(req, res, { ok: true }) }],
   ['POST', /^\/api\/play$/, async (req, res) => { const b = await jbody(req); b.mode ||= modeOf(req); b.audio ||= audioOf(req); b.sublang ||= sublangOf(req); json(req, res, await play(b)) }],
   ['GET', /^\/api\/status\/(\w+)$/, (req, res, [, h], q) => { const s = statusOf(h, false, q.get('file')); if (s) speed.observe(s.speed); s ? json(req, res, s) : fail(req, res, 404, 'unknown source') }],
+  // The player was left: stop converting for it.
+  ['POST', /^\/api\/release\/(\w+)\/(\d+)$/, (req, res, [, h, i]) => { cancel(`${h}:${i}`); json(req, res, { ok: true }) }],
   ['GET', /^\/api\/info\/(\w+)$/, async (req, res, [, h]) => {
     const s = statusOf(h)
     if (!s || s.fileIdx == null) return fail(req, res, 409, 'not ready')
-    json(req, res, { ...s, ...await probe(rawUrl(h, s.fileIdx), `${h}:${s.fileIdx}`, s.name || ''), sidecar: (local.isLocal(h) ? local.sidecars(h) : engine.sidecars(h, s.fileIdx)).map(({ path, ...x }) => x) })
+    const info = await probe(rawUrl(h, s.fileIdx), `${h}:${s.fileIdx}`, s.name || '')
+    const c = s.ctx
+    if (c && c.type !== 'anime' && !local.isLocal(h)) {
+      const m = await meta(c.type, c.id).catch(() => null)
+      if (m && !lengthFits(info.duration, runtimeOf(m))) {
+        wrong.add(`${c.type}:${c.id}:${h}`); engine.reject(h, s.fileIdx, 'This video is a different title')
+        return fail(req, res, 409, 'This video is a different title')
+      }
+    }
+    json(req, res, { ...s, ...info, sidecar: (local.isLocal(h) ? local.sidecars(h) : engine.sidecars(h, s.fileIdx)).map(({ path, ...x }) => x) })
   }],
   ['GET', /^\/raw\/(\w+)\/(\d+)$/, (req, res, [, h, i]) => local.isLocal(h) ? local.serve(h, req, res) : engine.serve(h, +i, req, res)],
   // Safari hands HLS to AirPlay by URL, so only subtitles inside the stream reach a TV; with `sl` or `sub` the playlist becomes a master playlist with a WebVTT rendition.
@@ -533,15 +547,19 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'OPTIONS') return void res.writeHead(204).end()
   }
   try {
+    const h = /^\/hls\/(\w+)\//.exec(url.pathname)
+    if (h && !statusOf(h[1], true)) return fail(req, res, 404, 'unknown source')
     for (const [method, re, fn] of routes) {
       const m = req.method === method && re.exec(url.pathname)
       if (m) return await fn(req, res, m, url.searchParams)
     }
     serveStatic(req, res, url.pathname)
   } catch (e) {
-    if (!res.headersSent) fail(req, res, e.code >= 400 && e.code < 600 ? e.code : 500, e.message)
+    // A title the catalog does not know is the viewer's 404, not a server fault.
+    const code = e.code >= 400 && e.code < 600 ? e.code : e.status >= 400 && e.status < 500 ? 404 : 500
+    if (!res.headersSent) fail(req, res, code, code === 404 && !(e.code >= 400) ? 'not found' : e.message)
     else res.destroy()
-    if (!(e.code >= 400 && e.code < 500)) console.error(`[${req.method} ${url.pathname}]`, e.message)
+    if (code >= 500) console.error(`[${req.method} ${url.pathname}]`, e.message.trim().split('\n').pop())
   }
 })
 

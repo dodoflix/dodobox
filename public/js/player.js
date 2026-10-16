@@ -658,12 +658,25 @@ export async function watch (type, id, season, episode) {
       if (dead || !info) return
       audio = pickAudio(); chooseMode()
       $('#m-audio', root).hidden = !(info.audio?.length > 1)
+      setLoad({ line: 'Getting ready...', pct: null })
       attach()
       loadSubs()
     } catch (e) {
       if (!dead && !e.abort && my === runId) fail('We couldn\'t start this', e.status === 404 ? 'Nothing is available for this title right now. Try again later.' : e.message)
     }
   }
+  // Buffering for a long time in the middle of a film heals itself: the same stream is attached again, and a download that is not
+  // delivering gives way to another version.
+  let stuck = 0; let reattached = false; let seen = -1
+  timers.push(setInterval(() => {
+    if (!info || dead || castCtl || document.hidden || v.paused || v.seeking || v.readyState >= 3) { stuck = 0; return }
+    if (st.downloaded !== seen) { seen = st.downloaded; stuck = 0; return } // still arriving: just slow
+    if ((stuck += 2.5) < 40) return
+    stuck = 0
+    startAt = v.currentTime
+    if (st.phase === 'done' && !reattached) { reattached = true; attach(); return }
+    tried.add(hash); start()
+  }, 2500))
   timers.push(setInterval(async () => {
     // Nothing more to learn once the file is complete, and nothing worth asking for in a hidden tab.
     if (!hash || !info || dead || st.phase === 'done' || document.hidden) return
@@ -731,7 +744,7 @@ export async function watch (type, id, season, episode) {
     else if (/^[0-9]$/.test(k) && v.duration) { v.currentTime = v.duration * +k / 10; wake() }
   }
   document.addEventListener('keydown', onKey)
-  onBack.handler = () => {
+  const backHandler = onBack.handler = () => {
     if (!menu.hidden) { closeMenu(); return true }
     if (fsEl()) { document.exitFullscreen?.(); return true }
     if (isTV && ui && !v.paused) { setUI(false); return true }
@@ -770,16 +783,16 @@ export async function watch (type, id, season, episode) {
   addEventListener('pagehide', save)
 
   const cleanup = () => {
-    dead = true; detachParty?.(); save(); clearTimeout(refreshT); stopTranslating(); clearTimeout(wd); clearTimeout(syncTimer); clearTimeout(probeTimer); hls?.destroy(); timers.forEach(clearInterval); clearTimeout(idleT); clearTimeout(upT); clearTimeout(clickT)
+    dead = true; detachParty?.(); save(); if (hash && st?.fileIdx != null) navigator.sendBeacon?.(`/api/release/${hash}/${st.fileIdx}`); clearTimeout(refreshT); stopTranslating(); clearTimeout(wd); clearTimeout(syncTimer); clearTimeout(probeTimer); hls?.destroy(); timers.forEach(clearInterval); clearTimeout(idleT); clearTimeout(upT); clearTimeout(clickT)
     document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', fsChange); removeEventListener('pagehide', save)
     document.removeEventListener('visibilitychange', onVisible); removeEventListener('orientationchange', onRotate); subRO.disconnect()
-    onBack.handler = null
+    if (onBack.handler === backHandler) onBack.handler = null
     try { lock?.release() } catch {}
     try { if ('mediaSession' in navigator) navigator.mediaSession.metadata = null } catch {}
     v.removeAttribute('src'); v.load()
     if (fsEl()) document.exitFullscreen?.()
-    layer.hidden = true; layer.innerHTML = ''; layer.className = ''
-    document.documentElement.classList.remove('lock')
+    // A player that was left before it finished loading is cleaned up after the next one has already taken the layer.
+    if (layer.contains(root)) { layer.hidden = true; layer.innerHTML = ''; layer.className = ''; document.documentElement.classList.remove('lock') }
   }
   measureBandwidth()
   sync(); wake()
