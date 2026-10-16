@@ -27,18 +27,9 @@ by running the matching `npm run bench` command, not by argument.
 
 ## Changes, in dependency order
 
-Landed: `src/release.js`, the single release-name parser (see [how it works](architecture.md)). The sections below are
-what is left; their acceptance numbers come from the commands named in each.
-
-### Id layer: `src/ids.js` (new)
-
-- Keep the Fribb anime list on disk (`data/`), refreshed daily from GitHub, reduced to AniList id to
-  `{ kitsu, anidb, imdb, tvdb, tvdbSeason }`. Lookup is a `Map`, no network at play time.
-- ani.zip per entry on first play, cached for a day: per-episode AniDB episode id, TVDB season and episode, absolute
-  number. ani.zip answers 429 after about 60 quick requests, so it is called once per show, through the existing
-  per-host limiter in `src/http.js`.
-- Replaces `animeImdb` and the IMDb-suggest search in `src/meta.js`, and feeds the subtitle lookup that needs an IMDb id.
-- Done when: `idmap` shows the in-process lookup answering every popular entry, and no anime play issues an IMDb search.
+Landed: `src/release.js`, the single release-name parser, and `src/ids.js` with the anime tier of `src/sources.js` (see
+[how it works](architecture.md)). The sections below are what is left; their acceptance numbers come from the commands
+named in each.
 
 ### Source adapters and tiers: `src/sources.js`
 
@@ -90,11 +81,10 @@ runs when the previous one errored or returned fewer than three usable rows.
 
 ## Order of work
 
-1. `src/ids.js`, then the anime tier in `src/sources.js` (largest measured gain).
-2. Movie and series tiers, the sanity gate and the pack fallback.
-3. Orchestration deadline and cache changes.
-4. Ranking rewrite with the tracker scrape.
-5. Search fusion.
+1. Movie and series tiers, the sanity gate and the pack fallback.
+2. Orchestration deadline and cache changes (for anime too: the second tier waits for the first today).
+3. Ranking rewrite with the tracker scrape.
+4. Search fusion.
 
 Each step lands as its own change with the before and after numbers of the relevant command in the description.
 

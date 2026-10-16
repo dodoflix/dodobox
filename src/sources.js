@@ -1,5 +1,6 @@
 import { getJSON as fetchJSON, getText, once } from './http.js'
 import { matchRelease, titleVerdict, isPack, isEpisode, seasonOf, entrySeason } from './release.js'
+import { animeIds, episodeNumbers } from './ids.js'
 
 // Torrent discovery: stream and search providers for movies and series, an anime tracker for anime.
 const TRACKERS = [
@@ -161,6 +162,51 @@ async function nyaa (query, filter) {
   }).filter(r => r.infoHash && filter(r.title))
 }
 
+// AnimeTosho lists releases by AniDB id: `eid` is one episode, `aid` the whole show.
+async function tosho (query) {
+  const j = await getJSON(`https://animetosho.org/feed/json?${query}&order=seeders`)
+  return (Array.isArray(j) ? j : []).filter(x => x.info_hash).map(x => ({
+    title: x.title, release: x.torrent_name || x.title, infoHash: x.info_hash.toLowerCase(), magnet: magnetFor(x.info_hash, x.torrent_name || x.title),
+    seeders: x.seeders || 0, size: x.total_size || 0, quality: parseQuality(x.title), provider: 'AnimeTosho', files: x.num_files
+  }))
+}
+
+// Anime lookups, in two tiers. The first asks sources keyed by id (Torrentio by Kitsu id, AnimeTosho by AniDB episode id),
+// whose answers are already the right episode; the second searches by name and runs only when the first came back thin.
+async function animeTiers (item) {
+  const alId = +String(item.id).replace('al:', '')
+  const [ids, nums] = await Promise.all([animeIds(alId), item.movie ? null : episodeNumbers(alId, item.episode)])
+  const titles = [...new Set([item.title, ...(item.altTitles || [])].filter(Boolean))].slice(0, 2)
+  const target = { kind: 'anime', titles, episode: item.episode, entrySeason: entrySeason(titles), ...nums }
+  // Releases the ids vouch for still pass a numbering check; when it would leave almost nothing, it is skipped.
+  const vouched = job => job.then(rows => {
+    const kept = item.movie ? rows : rows.filter(r => matchRelease({ name: r.title, release: r.release }, target, { noTitle: true }))
+    return (kept.length >= 3 ? kept : rows).map(r => ({ ...r, idKeyed: true }))
+  })
+  const first = []
+  if (ids?.kitsu) first.push(vouched(torrentio(item.movie ? `movie/kitsu:${ids.kitsu}` : `series/kitsu:${ids.kitsu}:${item.episode}`)))
+  if (nums?.eid) first.push(vouched(tosho(`eid=${nums.eid}`)))
+  else if (item.movie && ids?.anidb) first.push(vouched(tosho(`aid=${ids.anidb}`)))
+  const fallback = []
+  if (ids?.anidb && !item.movie) fallback.push(vouched(tosho(`aid=${ids.anidb}`)))
+  const ep = String(item.episode).padStart(2, '0')
+  for (const t of titles) {
+    const tw = t.replace(/[^\p{L}\p{N} ]+/gu, ' ')
+    // The search is fuzzy: a title plus the episode number also finds other shows whose names start with it.
+    const own = n => item.movie || titleVerdict(n, titles) !== 'other'
+    const numbering = { kind: 'anime', episode: item.episode, ...nums }
+    fallback.push(nyaa(item.movie ? tw : `${tw} ${ep}`, n => own(n) && (item.movie || matchRelease({ name: n }, numbering, { noTitle: true }))))
+    if (!item.movie) fallback.push(nyaa(`${tw} batch`, n => own(n) && isPack(n) && matchRelease({ name: n }, numbering, { noTitle: true })))
+  }
+  return { first, fallback }
+}
+
+const gather = async jobs => (await Promise.allSettled(jobs)).flatMap(s => {
+  if (s.status === 'rejected') { console.warn('[sources]', s.reason.message); return [] }
+  return s.value
+})
+const MIN_FIRST_TIER = 3
+
 const cache = new Map()
 export const findSources = (item, ctx = {}) => once('src:' + JSON.stringify([item.type, item.id, item.season, item.episode]), () => find(item, ctx))
 async function find (item, ctx) {
@@ -171,6 +217,7 @@ async function find (item, ctx) {
 
   const { type, season, episode } = item
   const jobs = []
+  let tiers
   if (type === 'movie') {
     jobs.push(torrentio(`movie/${item.id}`))
     // The search is fuzzy: trust its catalog tag when present, else title + year in the name.
@@ -182,28 +229,18 @@ async function find (item, ctx) {
     jobs.push(apibay(`${item.title} ${tag}`, n => matchRelease({ name: n }, target)))
     jobs.push(apibay(`${item.title} S${String(season).padStart(2, '0')}`, n => matchRelease({ name: n }, target)))
   } else {
-    const ep = String(episode).padStart(2, '0')
-    const titles = [...new Set([item.title, ...(item.altTitles || [])].filter(Boolean))].slice(0, 2)
-    for (const t of titles) {
-      const tw = t.replace(/[^\p{L}\p{N} ]+/gu, ' ')
-      // The search is fuzzy: a title plus the episode number also finds other shows whose names start with it.
-      const own = n => item.movie || titleVerdict(n, titles) !== 'other'
-      const target = { kind: 'anime', episode }
-      jobs.push(nyaa(item.movie ? tw : `${tw} ${ep}`, n => own(n) && (item.movie || matchRelease({ name: n }, target, { noTitle: true }))))
-      if (!item.movie) jobs.push(nyaa(`${tw} batch`, n => own(n) && isPack(n) && matchRelease({ name: n }, target, { noTitle: true })))
-    }
+    tiers = await animeTiers(item)
+    jobs.push(...tiers.first)
   }
-  const settled = await Promise.allSettled(jobs)
+  let rows = await gather(jobs)
+  if (tiers && rows.filter(r => r.seeders > 0).length < MIN_FIRST_TIER) rows = rows.concat(await gather(tiers.fallback))
   const byHash = new Map()
-  for (const s of settled) {
-    if (s.status === 'rejected') { console.warn('[sources]', s.reason.message); continue }
-    for (const r of s.value) if (!byHash.has(r.infoHash) || byHash.get(r.infoHash).seeders < r.seeders) byHash.set(r.infoHash, r)
-  }
+  for (const r of rows) if (!byHash.has(r.infoHash) || byHash.get(r.infoHash).seeders < r.seeders) byHash.set(r.infoHash, r)
   for (const r of byHash.values()) {
     if (type === 'series') r.pack = !isEpisode(r.release, { type, season, episode })
     else if (type === 'anime' && !item.movie) {
-      r.pack = isPack(r.release)
-      r.wrongSeason = seasonOf(r.release) !== entrySeason([item.title, ...(item.altTitles || [])])
+      r.pack = r.files != null ? r.files > 1 : isPack(r.release)
+      r.wrongSeason = !r.idKeyed && seasonOf(r.release) !== entrySeason([item.title, ...(item.altTitles || [])])
     }
     else r.pack = /\b(pack|collection|trilogy|anthology|saga|complete)\b|\b\d-\d\b/i.test(r.release)
   }

@@ -4,6 +4,7 @@ import './data.js'
 import { DATA } from './paths.js'
 import { proxied } from './images.js'
 import { getJSON, fetchRetry } from './http.js'
+import { animeIds } from './ids.js'
 
 // Metadata: a catalog service for movies and series, a separate one for anime.
 const CINEMETA = 'https://v3-cinemeta.strem.io'
@@ -112,29 +113,12 @@ const aniItem = m => {
 }
 
 
-// Anime artwork is soft as a full-screen hero; the movie catalog's is sharper, so it is used when the match is sure.
-const norm = s => (s || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, ' ').trim()
-// The catalog title an anime entry corresponds to when the match is sure; lets subtitle search use catalog ids.
-export const animeImdb = item => cached(`imdb3:${item.id}`, 30 * 24 * 3600e3, async () => {
-  // A later season ("Show Season 2") shares the series' artwork, so the match ignores the season suffix (and the year then).
-  const base = n => norm(n).replace(/ (season|part|cour) \d+.*$| \d+(st|nd|rd|th) season.*$/, '')
-  const all = [item.name, ...(item.altTitles || [])].filter(Boolean)
-  const names = [...new Set(all.map(norm))]; const bases = new Set(all.map(base))
-  for (const t of item.movie ? ['movie'] : ['series', 'movie']) {
-    const queries = [...new Set([base(item.altTitles?.[0] || item.name), base(item.name)])]
-    const found = await Promise.all(queries.map(q => imdbSuggest(q, t).catch(() => null)))
-    for (const hits of found) {
-      if (!hits) continue
-      const exact = hits.find(h => names.includes(norm(h.name)) && (!h.year || !item.year || Math.abs(h.year - item.year) <= 1))
-      // The catalog often files a show under a shorter name ("86" for "86 EIGHTY-SIX"): accept that when the year agrees and
-      // its name is a whole-word part of the anime's own title.
-      const within = hits.find(h => h.year && item.year && Math.abs(h.year - item.year) <= 1 && names.some(n => ` ${n} `.includes(` ${norm(h.name)} `)))
-      const hit = exact || hits.find(h => bases.has(norm(h.name))) || within
-      if (hit) return { id: hit.id, exact: !!exact, later: base(item.name) !== norm(item.name) }
-    }
-  }
-  return null
-}).catch(() => null)
+// Anime artwork is soft as a full-screen hero; the movie catalog's is sharper, so it is used when the entry maps to one.
+// The catalog title an anime entry corresponds to; lets subtitle search use catalog ids. `later` marks a second or later season.
+export const animeImdb = async item => {
+  const ids = await animeIds(+String(item.id).replace('al:', ''))
+  return ids?.imdb ? { id: ids.imdb, later: (ids.tvdbSeason || 1) > 1 } : null
+}
 
 const animeArt = async item => {
   const m = await animeImdb(item); if (!m) return null

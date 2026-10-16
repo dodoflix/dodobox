@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { catalog, meta, animeImdb } from './src/meta.js'
 import { findSources, measured, score, refreshTrackers, magnetFor, lengthFits } from './src/sources.js'
 import { titleVerdict } from './src/release.js'
+import { episodeNumbers, warm as warmIds } from './src/ids.js'
 import { party, newCode, cleanItem } from './src/party.js'
 import { listSubtitles, allowedSubUrl, fetchSubtitle, srtToVtt, decode, toVtt, legacyEncoding } from './src/subs.js'
 import * as engine from './src/engine.js'
@@ -106,7 +107,9 @@ async function play (b) {
   if (!first) throw Object.assign(new Error('Nothing playable found for this title right now'), { code: 404 })
   // A download that failed earlier (no playable file, bad torrent) is dropped so the version gets a fresh try instead of failing again at once.
   for (const r of [first, ...list.slice(0, 3)]) if (engine.status(r.infoHash, true)?.phase === 'error') await engine.remove(r.infoHash).catch(() => {})
-  const start = pick => engine.add({ hash: pick.infoHash, magnet: pick.magnet, ctx: { type: item.type, id: item.id, title: m.name, poster: m.poster, season: item.season, episode: item.episode, release: pick.release }, fileIdx: pick.fileIdx, pinned: !!b.pin })
+  // A pack may number its files by TVDB season or absolutely; the engine needs those numbers to open the right file.
+  const numbers = item.type === 'anime' && !item.movie ? await episodeNumbers(+String(item.id).replace('al:', ''), item.episode) : null
+  const start = pick => engine.add({ hash: pick.infoHash, magnet: pick.magnet, ctx: { type: item.type, id: item.id, title: m.name, poster: m.poster, season: item.season, episode: item.episode, release: pick.release, ...numbers && { tvdbSeason: numbers.tvdbSeason, tvdbEpisode: numbers.tvdbEpisode, abs: numbers.abs } }, fileIdx: pick.fileIdx, pinned: !!b.pin })
   // Seeder counts say little about real speed, so the best few versions race for a moment.
   const rivals = b.infoHash || b.pin ? [first] : list.filter(s => s.seeders > 0 && !s.wrongSeason && score(s, ctxOf(b)) >= score(first, ctxOf(b)) - 45).slice(0, 3)
   const pick = rivals.length > 1 ? await race(rivals, start) : first
@@ -580,6 +583,7 @@ export function start (listenPort = process.env.PORT === undefined ? 3000 : +pro
       local.watch()
       downloads.init(play)
       refreshTrackers(); setInterval(refreshTrackers, 12 * 3600e3).unref()
+      warmIds(); setInterval(warmIds, 24 * 3600e3).unref()
       speed.start()
       updates.watch(VERSION)
       setTimeout(warmCatalog, 3000).unref(); setInterval(warmCatalog, 2 * 3600e3).unref()

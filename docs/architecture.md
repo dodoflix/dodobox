@@ -4,6 +4,7 @@
 browser / TV / phone (public/)  <->  server.js  <->  src/meta.js       catalog and artwork metadata, disk-cached
                                                 <->  src/sources.js    torrent search providers, ranked
                                                 <->  src/release.js    release-name parsing: title, episode, pack, file choice
+                                                <->  src/ids.js        anime id mapping (AniList to Kitsu, AniDB, IMDb, TVDB) and episode numbering
                                                 <->  src/engine.js     torrent client, library, storage cap
                                                 <->  src/local.js      your own media folders
                                                 <->  src/transcode.js  stream probe, on-demand HLS, hardware encoder
@@ -24,6 +25,8 @@ browser / TV / phone (public/)  <->  server.js  <->  src/meta.js       catalog a
 `src/sources.js` ranks candidates by resolution, seeders, codec, language, and whether the bitrate fits the line's measured speed (`src/speed.js`) and the viewer's Download size mode. On play the top few start together for a few seconds and the fastest real downloader wins; the others are removed. Magnets carry a fixed tracker list plus a community list of healthy trackers refreshed twice a day.
 
 `src/release.js` is the single place that reads torrent and file names. It answers whether a release is the requested title (and not a longer title that contains it), whether it is the requested episode under any of the numberings fansubs use (season and episode, absolute, from 1), whether it is a pack, and which file of a pack to open. Names are parsed once and cached.
+
+Anime lookups go by id first. `src/ids.js` keeps the Fribb anime id list on disk (refreshed daily) and fetches the ani.zip episode table of a show once, which gives each AniList episode its Kitsu id, its AniDB episode id and the TVDB and absolute numbers releases use. `src/sources.js` asks Torrentio by Kitsu id and AnimeTosho by AniDB episode id; only when those return fewer than three seeded releases does it search Nyaa and AnimeTosho by name. The numbers also go to the engine so a multi-file pack opens the right episode.
 
 ## Streaming to every device
 
