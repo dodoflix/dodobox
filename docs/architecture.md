@@ -3,6 +3,9 @@
 ```
 browser / TV / phone (public/)  <->  server.js  <->  src/meta.js       catalog and artwork metadata, disk-cached
                                                 <->  src/sources.js    torrent search providers, ranked
+                                                <->  src/release.js    release-name parsing: title, episode, pack, file choice
+                                                <->  src/tracker.js    live seeder counts from UDP trackers
+                                                <->  src/ids.js        anime id mapping (AniList to Kitsu, AniDB, IMDb, TVDB) and episode numbering
                                                 <->  src/engine.js     torrent client, library, storage cap
                                                 <->  src/local.js      your own media folders
                                                 <->  src/transcode.js  stream probe, on-demand HLS, hardware encoder
@@ -20,7 +23,11 @@ browser / TV / phone (public/)  <->  server.js  <->  src/meta.js       catalog a
 
 ## Choosing a source
 
-`src/sources.js` ranks candidates by resolution, seeders, codec, language, and whether the bitrate fits the line's measured speed (`src/speed.js`) and the viewer's Download size mode. On play the top few start together for a few seconds and the fastest real downloader wins; the others are removed. Magnets carry a fixed tracker list plus a community list of healthy trackers refreshed twice a day.
+`src/sources.js` ranks candidates by resolution, seeders, codec, language, and whether the bitrate fits the line's measured speed (`src/speed.js`) and the viewer's Download size mode. The best fifteen are first asked of the UDP trackers (`src/tracker.js`), because a seeder count a source lists can be days old; a live count is used when two trackers agree. On play the top few start together for a few seconds and the fastest real downloader wins; the others are removed. Magnets carry a fixed tracker list plus a community list of healthy trackers refreshed twice a day.
+
+`src/release.js` is the single place that reads torrent and file names. It answers whether a release is the requested title (and not a longer title that contains it), whether it is the requested episode under any of the numberings fansubs use (season and episode, absolute, from 1), whether it is a pack, and which file of a pack to open. Names are parsed once and cached.
+
+Lookups run in two tiers and return within about 300 ms of the primary source answering; sources that answer later top up the cached list (kept 90 minutes, "nothing found" five minutes), and the next episode's list is fetched when playback starts. The first asks sources keyed by id: Torrentio by IMDb id for movies and series, and for anime by Kitsu id plus AnimeTosho by AniDB episode id. `src/ids.js` keeps the Fribb anime id list on disk (refreshed daily) and fetches a show's ani.zip episode table once, which gives each AniList episode its Kitsu and AniDB ids and the TVDB and absolute numbers releases use; those numbers also go to the engine so a multi-file pack opens the right episode. Rows an id vouches for still pass a numbering and year check. Only when the first tier returns fewer than three seeded releases does the second tier search by name: YTS, TPB and Knaben for movies, TPB and Knaben for the episode, the season and the complete series, and Nyaa and the AnimeTosho show listing for anime.
 
 ## Streaming to every device
 
@@ -28,7 +35,7 @@ Browsers get the file directly when it is a real mp4/webm with H.264/VP9/AV1 vid
 
 ## Reliability and caching
 
-Outbound requests go through `src/http.js`: retries with jittered backoff, a per-provider rate limit, a circuit breaker, and merging of identical requests in flight. Catalog data lives in a stale-while-revalidate cache (`src/meta.js`): served at once, refreshed in the background, kept up to a week if the provider is down. Torrent searches are cached for 90 minutes, subtitle lists for 6 hours; subtitle files, posters and translations are cached on disk.
+Outbound requests go through `src/http.js`: retries with jittered backoff, a per-provider rate limit, a circuit breaker, and merging of identical requests in flight. Catalog data lives in a stale-while-revalidate cache (`src/meta.js`): served at once, refreshed in the background, kept up to a week if the provider is down. Torrent searches are cached for 90 minutes, subtitle lists for 6 hours; subtitle files, posters and translations are cached on disk. Nothing built while a source failed is kept as if it were whole: a failed search is an error rather than "no results", a list or value assembled with something missing (subtitles without the slower provider, artwork or episode names that did not load, sources without the one that errored) is kept for a minute or two, and the browser is not told to keep an empty list.
 
 ## Subtitles
 

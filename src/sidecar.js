@@ -1,5 +1,5 @@
 // Subtitle files that come inside a torrent next to the video: "Show - 01.en.srt", "Subs/Show.S01E02/2_English.srt".
-import { VIDEO_EXT, matchAnimeEpisode, matchSeriesEpisode } from './sources.js'
+import { VIDEO_EXT, isEpisode } from './release.js'
 
 export const SUB_FILE = /\.(srt|ass|ssa|vtt)$/i
 const MAX_BYTES = 5e6
@@ -43,7 +43,7 @@ export function sidecarsFor (files, videoIdx, { type, season, episode } = {}) {
   if (!video) return []
   const vids = files.filter(f => VIDEO_EXT.test(f.name) && !/sample/i.test(f.name))
   const vstem = stem(video.name)
-  const episodeMatch = s => (type === 'anime' ? matchAnimeEpisode(s, episode) && !/batch|complete/i.test(s) : matchSeriesEpisode(s, season, episode))
+  const episodeMatch = s => isEpisode(s, { type, season, episode }) && !/batch|complete/i.test(s)
   const mine = (name) => {
     const s = stem(name)
     // "Show - 01.en.srt" for "Show - 01.mkv", but not "Show - 011.srt"

@@ -2,7 +2,7 @@
 import WebTorrent from 'webtorrent'
 import fs from 'node:fs'
 import path from 'node:path'
-import { pickFile } from './sources.js'
+import { pickFile } from './release.js'
 import { sidecarsFor, SUB_FILE } from './sidecar.js'
 import { sendRange, MIME } from './range.js'
 
@@ -14,11 +14,12 @@ const STATE = path.join(DATA, 'library.json')
 fs.mkdirSync(DL, { recursive: true })
 
 const client = new WebTorrent({ dht: !process.env.NO_DHT, lsd: !process.env.NO_DHT, utp: !process.env.NO_DHT })
+client.setMaxListeners(0) // every torrent listens for the client's 'listening' event
 client.on('error', e => console.error('[torrent]', e.message))
 
 let lib = {}
 try { lib = JSON.parse(fs.readFileSync(STATE, 'utf8')) } catch {}
-const save = () => fs.writeFileSync(STATE, JSON.stringify(lib, null, 1))
+const save = () => { fs.writeFileSync(STATE + '.tmp', JSON.stringify(lib, null, 1)); fs.renameSync(STATE + '.tmp', STATE) }
 
 function attach (entry) {
   const t = client.add(entry.magnet, { path: DL })
@@ -90,12 +91,13 @@ export const pauseReason = (e, now, watching) => {
 }
 const paused = new Map() // hash -> 'watching' | 'idle'
 const selectRows = (e, t) => { for (const r of rowsOf(e)) if (r.fileIdx != null) t.files[r.fileIdx]?.select() }
+// Pausing is deselecting. torrent.pause() would also refuse every peer the swarm offers meanwhile, so a resumed torrent finds none until its next announce (many minutes) and playback sits on "buffering".
 function setPaused (e, t, reason) {
   if (reason === (paused.get(e.hash) ?? null)) return
   if (reason) {
-    if (!paused.has(e.hash)) { for (const f of t.files) f.deselect(); t.pause() }
+    if (!paused.has(e.hash)) for (const f of t.files) f.deselect()
     paused.set(e.hash, reason)
-  } else { paused.delete(e.hash); t.resume(); selectRows(e, t) }
+  } else { paused.delete(e.hash); selectRows(e, t) }
 }
 const downloading = (e, t) => rowsOf(e).some(r => r.fileIdx != null && t.files[r.fileIdx] && !t.files[r.fileIdx].done)
 function rebalance () {
@@ -104,7 +106,27 @@ function rebalance () {
   const watching = live.some(({ e, t }) => now - (e.lastUsed || 0) < WATCH_MS && downloading(e, t))
   for (const { e, t } of live) setPaused(e, t, downloading(e, t) ? pauseReason(e, now, watching) : null)
 }
-setInterval(rebalance, 5000).unref()
+// A torrent someone is waiting on that gets nothing asks the trackers and the DHT for peers again, and a torrent that never found its metadata is dropped.
+const stalled = new Map() // hash -> { since, askedAt }
+const NO_METADATA_MS = 10 * 60e3
+function heal () {
+  const now = Date.now()
+  for (const e of Object.values(lib)) {
+    const t = torrentOf(e.hash)
+    if (!t) continue
+    if (!t.ready) {
+      if (!e.pinned && now - Math.max(e.lastUsed || 0, e.added || 0) > NO_METADATA_MS) remove(e.hash).catch(() => {})
+      continue
+    }
+    const wanted = now - (e.lastUsed || 0) < WATCH_MS && !paused.has(e.hash) && downloading(e, t)
+    if (!wanted || t.downloadSpeed > 0) { stalled.delete(e.hash); continue }
+    const s = stalled.get(e.hash) || stalled.set(e.hash, { since: now, askedAt: 0 }).get(e.hash)
+    if (now - s.since < 8000 || now - s.askedAt < 30000) continue
+    s.askedAt = now
+    try { t.discovery?.tracker?.update(); t.discovery?._dhtAnnounce?.() } catch { /* a missing tracker or DHT only means nothing to ask */ }
+  }
+}
+setInterval(() => { rebalance(); heal() }, 5000).unref()
 
 export function pin (hash) { if (lib[hash]) { lib[hash].pinned = true; save() } }
 
@@ -137,6 +159,13 @@ export function status (hash, silent, file) {
     readable: f && !f.done ? readablePrefix(hash, row.fileIdx) : f?.length ?? 0,
     progress: f?.progress ?? 0
   }
+}
+
+// The file turned out to be another title: the entry is marked failed so it is never offered for this one again.
+export function reject (hash, file, why) {
+  const e = lib[hash]; if (!e) return
+  rowFor(e, file).error = why
+  save()
 }
 
 export const library = () => Object.values(lib).sort((a, b) => b.added - a.added).flatMap(e => rowsOf(e).map(r => status(e.hash, true, r.fileIdx ?? undefined)).filter(Boolean))
@@ -199,9 +228,12 @@ export function filePath (hash, idx) {
   return f ? path.join(t.path, f.path) : null
 }
 
-export function serve (hash, idx, req, res) {
-  const f = torrentOf(hash)?.files[idx]
-  if (!f) { res.writeHead(404).end(); return }
+export async function serve (hash, idx, req, res) {
+  const t = torrentOf(hash)
+  // After a restart the page is already asking for its video while the torrent is still finding its file list.
+  if (t && !t.ready) await new Promise(resolve => { const timer = setTimeout(resolve, 15000); t.once('ready', () => { clearTimeout(timer); resolve() }) })
+  const f = t?.files[idx]
+  if (!f || res.destroyed) { if (!res.destroyed) res.writeHead(t ? 503 : 404, { 'retry-after': '3' }).end(); return }
   touch(hash)
   sendRange(req, res, { length: f.length, type: MIME[path.extname(f.name).slice(1).toLowerCase()] || 'application/octet-stream', stream: (start, end) => f.createReadStream({ start, end }) })
 }
@@ -215,7 +247,7 @@ export function touch (hash) {
 export function findEntry (ctx) {
   for (const e of Object.values(lib)) {
     if (e.error) continue
-    for (const r of rowsOf(e)) if (r.ctx.type === ctx.type && r.ctx.id === ctx.id && r.ctx.season === ctx.season && r.ctx.episode === ctx.episode) return { hash: e.hash, file: r.fileIdx }
+    for (const r of rowsOf(e)) if (!r.error && r.ctx.type === ctx.type && r.ctx.id === ctx.id && r.ctx.season === ctx.season && r.ctx.episode === ctx.episode) return { hash: e.hash, file: r.fileIdx }
   }
   return null
 }

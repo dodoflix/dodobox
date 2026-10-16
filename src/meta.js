@@ -4,6 +4,7 @@ import './data.js'
 import { DATA } from './paths.js'
 import { proxied } from './images.js'
 import { getJSON, fetchRetry } from './http.js'
+import { animeIds } from './ids.js'
 
 // Metadata: a catalog service for movies and series, a separate one for anime.
 const CINEMETA = 'https://v3-cinemeta.strem.io'
@@ -20,17 +21,23 @@ let saveT = null
 // Saved at most every 20 s (stringifying a big cache blocks the server for a moment).
 const saveCache = () => { if (saveT) return; saveT = setTimeout(() => { saveT = null; fs.writeFile(FILE, JSON.stringify(Object.fromEntries([...ttl].filter(([k]) => persist(k)))), () => {}) }, 20000).unref() }
 const refreshing = new Set()
+// A value built while a source failed (artwork missing, an episode list absent) is marked, and is kept only briefly: it is better
+// than nothing now, but must not stand in for the real answer for hours.
+const partial = new WeakSet()
+const PARTIAL_MS = 60e3
+export const markPartial = v => { if (v && typeof v === 'object') partial.add(v); return v }
 export async function cached (key, maxAge, fn) {
   const hit = ttl.get(key)
-  const fresh = hit && Date.now() - hit.at < maxAge
+  const fresh = hit && Date.now() - hit.at < (hit.short ? PARTIAL_MS : maxAge)
   const load = async () => {
     const v = await fn()
-    ttl.set(key, { at: Date.now(), v })
+    ttl.set(key, { at: Date.now(), v, ...(partial.has(v) && { short: true }) })
     if (ttl.size > 1500) ttl.delete(ttl.keys().next().value)
     saveCache()
     return v
   }
   if (fresh) return hit.v
+  if (hit?.short) { try { return await load() } catch { return hit.v } }
   if (hit && Date.now() - hit.at < MAX_STALE) {
     if (!refreshing.has(key)) { refreshing.add(key); load().catch(() => {}).finally(() => refreshing.delete(key)) }
     return hit.v
@@ -42,7 +49,11 @@ export async function cached (key, maxAge, fn) {
 const COUNTRY_LANG = { 'United States': 'eng', 'United Kingdom': 'eng', Canada: 'eng', Australia: 'eng', Ireland: 'eng', 'New Zealand': 'eng', Japan: 'jpn', 'South Korea': 'kor', China: 'chi', 'Hong Kong': 'chi', Taiwan: 'chi', France: 'fre', Germany: 'ger', Spain: 'spa', Italy: 'ita', Turkey: 'tur', Russia: 'rus', India: 'hin', Brazil: 'por', Portugal: 'por', Netherlands: 'dut', Poland: 'pol', Sweden: 'swe', Indonesia: 'ind', Vietnam: 'vie', Greece: 'ell', Israel: 'heb' }
 const ANI_LANG = { JP: 'jpn', KR: 'kor', CN: 'chi', TW: 'chi' }
 
-const cineItem = (m, type) => ({
+// Nothing to play: not out yet, or cancelled. Shown instead of Play, and refused by the server before any search.
+const notYet = date => !!date && new Date(date) > new Date()
+const NOT_RELEASED = 'Not released yet'
+
+export const cineItem = (m, type) => ({
   id: m.imdb_id || m.id,
   type,
   name: m.name,
@@ -56,7 +67,8 @@ const cineItem = (m, type) => ({
   runtime: m.runtime,
   cast: m.cast,
   originalLanguage: COUNTRY_LANG[String(m.country || '').split(',')[0].trim()] || null,
-  imdb: m.imdb_id || m.id
+  imdb: m.imdb_id || m.id,
+  unplayable: type === 'movie' && (m.released ? notYet(m.released) : parseInt(m.year || m.releaseInfo, 10) > new Date().getFullYear()) ? NOT_RELEASED : null
 })
 
 const ANILIST = `
@@ -80,8 +92,9 @@ async function anilist (variables) {
   return j.data.Page.media
 }
 
-const aniItem = m => {
-  const aired = m.episodes ?? (m.nextAiringEpisode ? m.nextAiringEpisode.episode - 1 : 0)
+export const aniItem = m => {
+  // A running show lists only what has aired; the total episode count would offer episodes nobody has released yet.
+  const aired = m.nextAiringEpisode ? m.nextAiringEpisode.episode - 1 : m.episodes ?? 0
   const eps = {}
   for (const s of m.streamingEpisodes || []) {
     const n = s.title.match(/^Episode (\d+)\s*-?\s*(.*)$/)
@@ -103,6 +116,7 @@ const aniItem = m => {
     movie,
     trailer: m.trailer?.site === 'youtube' ? m.trailer.id : null,
     status: m.status,
+    unplayable: m.status === 'CANCELLED' ? 'Cancelled' : m.status === 'NOT_YET_RELEASED' || (!movie && aired === 0) ? NOT_RELEASED : null,
     originalLanguage: ANI_LANG[m.countryOfOrigin] || null,
     mal: m.idMal,
     videos: Array.from({ length: movie ? 1 : aired }, (_, i) => ({
@@ -112,38 +126,23 @@ const aniItem = m => {
 }
 
 
-// Anime artwork is soft as a full-screen hero; the movie catalog's is sharper, so it is used when the match is sure.
-const norm = s => (s || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, ' ').trim()
-// The catalog title an anime entry corresponds to when the match is sure; lets subtitle search use catalog ids.
-export const animeImdb = item => cached(`imdb3:${item.id}`, 30 * 24 * 3600e3, async () => {
-  // A later season ("Show Season 2") shares the series' artwork, so the match ignores the season suffix (and the year then).
-  const base = n => norm(n).replace(/ (season|part|cour) \d+.*$| \d+(st|nd|rd|th) season.*$/, '')
-  const all = [item.name, ...(item.altTitles || [])].filter(Boolean)
-  const names = [...new Set(all.map(norm))]; const bases = new Set(all.map(base))
-  for (const t of item.movie ? ['movie'] : ['series', 'movie']) {
-    const queries = [...new Set([base(item.altTitles?.[0] || item.name), base(item.name)])]
-    const found = await Promise.all(queries.map(q => imdbSuggest(q, t).catch(() => null)))
-    for (const hits of found) {
-      if (!hits) continue
-      const exact = hits.find(h => names.includes(norm(h.name)) && (!h.year || !item.year || Math.abs(h.year - item.year) <= 1))
-      // The catalog often files a show under a shorter name ("86" for "86 EIGHTY-SIX"): accept that when the year agrees and
-      // its name is a whole-word part of the anime's own title.
-      const within = hits.find(h => h.year && item.year && Math.abs(h.year - item.year) <= 1 && names.some(n => ` ${n} `.includes(` ${norm(h.name)} `)))
-      const hit = exact || hits.find(h => bases.has(norm(h.name))) || within
-      if (hit) return { id: hit.id, exact: !!exact, later: base(item.name) !== norm(item.name) }
-    }
-  }
-  return null
-}).catch(() => null)
+// Anime artwork is soft as a full-screen hero; the movie catalog's is sharper, so it is used when the entry maps to one.
+// The catalog title an anime entry corresponds to; lets subtitle search use catalog ids. `later` marks a second or later season.
+export const animeImdb = async item => {
+  const ids = await animeIds(+String(item.id).replace('al:', ''))
+  return ids?.imdb ? { id: ids.imdb, later: (ids.tvdbSeason || 1) > 1 } : null
+}
 
 const animeArt = async item => {
   const m = await animeImdb(item); if (!m) return null
   const bg = `https://images.metahub.space/background/large/${m.id}/img`
-  const r = await fetchRetry(bg, { method: 'HEAD', tries: 1, timeout: 6000 }).catch(() => null)
+  // A missing image answers 404 (final); anything else failed, which is not the same as having no artwork.
+  const r = await fetchRetry(bg, { method: 'HEAD', tries: 1, timeout: 6000 }).catch(e => (e.final ? null : undefined))
+  if (r === undefined) return undefined
   return r && /^image\//.test(r.headers.get('content-type') || '') && +r.headers.get('content-length') > 60000
     ? { background: proxied(bg), poster: proxied(`https://images.metahub.space/poster/large/${m.id}/img`) } : null
 }
-const withArt = async item => { const a = await animeArt(item); return a ? { ...item, ...a } : item }
+const withArt = async item => { const a = await animeArt(item); return a === undefined ? markPartial({ ...item }) : a ? { ...item, ...a } : item }
 
 const IMDB_KIND = { movie: /^(movie|short|tvMovie|video)$/, series: /^(tvSeries|tvMiniSeries)$/ }
 async function imdbSuggest (q, type) {
@@ -159,9 +158,19 @@ export const ANIME_TAGS = ['Isekai', 'School', 'Shounen', 'Seinen', 'Shoujo', 'M
 const ANIME_SORT = { popular: ['TRENDING_DESC', 'POPULARITY_DESC'], rating: ['SCORE_DESC'], new: ['START_DATE_DESC'], airing: ['POPULARITY_DESC'] }
 const CINE_SORT = { popular: 'top', rating: 'imdbRating', new: 'year', airing: 'top' }
 
+const checkType = type => { if (!['movie', 'series', 'anime'].includes(type)) throw Object.assign(new Error('unknown type'), { code: 400 }) }
+
+// Reciprocal-rank fusion of two result lists of items with the same ids; the richer item (the second list's) is kept.
+export function fuse (first, second) {
+  const score = new Map(); const items = new Map()
+  for (const list of [first, second]) list.forEach((it, i) => { score.set(it.id, (score.get(it.id) || 0) + 1 / (60 + i)); if (list === second || !items.has(it.id)) items.set(it.id, it) })
+  return [...score].sort((a, b) => b[1] - a[1]).map(([id]) => items.get(id))
+}
+
 export const catalog = ({ type, q, genre, page = 1, sort = 'popular', safe = false }) => {
+  checkType(type)
   if (!ANIME_SORT[sort]) sort = 'popular'
-  return cached(`cat7:${type}:${q}:${genre}:${page}:${sort}:${safe ? 1 : 0}`, 3 * 3600e3, async () => {
+  return cached(`cat10:${type}:${q}:${genre}:${page}:${sort}:${safe ? 1 : 0}`, 3 * 3600e3, async () => {
     if (type === 'anime') {
       const tag = ANIME_TAGS.includes(genre)
       const media = await anilist({
@@ -172,22 +181,29 @@ export const catalog = ({ type, q, genre, page = 1, sort = 'popular', safe = fal
         minPop: !q && (sort === 'rating' ? 15000 : sort === 'new' ? 4000 : null), notStatus: !q && sort === 'new' ? 'NOT_YET_RELEASED' : null, status: !q && sort === 'airing' ? 'RELEASING' : null
       })
       const items = media.map(aniItem).map(({ videos, ...x }) => x)
-      return q ? items : [...await Promise.all(items.slice(0, 10).map(withArt)), ...items.slice(10)]
-    }
-    // The catalog's own search is fuzzy; a suggestion endpoint finds exact titles, so it goes first.
-    if (q && !genre && page === 1) {
-      const hits = await imdbSuggest(q, type).catch(() => [])
-      if (hits.length) return hits
+      if (q) return items
+      const out = [...await Promise.all(items.slice(0, 10).map(withArt)), ...items.slice(10)]
+      return out.some(i => partial.has(i)) ? markPartial(out) : out
     }
     // Its "year" catalog is keyed by year instead of genre, so "newest" is this year's titles, filtered by genre afterwards.
     const byYear = sort === 'new' && !q
     const cat = q ? 'top' : CINE_SORT[sort]
     const year = new Date().getFullYear()
     const extra = [q && `search=${encodeURIComponent(q)}`, byYear ? `genre=${year - Math.floor((page - 1) / 2)}` : genre && `genre=${encodeURIComponent(genre)}`, page > 1 && `skip=${(byYear ? (page - 1) % 2 : page - 1) * 50}`].filter(Boolean).join('&')
-    const j = await getJSON(`${CINEMETA}/catalog/${type}/${cat}${extra ? '/' + extra : ''}.json`)
-    let items = j.metas.map(m => cineItem(m, type))
-    if (byYear && genre) items = items.filter(i => i.genres.includes(genre))
-    return items
+    const fromCatalog = async () => {
+      const j = await getJSON(`${CINEMETA}/catalog/${type}/${cat}${extra ? '/' + extra : ''}.json`)
+      const items = j.metas.map(m => cineItem(m, type))
+      return byYear && genre ? items.filter(i => i.genres.includes(genre)) : items
+    }
+    // A suggestion endpoint finds exact titles and the catalog's own search forgives typos and abbreviations: ask both, fuse the rankings.
+    if (q && !genre && page === 1) {
+      const [suggested, searched] = await Promise.allSettled([imdbSuggest(q, type), fromCatalog()])
+      const items = fuse(suggested.value || [], searched.value || [])
+      // A search that failed is not an answer: caching "no results" would hide the title for hours.
+      if (!items.length && (suggested.reason || searched.reason)) throw suggested.reason || searched.reason
+      return suggested.reason || searched.reason ? markPartial(items) : items
+    }
+    return fromCatalog()
   })
 }
 
@@ -201,17 +217,20 @@ async function kitsuEpisodes (anilistId, count) {
     const pages = await Promise.all(Array.from({ length: Math.ceil(Math.min(count, 60) / 20) }, (_, n) => getJSON(`https://kitsu.io/api/edge/anime/${kid}/episodes?page%5Blimit%5D=20&page%5Boffset%5D=${n * 20}&sort=number`, { headers: H, tries: 1 }).catch(() => ({ data: [] }))))
     for (const j of pages) for (const e of j.data || []) out[e.attributes.number] = { title: e.attributes.canonicalTitle, thumbnail: e.attributes.thumbnail?.original, released: e.attributes.airdate }
     return out
-  } catch { return {} }
+  } catch { return null }
 }
 
-export const meta = (type, id) =>
-  cached(`meta4:${type}:${id}`, 12 * 3600e3, async () => {
+export const meta = (type, id) => {
+  checkType(type)
+  return cached(`meta6:${type}:${id}`, 12 * 3600e3, async () => {
     if (type === 'anime') {
       const [m] = await anilist({ page: 1, perPage: 1, id: +id.replace('al:', '') })
-      if (!m) throw new Error('not found')
+      if (!m) throw Object.assign(new Error('not found'), { code: 404 })
       const base = aniItem(m)
       const enrich = async () => {
-        const [item, k] = await Promise.all([withArt(base), !base.movie && base.videos.some(v => !v.thumbnail) ? kitsuEpisodes(m.id, base.videos.length) : {}])
+        const [item, found] = await Promise.all([withArt(base), !base.movie && base.videos.some(v => !v.thumbnail) ? kitsuEpisodes(m.id, base.videos.length) : {}])
+        const k = found || {}
+        if (!found) markPartial(item)
         for (const v of item.videos) {
           const e = k[v.episode]; if (!e) continue
           if (!v.thumbnail && e.thumbnail) v.thumbnail = proxied(e.thumbnail)
@@ -225,8 +244,8 @@ export const meta = (type, id) =>
       const full = enrich()
       const quick = await Promise.race([full, new Promise(resolve => setTimeout(resolve, 800))])
       if (quick) return quick
-      full.then(item => { ttl.set(`meta4:${type}:${id}`, { at: Date.now(), v: item }); saveCache() }).catch(() => {})
-      return base
+      full.then(item => { ttl.set(`meta6:${type}:${id}`, { at: Date.now(), v: item, ...(partial.has(item) && { short: true }) }); saveCache() }).catch(() => {})
+      return markPartial(base)
     }
     const { meta: m } = await getJSON(`${CINEMETA}/meta/${type}/${id}.json`)
     const item = cineItem(m, type)
@@ -236,5 +255,8 @@ export const meta = (type, id) =>
         thumbnail: proxied(v.thumbnail), released: v.released
       })).sort((a, b) => a.season - b.season || a.episode - b.episode)
     }
+    // A series with no episode out yet has nothing to play.
+    if (type === 'series') item.unplayable = item.videos.every(v => notYet(v.released)) ? NOT_RELEASED : null
     return item
   })
+}

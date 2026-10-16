@@ -76,6 +76,7 @@ export function cget (path, ttl = 10 * 60e3, prio = SOON, scoped = true) {
   const p = api(path, { ref })
   memo.set(k, { at: Date.now(), p, ref })
   if (memo.size > 80) memo.delete(memo.keys().next().value) // pages of catalogs add up while scrolling
-  p.catch(() => memo.delete(k))
+  // A failure, or an empty list (which can be a failure in disguise), is asked for again next time.
+  p.then(v => { if (Array.isArray(v) && !v.length) memo.delete(k) }, () => memo.delete(k))
   return p
 }

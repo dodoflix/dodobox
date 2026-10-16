@@ -7,6 +7,7 @@ import { upgradeSelects } from './dropdown.js'
 
 const TYPES = { movie: 'Movies', series: 'Series', anime: 'Anime' }
 export async function browse (root, type = 'movie', q) {
+  if (!TYPES[type]) type = 'movie'
   calm()
   const genre = q.get('genre') || ''
   const sort = SORTS.some(x => x[0] === q.get('sort')) ? q.get('sort') : 'popular'

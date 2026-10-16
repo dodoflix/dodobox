@@ -428,6 +428,7 @@ export async function watch (type, id, season, episode) {
         entry.status = prep != null ? `Preparing the language... ${Math.round(prep * 100)}%` : `Improving quality... ${Math.round(better * 100)}%`
         refreshT = setTimeout(() => subSel === entry && loadEntry(entry, auto, true), prep != null ? 5000 : 20000)
       } else if (better != null) entry.status = ''
+      entry.retried = false
       baseCues = parseVtt(text); applyCues(); drawMenu()
       if (!syncRes && syncState !== 'checking') runSync(entry)
       const dur = v.duration || info?.duration || 0; const last = cues.length ? cues.at(-1).e : 0
@@ -441,7 +442,11 @@ export async function watch (type, id, season, episode) {
         const eng = subs.find(x => x.lang === 'eng' && x !== entry && !x.forced && embeddedOk(x))
         toast('This subtitle only covers part of the video.', eng ? { action: { label: 'Use English', run: () => showSub(eng) }, ms: 9000 } : { ms: 6000 })
       }
-    } catch (e) { if (gen === subGen && e.name !== 'AbortError') { toast('This subtitle could not be loaded.'); if (entry.embedded) { entry.status = ''; drawMenu() } } }
+    } catch (e) {
+      if (gen === subGen && e.name !== 'AbortError') {
+        // A provider's file can fail once and load on the next try; that is retried quietly before the viewer is told.
+        if (!entry.embedded && !entry.retried) { entry.retried = true; setTimeout(() => gen === subGen && subSel === entry && loadEntry(entry, auto), 1500); return }
+        toast('This subtitle could not be loaded.'); if (entry.embedded) { entry.status = ''; drawMenu() } } }
   }
   const embeddedOk = s => !s.embedded || st.phase === 'done' || (st.length && info?.duration && (st.readable ?? st.downloaded) / st.length * info.duration * 0.85 > 60)
 
@@ -491,14 +496,30 @@ export async function watch (type, id, season, episode) {
     const want = S.me.settings.sublang !== 'off' ? S.me.settings.sublang : langOf(S.me.settings.lang)[1]
     const langs = [...new Set([want, langOf(S.me.settings.lang)[1], 'eng'])].join(',')
     const qs = new URLSearchParams({ type, id, langs, release: st.name || '', ...(season != null && { season, episode }) })
+    const ask = () => api(`/api/subs?${qs}`)
     let raw = []
-    for (let i = 0; i < 3 && !raw.length; i++) { if (i) await new Promise(r => setTimeout(r, 3000 * i)); raw = await api(`/api/subs?${qs}`).catch(() => []) }
-    const ext = raw.map(s => ({ lang: s.lang, label: LANG(s.lang) + (s.label.match(/ #\d+$/)?.[0] || ''), hint: s.hint, best: s.best, forced: s.forced, src: `/api/sub?url=${enc(s.url)}${s.enc ? '&enc=' + enc(s.enc) : ''}` }))
-    subs = [...embedded, ...ext]
-    const base = subs.find(x => x.lang === 'eng' && !x.forced && !x.pending && embeddedOk(x))
-    if (base) for (const [c2, c3] of targets) if (supported.includes(c2)) subs.push({ lang: c3, label: 'Auto-translated', hint: 'Translated from English', src: `/api/sub/translate?src=${enc(base.src)}&to=${c2}${S.me.settings.bestTranslation ? '&hq=1' : ''}`, translated: { src: base.src, to: c2 }, manualOnly: true })
+    for (let i = 0; i < 3 && !raw.length; i++) { if (i) await new Promise(r => setTimeout(r, 3000 * i)); raw = await ask().catch(() => []) }
+    // Entries already shown keep their identity (the picked one stays picked) when a fuller list arrives.
+    const apply = list => {
+      const known = new Map(subs.filter(x => x.src).map(x => [x.src, x]))
+      const own = x => known.get(x.src) || x
+      const ext = list.map(s => ({ lang: s.lang, label: LANG(s.lang) + (s.label.match(/ #\d+$/)?.[0] || ''), hint: s.hint, best: s.best, forced: s.forced, src: `/api/sub?url=${enc(s.url)}${s.enc ? '&enc=' + enc(s.enc) : ''}` })).map(own)
+      subs = [...embedded, ...ext]
+      const base = subs.find(x => x.lang === 'eng' && !x.forced && !x.pending && embeddedOk(x))
+      if (base) for (const [c2, c3] of targets) if (supported.includes(c2)) subs.push(own({ lang: c3, label: 'Auto-translated', hint: 'Translated from English', src: `/api/sub/translate?src=${enc(base.src)}&to=${c2}${S.me.settings.bestTranslation ? '&hq=1' : ''}`, translated: { src: base.src, to: c2 }, manualOnly: true }))
+    }
+    apply(raw)
+    subsDone = !raw.some(s => s.partial)
+    autoSub(subsDone); drawMenu()
+    // The server answers with its fast providers first (flagged partial) and keeps looking; the fuller list is picked up here.
+    for (let i = 0; i < 8 && !subsDone && !dead; i++) {
+      await new Promise(r => setTimeout(r, 4000))
+      const more = await ask().catch(() => null)
+      if (!more || dead) continue
+      raw = more; apply(raw); subsDone = !raw.some(s => s.partial)
+      autoSub(subsDone); drawMenu()
+    }
     subsDone = true
-    autoSub(true); drawMenu()
   }
 
   const cap = () => (quality !== 'auto' ? +quality : autoH)
@@ -609,7 +630,7 @@ export async function watch (type, id, season, episode) {
   let runId = 0
   const aborted = Object.assign(new Error('superseded'), { abort: true })
   async function ready (my) {
-    const t0 = Date.now(); let lastBytes = -1; let lastAt = Date.now(); let probing = null; let probeAt = 0
+    const t0 = Date.now(); let lastBytes = 0; let lastAt = Date.now(); let probing = null; let probeAt = 0
     while (!dead) {
       if (my !== runId) throw aborted
       st = await api(`/api/status/${hash}`)
@@ -620,9 +641,10 @@ export async function watch (type, id, season, episode) {
         if (done?.r) { info = done.r; return }
         if (done?.e) throw Object.assign(done.e, { stall: true })
       }
-      if (st.downloaded > lastBytes) { lastBytes = st.downloaded; lastAt = Date.now() }
+      // A swarm that only trickles keeps bytes arriving forever, so progress is judged over a window: 300 kB in 15 s, or the version is given up.
+      if (Date.now() - lastAt > 15000 && st.phase !== 'metadata') { if (st.downloaded - lastBytes < 300e3) throw Object.assign(new Error('stalled'), { stall: true }); lastBytes = st.downloaded; lastAt = Date.now() }
       const waited = (Date.now() - t0) / 1000
-      if (st.phase === 'metadata' ? waited > 40 : Date.now() - lastAt > 25000) throw Object.assign(new Error('stalled'), { stall: true })
+      if (st.phase === 'metadata' && waited > 20) throw Object.assign(new Error('stalled'), { stall: true })
       if (probing && Date.now() - probeAt > 18000) showSlowLink()
       if (probing && Date.now() - probeAt > 120000) throw Object.assign(new Error('probe timeout'), { stall: true })
       const need = Math.min(st.length || 3e6, 3e6)
@@ -640,6 +662,7 @@ export async function watch (type, id, season, episode) {
     try {
       hls?.destroy(); v.removeAttribute('src'); v.load(); info = null; subSel = null; subs = []
       setLoad({ title: m.name, line: 'Finding the best version...', pct: null, actions: '' })
+      const began = Date.now()
       for (let attempt = 0; attempt < 5 && !dead; attempt++) {
         st = await api('/api/play', { method: 'POST', body: { type, id, season, episode, infoHash: forced, exclude: [...tried], prefer: quality, display: displayPx() } })
         hash = st.hash; forced = undefined
@@ -652,18 +675,32 @@ export async function watch (type, id, season, episode) {
           if (!e.stall) throw e
           tried.add(hash); info = null
           setLoad({ line: 'That version is slow. Trying another...', pct: null, actions: '' })
-          if (attempt === 4) throw new Error('No version of this title is available right now.', { cause: e })
+          // Versions nobody is sharing take a while to give up on one by one: after 90 s the title is called unavailable.
+          if (attempt === 4 || Date.now() - began > 90000) throw new Error('No version of this title is available right now.', { cause: e })
         }
       }
       if (dead || !info) return
       audio = pickAudio(); chooseMode()
       $('#m-audio', root).hidden = !(info.audio?.length > 1)
+      setLoad({ line: 'Getting ready...', pct: null })
       attach()
       loadSubs()
     } catch (e) {
       if (!dead && !e.abort && my === runId) fail('We couldn\'t start this', e.status === 404 ? 'Nothing is available for this title right now. Try again later.' : e.message)
     }
   }
+  // Buffering for a long time in the middle of a film heals itself: the same stream is attached again, and a download that is not
+  // delivering gives way to another version.
+  let stuck = 0; let reattached = false; let seen = -1
+  timers.push(setInterval(() => {
+    if (!info || dead || castCtl || document.hidden || v.paused || v.seeking || v.readyState >= 3) { stuck = 0; return }
+    if (st.downloaded !== seen) { seen = st.downloaded; stuck = 0; return } // still arriving: just slow
+    if ((stuck += 2.5) < 40) return
+    stuck = 0
+    startAt = v.currentTime
+    if (st.phase === 'done' && !reattached) { reattached = true; attach(); return }
+    tried.add(hash); start()
+  }, 2500))
   timers.push(setInterval(async () => {
     // Nothing more to learn once the file is complete, and nothing worth asking for in a hidden tab.
     if (!hash || !info || dead || st.phase === 'done' || document.hidden) return
@@ -731,7 +768,7 @@ export async function watch (type, id, season, episode) {
     else if (/^[0-9]$/.test(k) && v.duration) { v.currentTime = v.duration * +k / 10; wake() }
   }
   document.addEventListener('keydown', onKey)
-  onBack.handler = () => {
+  const backHandler = onBack.handler = () => {
     if (!menu.hidden) { closeMenu(); return true }
     if (fsEl()) { document.exitFullscreen?.(); return true }
     if (isTV && ui && !v.paused) { setUI(false); return true }
@@ -770,16 +807,16 @@ export async function watch (type, id, season, episode) {
   addEventListener('pagehide', save)
 
   const cleanup = () => {
-    dead = true; detachParty?.(); save(); clearTimeout(refreshT); stopTranslating(); clearTimeout(wd); clearTimeout(syncTimer); clearTimeout(probeTimer); hls?.destroy(); timers.forEach(clearInterval); clearTimeout(idleT); clearTimeout(upT); clearTimeout(clickT)
+    dead = true; detachParty?.(); save(); if (hash && st?.fileIdx != null) navigator.sendBeacon?.(`/api/release/${hash}/${st.fileIdx}`); clearTimeout(refreshT); stopTranslating(); clearTimeout(wd); clearTimeout(syncTimer); clearTimeout(probeTimer); hls?.destroy(); timers.forEach(clearInterval); clearTimeout(idleT); clearTimeout(upT); clearTimeout(clickT)
     document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', fsChange); removeEventListener('pagehide', save)
     document.removeEventListener('visibilitychange', onVisible); removeEventListener('orientationchange', onRotate); subRO.disconnect()
-    onBack.handler = null
+    if (onBack.handler === backHandler) onBack.handler = null
     try { lock?.release() } catch {}
     try { if ('mediaSession' in navigator) navigator.mediaSession.metadata = null } catch {}
     v.removeAttribute('src'); v.load()
     if (fsEl()) document.exitFullscreen?.()
-    layer.hidden = true; layer.innerHTML = ''; layer.className = ''
-    document.documentElement.classList.remove('lock')
+    // A player that was left before it finished loading is cleaned up after the next one has already taken the layer.
+    if (layer.contains(root)) { layer.hidden = true; layer.innerHTML = ''; layer.className = ''; document.documentElement.classList.remove('lock') }
   }
   measureBandwidth()
   sync(); wake()

@@ -11,7 +11,10 @@ const LIMITS = [
   [/torrentio\.strem\.fun$/, { perSec: 2, parallel: 2 }],
   [/apibay\.org$/, { perSec: 2, parallel: 2 }],
   [/nyaa\.si$/, { perSec: 1.5, parallel: 2 }],
-  [/kitsu\.io$/, { perSec: 2, parallel: 2 }]
+  [/kitsu\.io$/, { perSec: 2, parallel: 2 }],
+  [/ani\.zip$/, { perSec: 1, parallel: 1 }],
+  [/knaben\.org$/, { perSec: 3, parallel: 2 }],
+  [/animetosho\.org$/, { perSec: 1.5, parallel: 1 }]
 ]
 
 function hostState (host) {

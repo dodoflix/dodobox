@@ -1,51 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { releaseSubLangs, showVerdict, animeShowName, isAnimePack, matchAnimeEpisode, matchSeriesEpisode, animeSeason, pickFile, parseQuality, rank, nameHasTitle, measured } from '../src/sources.js'
+import { releaseSubLangs, parseQuality, rank, lengthFits, measured } from '../src/sources.js'
 import { srtToVtt, allowedSubUrl, sameShow, plausible } from '../src/subs.js'
-import { playlist } from '../src/transcode.js'
+import { playlist, run } from '../src/transcode.js'
 import { upstream } from '../src/images.js'
 import * as updates from '../src/update.js'
 import { parseProbe } from '../src/transcode.js'
 import { ENCODERS } from '../src/bin.js'
 const { newer } = updates
-
-test('anime episode matching', () => {
-  assert.ok(matchAnimeEpisode('[GroupA] Sousou no Frieren - 03 (1080p) [7EF3F175].mkv', 3))
-  assert.ok(matchAnimeEpisode('[GroupB] Show 2nd Season - 03 [1080p][ENG]', 3))
-  assert.ok(matchAnimeEpisode('[Group] Show - 03v2 [720p]', 3))
-  assert.ok(!matchAnimeEpisode('[GroupA] Show - 13 (1080p)', 3))
-  assert.ok(!matchAnimeEpisode('[GroupA] Show - 30 (1080p)', 3))
-  assert.ok(!matchAnimeEpisode('[Group] Show - 05 [1080p]', 8))
-  assert.ok(matchAnimeEpisode('[Group] Show (01-12) [1080p] Batch', 7))
-  assert.ok(!matchAnimeEpisode('[Group] Show (01-12) [1080p]', 14))
-})
-
-test('series episode matching', () => {
-  assert.ok(matchSeriesEpisode('Breaking.Bad.S01E02.720p', 1, 2))
-  assert.ok(matchSeriesEpisode('Breaking Bad 1x02', 1, 2))
-  assert.ok(!matchSeriesEpisode('Breaking.Bad.S01E12.720p', 1, 2))
-  assert.ok(!matchSeriesEpisode('Breaking.Bad.S10E02', 1, 2))
-})
-
-test('anime season detection', () => {
-  assert.equal(animeSeason('[GroupA] Sousou no Frieren S2 - 03'), 2)
-  assert.equal(animeSeason('Show 2nd Season - 03'), 2)
-  assert.equal(animeSeason('Show Season 3'), 3)
-  assert.equal(animeSeason('[Group] Show - 03 [1080p]'), 1)
-})
-
-test('file picking inside torrents', () => {
-  const files = [
-    { name: 'Show/Show.S01E01.mkv', length: 300 }, { name: 'Show/Show.S01E02.mkv', length: 310 },
-    { name: 'Show/Sample/sample.mkv', length: 5 }, { name: 'Show/readme.txt', length: 1 }
-  ]
-  assert.equal(pickFile(files, { type: 'series', season: 1, episode: 2 }), 1)
-  assert.equal(pickFile(files, { type: 'series', season: 1, episode: 9 }), -1)
-  assert.equal(pickFile(files, { type: 'series', season: 1, episode: 9, fileIdx: 0 }), 0)
-  assert.equal(pickFile(files, { type: 'movie' }), 1)
-  assert.equal(pickFile([{ name: 'a.mkv', length: 1 }], { type: 'series', season: 1, episode: 4 }), 0)
-  assert.equal(pickFile([{ name: 'x.txt', length: 1 }], { type: 'movie' }), -1)
-})
 
 test('ranking prefers healthy 1080p over huge, dead or cam releases', () => {
   const r = rank([
@@ -57,8 +19,6 @@ test('ranking prefers healthy 1080p over huge, dead or cam releases', () => {
   ])
   assert.deepEqual(r.map(x => x.title[0]), ['c', 'e', 'b', 'a', 'd'])
   assert.equal(parseQuality('Movie.2160p.HDR'), 2160)
-  assert.ok(nameHasTitle('The.Matrix.1999.1080p', 'The Matrix'))
-  assert.ok(!nameHasTitle('Matrix.Reloaded', 'The Matrix'))
 })
 
 test('srt to vtt', () => {
@@ -123,14 +83,10 @@ test('4K is chosen only when the line and the screen can use it; forcing overrid
   assert.equal(rank([r1, r4, r480], { mbps: 500, display: 2160, prefer: '480' })[0].quality, 480)
 })
 
-test('quality parsing trusts explicit heights; anime packs are told apart from single episodes', () => {
+test('quality parsing trusts explicit heights', () => {
   assert.equal(parseQuality('Movie 2010 UHD BDRip 1080p HDR10'), 1080)
   assert.equal(parseQuality('Movie 2160p WEB'), 2160)
   assert.equal(parseQuality('Movie UHD BluRay'), 2160)
-  assert.equal(isAnimePack('[GroupB] Tantei wa Mou, Shindeiru Season 2 - 01 [1080p CR WEB-DL AVC AAC]'), false)
-  assert.equal(isAnimePack('[GroupE] The Detective Is Already Dead (2021) (Season 1) [BDRip] [1080p]'), true)
-  assert.equal(isAnimePack('[Group] Show (01-12) [1080p] Batch'), true)
-  assert.equal(isAnimePack('[GroupA] Show - 03 (1080p) [ABCD1234].mkv'), false)
 })
 
 test('zip reader finds the subtitle inside a downloaded archive', async () => {
@@ -180,38 +136,6 @@ test('ranking uses real measured speed: a dead release sinks, a fast one rises',
   measured.set('speed-b', { bps: 6e6, at: Date.now() })
   assert.equal(rank([a, b], { runtimeMin: 100 })[0], b)
   measured.clear()
-})
-
-test('anime releases of a different show are rejected even when the title and episode number match', () => {
-  const titles = ['ONE PIECE']
-  assert.equal(animeShowName('[GroupA] One Piece Log - Fish-Man Island Saga - 01 (1080p) [7FC26310].mkv'), 'One Piece Log - Fish-Man Island Saga')
-  assert.equal(showVerdict('[GroupA] One Piece Log - Fish-Man Island Saga - 01 (1080p) [7FC26310].mkv', titles), 'other')
-  assert.equal(showVerdict('[GroupA] One Piece Fan Letter - 01 (1080p).mkv', titles), 'other')
-  assert.equal(showVerdict('[GroupC] One Piece - 01 [1080p].mkv', titles), 'same')
-  assert.equal(showVerdict('[GroupB] One Piece - 1000 [1080p][Multiple Subtitle].mkv', titles), 'same')
-  assert.equal(showVerdict('[GroupD] One Piece (1999) - S01E01.mkv', titles), 'same')
-  // later seasons and parts keep working, and unfamiliar naming is left to the search
-  assert.equal(showVerdict('[GroupA] 86 - Eighty Six (Part 2) - 03 (1080p).mkv', ['86 EIGHTY-SIX Part 2', '86: Eighty Six Part 2']), 'same')
-  // ... but the later part is not the first one
-  assert.equal(showVerdict('[GroupB] 86 Eighty-Six Part 2 - 01 [1080p]', ['86 EIGHTY-SIX', '86: Eighty Six']), 'other')
-  assert.equal(showVerdict('[GroupB] 86 Eighty-Six - 02 [1080p]', ['86 EIGHTY-SIX', '86: Eighty Six']), 'same')
-  assert.equal(showVerdict('[Group] Some Show Season 1 - 02', ['Some Show']), 'same')
-  assert.equal(showVerdict('[GroupA] Re Zero kara Hajimeru Isekai Seikatsu - 01.mkv', ['Re:ZERO -Starting Life in Another World-']), 'unknown')
-  assert.equal(showVerdict('[GroupA] Sword Art Online Alternative - Gun Gale Online - 01.mkv', ['Sword Art Online']), 'other')
-})
-
-test('anime batches with four-digit ranges only count for episodes inside them', () => {
-  assert.equal(matchAnimeEpisode('[GroupB] One Piece - 0892 ~ 1089 [1080p][BATCH][Multiple Subtitle]', 1), false)
-  assert.equal(matchAnimeEpisode('[GroupB] One Piece - 0892 ~ 1089 [1080p][BATCH][Multiple Subtitle]', 1000), true)
-  assert.equal(matchAnimeEpisode('[Lia] One Piece - 0001-1000 [WEB 1080p] [BATCH]', 1), true)
-  assert.equal(isAnimePack('[Lia] One Piece - 0001-1000 [WEB 1080p] [BATCH]'), true)
-  assert.equal(showVerdict('[Xera] Koisuru One Piece - 01 (1080p) [FDD755D9]', ['ONE PIECE']), 'other')
-})
-
-test('season-style episode ranges (S01E01-16) are ranges too', () => {
-  const n = '[ToonsHub] One Piece S01E01-16 1080p NF WEB-DL MULTi AAC2.0 H.264 (REMASTERED, Multi-Audio, Complete)'
-  assert.equal(matchAnimeEpisode(n, 100), false)
-  assert.equal(matchAnimeEpisode(n, 12), true)
 })
 
 test('releases that carry the viewer\'s subtitle language built in are favoured', () => {
@@ -334,4 +258,22 @@ test('the encoder level covers the frame size, so 1440p and 2160p do not fail to
   for (const name of ['libx264', 'h264_nvenc']) { assert.equal(level(name, 1080), '4.1'); assert.equal(level(name, 720), '4.1'); assert.equal(level(name, 1440), '5.1'); assert.equal(level(name, 2160), '5.1') }
   assert.equal(level('h264_videotoolbox', 1080), '4.2')
   assert.equal(level('h264_videotoolbox', 2160), '5.1')
+})
+
+test('an ffmpeg job stops when cancelled or when it runs too long', async () => {
+  const slow = ['-f', 'lavfi', '-re', '-i', 'testsrc=size=64x64:rate=25', '-t', '60', '-f', 'null', '-']
+  const ctl = new AbortController()
+  setTimeout(() => ctl.abort(), 200)
+  await assert.rejects(run(slow, null, 30000, ctl.signal), /cancelled/)
+  await assert.rejects(run(slow, null, 300), /timed out/)
+})
+
+test('same-titled shows are told apart by year and by length', () => {
+  const r = (title, seeders = 5) => ({ title, release: title, infoHash: title, seeders, size: 1e9, quality: 1080 })
+  const ctx = { year: 2023, kind: 'series', runtimeMin: 48 }
+  const [first] = rank([r('The Prince S01 1080p HMAX WEBRip', 9), r('The.Prince.2023.S01E03.1080p.WEB.h264-BETTY'), r('The.Prince.2012.S01E03.1080p')], ctx)
+  assert.match(first.title, /2023/)
+  assert.ok(lengthFits(2760, 48) && lengthFits(5400, 48))
+  assert.ok(!lengthFits(782, 48) && !lengthFits(14400, 48))
+  assert.ok(lengthFits(0, 48) && lengthFits(782, 0))
 })

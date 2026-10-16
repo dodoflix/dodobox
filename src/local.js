@@ -7,7 +7,7 @@ import { catalog } from './meta.js'
 import './data.js'
 import { DATA } from './paths.js'
 import { settings } from './state.js'
-import { VIDEO_EXT, nameHasTitle } from './sources.js'
+import { VIDEO_EXT, hasWords } from './release.js'
 import { sidecarsFor, SUB_FILE } from './sidecar.js'
 import { sendRange, MIME } from './range.js'
 
@@ -48,8 +48,8 @@ async function matchOnline (p) {
   const types = p.kind === 'movie' ? ['movie'] : p.kind === 'anime' ? ['anime', 'series'] : ['series', 'anime']
   for (const type of types) {
     const res = await catalog({ type, q: p.title }).catch(() => [])
-    const hit = res.find(r => nameHasTitle(r.name, p.title) && nameHasTitle(p.title, r.name) && (!p.year || !r.year || Math.abs(r.year - p.year) <= 1)) ||
-      res.find(r => nameHasTitle(r.name, p.title))
+    const hit = res.find(r => hasWords(r.name, p.title) && hasWords(p.title, r.name) && (!p.year || !r.year || Math.abs(r.year - p.year) <= 1)) ||
+      res.find(r => hasWords(r.name, p.title))
     if (hit) return { type: hit.type, mid: hit.id, name: hit.name, poster: hit.poster, year: hit.year }
   }
   return null

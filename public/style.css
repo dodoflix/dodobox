@@ -215,6 +215,8 @@ html.tv .poster:focus-visible .art { outline-width: 4px; transform: scale(1.06);
 .ep .th .prog { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgb(255 255 255 / .2); }
 .ep .th .prog i { display: block; height: 100%; background: rgb(var(--glow)); }
 .ep .t { font-weight: 700; }
+.ep.soon { opacity: .55; cursor: default; }
+.btn[aria-disabled="true"] { opacity: .6; cursor: default; pointer-events: none; }
 .ep .d { color: var(--ink3); font-size: var(--fs-s); font-weight: 550; }
 .ep .th .ok { position: absolute; top: .4rem; right: .4rem; display: grid; place-items: center; width: 1.45rem; height: 1.45rem; border-radius: 50%; background: rgb(var(--glow)); color: var(--on-ink); }
 .ep .th .ok .i { width: .95rem; height: .95rem; stroke-width: 3; }

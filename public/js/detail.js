@@ -38,9 +38,9 @@ export async function title (root, type, id) {
         <div class="meta"><span class="tag">${TYPE_LABEL[type]}</span>${m.year ? `<span>${m.year}</span>` : ''}${m.runtime ? `<span>${esc(m.runtime)}</span>` : ''}${m.rating ? `<span>${icon('star')}${m.rating.toFixed(1)}</span>` : ''}${m.status && m.status !== 'FINISHED' ? `<span>${esc(m.status.replace(/_/g, ' ').toLowerCase())}</span>` : ''}${mine ? '<span>On your server</span>' : ''}</div>
         <p class="lede" translate="no" id="lede" role="button" tabindex="0" aria-expanded="false" data-click>${esc(m.description || '')}</p>
         <div class="actions">
-          <a class="btn btn-ink" id="play" data-autofocus href="${target ? watchHref(type, id, target.season, target.episode) : '#'}">${icon('play')}${playLabel}</a>
+          ${m.unplayable ? `<span class="btn btn-ink" id="play" aria-disabled="true">${esc(m.unplayable)}</span>` : `<a class="btn btn-ink" id="play" data-autofocus href="${target ? watchHref(type, id, target.season, target.episode) : '#'}">${icon('play')}${playLabel}</a>`}
           ${m.trailer ? `<a class="btn btn-ghost" id="trailer" href="#/trailer/${type}/${enc(id)}">${icon('film')}Trailer</a>` : ''}<button class="btn btn-ghost" id="list">${inL() ? icon('check') + 'In My List' : icon('plus') + 'My List'}</button>
-          ${flat ? `<button class="btn btn-ghost" id="dl" data-s="" data-e="">${icon('down')}Download</button>` : ''}
+          ${flat && !m.unplayable ? `<button class="btn btn-ghost" id="dl" data-s="" data-e="">${icon('down')}Download</button>` : ''}
         <div class="rate" role="group" aria-label="Rate this title">
           <button data-r="-1" class="flip" aria-label="Not for me" title="Not for me">${icon('thumb')}</button>
           <button data-r="1" aria-label="I like this" title="I like this">${icon('thumb')}</button>
@@ -57,7 +57,7 @@ export async function title (root, type, id) {
   </div>`
 
   // Finding a source takes several searches on the server, so it is only started for a title that is looked at for a moment (Play then starts sooner).
-  const warm = target && !slowLink() ? setTimeout(() => fetch(`/api/sources?${new URLSearchParams({ type, id, ...(target.season != null && { season: target.season, episode: target.episode }) })}`).catch(() => {}), 3000) : 0
+  const warm = target && !m.unplayable && !slowLink() ? setTimeout(() => fetch(`/api/sources?${new URLSearchParams({ type, id, ...(target.season != null && { season: target.season, episode: target.episode }) })}`).catch(() => {}), 3000) : 0
   let dtr = null; let dwell
   const hero = $('.d-hero')
   if (m.trailer && canTrailer()) dwell = setTimeout(async () => { const { mountTrailer } = await import('./trailer.js'); dtr = mountTrailer($('#dtr'), m.trailer, { onPlaying: () => hero.classList.add('has-trailer'), onFail: () => { dtr = null } }) }, 1800)
@@ -67,8 +67,9 @@ export async function title (root, type, id) {
   detailCleanup = () => { stop(); io.disconnect() }
   $('#lede').onclick = e => e.currentTarget.setAttribute('aria-expanded', e.currentTarget.classList.toggle('open'))
   $('#list').onclick = async e => {
+    const button = e.currentTarget // gone once the handler has awaited
     await toggleList({ type, id, name: m.name, poster: m.poster, year: m.year, rating: m.rating })
-    e.currentTarget.innerHTML = inL() ? icon('check') + 'In My List' : icon('plus') + 'My List'
+    button.innerHTML = inL() ? icon('check') + 'In My List' : icon('plus') + 'My List'
   }
   const paintRate = () => root.querySelectorAll('.rate button').forEach(b => b.classList.toggle('on', +b.dataset.r === ratingOf(type, id)))
   paintRate()
@@ -134,6 +135,7 @@ export async function title (root, type, id) {
       const p = progress(type, id, v.season, v.episode); const r = p ? p[0] / p[1] : 0
       const future = v.released && new Date(v.released) > new Date()
       const d = v.released ? new Date(v.released).toLocaleDateString(document.documentElement.lang || undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''
+      if (future) return `<div class="ep-row"><div class="ep soon" aria-disabled="true"><span class="n">${v.episode}</span><span class="th" style="--h:${hue(m.name)}"><b class="num" aria-hidden="true">${v.episode}</b></span><span><span class="t" translate="no">${esc(v.title)}</span><br><span class="d">Airs ${d}</span></span></div></div>`
       return `<div class="ep-row"><a class="ep" href="${watchHref(type, id, v.season, v.episode)}">
         <span class="n">${v.episode}</span>
         <span class="th" ${m.background || m.poster ? `data-art="url('${esc(sized(m.background || m.poster, thumbW()))}')"` : ''} style="--h:${hue(m.name)}"><b class="num" aria-hidden="true">${v.episode}</b>${v.thumbnail ? `<img alt="" data-src="${esc(sized(v.thumbnail, thumbW()))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}${r > 0.02 ? `<span class="prog"><i style="width:${Math.min(100, r * 100)}%"></i></span>` : ''}<span class="go">${icon('play')}</span>${r > 0.93 ? `<span class="ok">${icon('check')}</span>` : ''}</span>

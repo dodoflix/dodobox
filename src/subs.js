@@ -40,9 +40,10 @@ async function addon ({ type, id, season, episode, imdb }) {
 
 // One language per request: asking for several at once ("sublanguageid-tur,eng") makes the service answer some queries with
 // an empty body, which hid every result.
+// The list carries `incomplete` when a lookup failed, so what it holds is not taken for everything that exists.
 async function rest (q, langs) {
-  const per = await Promise.all(langs.map(l => restOne(q, l).catch(() => [])))
-  return per.flat()
+  const per = await Promise.all(langs.map(l => restOne(q, l).catch(() => Object.assign([], { incomplete: true }))))
+  return Object.assign(per.flat(), { incomplete: per.some(l => l.incomplete) })
 }
 // A title search also finds sequels and spin-offs ("Naruto" brings Shippuden, Boruto, other episode numbers): keep the one show and episode.
 // Compared by the show's catalog id when known, else by its name with doubled letters folded (Shippuuden = Shippuden).
@@ -72,9 +73,12 @@ async function restOne ({ type, id, season, episode, titles, imdb }, code) {
       : anime()
   // Anime paths go on until a few matching files are found: one path finding a single file must not hide what the others know.
   const found = new Map()
+  let failed = 0
   for (const p of paths) {
-    const r = await fetchRetry(`${REST}/${p}`, { headers: { 'X-User-Agent': 'TemporaryUserAgent' }, timeout: 9000, tries: 2 }).catch(() => null)
-    if (!r) continue
+    const r = await fetchRetry(`${REST}/${p}`, { headers: { 'X-User-Agent': 'TemporaryUserAgent' }, timeout: 6000, tries: 2 }).catch(() => null)
+    // Two failures in a row mean the service is down or throttling: more paths would only take longer to fail.
+    if (!r) { if (++failed >= 2) break; continue }
+    failed = 0
     const list = await r.json().catch(() => null)
     for (const s of Array.isArray(list) ? list : []) {
       const rel = s.MovieReleaseName || s.SubFileName || ''
@@ -85,19 +89,33 @@ async function restOne ({ type, id, season, episode, titles, imdb }, code) {
     }
     if (found.size >= (type === 'anime' ? 3 : 1)) break
   }
-  return [...found.values()]
+  return Object.assign([...found.values()], { incomplete: failed > 0 })
 }
 
 const listCache = new Map()
-export const listSubtitles = (q, langs = [], release = '') => {
+const jobs = new Map()
+export const timing = { quickMs: 3500 }
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
+const mark = (list, partial) => (partial ? list.map(s => ({ ...s, partial: true })) : list)
+// The addon answers in a fraction of a second, the other providers can take many seconds (or fail). When they are not done within
+// QUICK_MS the addon's list is returned flagged `partial`, the rest keeps working, and the complete list is kept for the next ask.
+export async function listSubtitles (q, langs = [], release = '') {
   const key = JSON.stringify([q.type, q.id, q.season, q.episode, langs, release])
   const hit = listCache.get(key)
-  if (hit && Date.now() - hit.at < 6 * 3600e3) return Promise.resolve(hit.list)
-  return once('subs:' + key, async () => {
-    const list = await listFresh(q, langs, release)
-    if (list.length) { listCache.set(key, { at: Date.now(), list }); if (listCache.size > 300) listCache.delete(listCache.keys().next().value) }
-    return list
-  })
+  if (hit && Date.now() - hit.at < hit.ttl) return hit.list
+  let job = jobs.get(key)
+  if (!job) {
+    job = lookup(q, langs, release)
+    job.full = job.full.then(r => {
+      // A list built while a provider failed is kept briefly: it is better than nothing, but not the answer for hours.
+      if (r.list.length) { listCache.set(key, { at: Date.now(), list: r.list, ttl: r.complete ? 6 * 3600e3 : 90e3 }); if (listCache.size > 300) listCache.delete(listCache.keys().next().value) }
+      return r
+    }).finally(() => jobs.delete(key))
+    jobs.set(key, job)
+  }
+  const done = await Promise.race([job.full, wait(timing.quickMs)])
+  if (done) return mark(done.list, !done.complete)
+  return mark(await job.quick, true)
 }
 // The addon's answers carry only a release name: drop ones naming a sequel the title is not, or another episode.
 const SEQUEL = /shipp?uu?den|boruto|next generations/i
@@ -112,9 +130,18 @@ export function plausible (rel, { episode, titles = [] }) {
   if (bare && bare !== +episode && ![240, 360, 480, 576, 720].includes(bare)) return false
   return !SEQUEL.test(rel) || titles.some(t => SEQUEL.test(t))
 }
-async function listFresh (q, langs, release) {
-  const [a, b, c] = await Promise.allSettled([addon(q), langs.length ? rest(q, langs) : [], q.type === 'movie' && langs.length ? yifyList(q.id, langs) : []])
-  const all = [...(a.value || []), ...(b.value || []), ...(c.value || [])].filter(x => q.type !== 'anime' || plausible(x.rel, q)).map(x => ({ ...x, enc: x.enc || LEGACY[x.lang] }))
+// Starts every provider once; `quick` is what the fast ones (the addon and, for movies, the yify page) give, `full` waits for all.
+function lookup (q, langs, release) {
+  const [addonP, restP, yifyP] = [addon(q), langs.length ? rest(q, langs) : [], q.type === 'movie' && langs.length ? yifyList(q.id, langs) : []]
+  const quick = Promise.allSettled([addonP, yifyP]).then(r => assemble(q, langs, release, r.flatMap(x => x.value || [])))
+  const full = Promise.allSettled([addonP, restP, yifyP]).then(([a, b, c]) => ({
+    list: assemble(q, langs, release, [...(a.value || []), ...(b.value || []), ...(c.value || [])]),
+    complete: a.status === 'fulfilled' && b.status === 'fulfilled' && !b.value?.incomplete // the yify page is an extra: its being down is not a reason to keep asking
+  }))
+  return { quick, full }
+}
+function assemble (q, langs, release, found) {
+  const all = found.filter(x => q.type !== 'anime' || plausible(x.rel, q)).map(x => ({ ...x, enc: x.enc || LEGACY[x.lang] }))
   const seen = new Set()
   const scored = all.filter(s => !seen.has(s.url) && seen.add(s.url))
     .map(s => ({ ...s, score: similarity(release, s.rel) * 3 + Math.log10(s.dl + 1) + (langs.includes(s.lang) ? 2 : 0) - (s.forced ? 6 : 0) }))

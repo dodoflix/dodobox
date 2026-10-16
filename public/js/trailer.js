@@ -173,13 +173,13 @@ export async function watchTrailer (type, id) {
     else if (k === 'MediaPlayPause') toggle()
   }
   document.addEventListener('keydown', onKey)
-  onBack.handler = () => { if (fsEl()) { document.exitFullscreen?.(); return true } return false }
+  const backHandler = onBack.handler = () => { if (fsEl()) { document.exitFullscreen?.(); return true } return false }
 
   return () => {
     dead = true; stop(); clearInterval(poll); clearTimeout(timeout); clearTimeout(idle); clearTimeout(veilT)
-    document.removeEventListener('keydown', onKey); onBack.handler = null
+    document.removeEventListener('keydown', onKey)
+    if (onBack.handler === backHandler) onBack.handler = null
     if (fsEl()) document.exitFullscreen?.()
-    document.documentElement.classList.remove('lock')
-    layer.hidden = true; layer.innerHTML = ''; layer.className = ''
+    if (layer.contains(root)) { document.documentElement.classList.remove('lock'); layer.hidden = true; layer.innerHTML = ''; layer.className = '' }
   }
 }

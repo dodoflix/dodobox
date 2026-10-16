@@ -1,4 +1,7 @@
 import { getJSON as fetchJSON, getText, once } from './http.js'
+import { matchRelease, titleVerdict, isPack, isEpisode, seasonOf, entrySeason } from './release.js'
+import { animeIds, episodeNumbers } from './ids.js'
+import { scrape } from './tracker.js'
 
 // Torrent discovery: stream and search providers for movies and series, an anime tracker for anime.
 const TRACKERS = [
@@ -19,8 +22,6 @@ export async function refreshTrackers () {
     if (found.length) live = found
   } catch {}
 }
-export const VIDEO_EXT = /\.(mkv|mp4|m4v|webm|avi|mov|ts|wmv)$/i
-
 export const magnetFor = (hash, name = '', extraTrackers = []) =>
   `magnet:?xt=urn:btih:${hash}&dn=${encodeURIComponent(name)}` +
   [...new Set([...extraTrackers, ...TRACKERS, ...live])].map(t => '&tr=' + encodeURIComponent(t)).join('')
@@ -94,88 +95,14 @@ export function score (r, ctx = {}) {
   if (r.pack) s -= r.fileIdx != null ? 8 : 25
   if (r.pack && r.fileIdx == null && r.size > 100e9) s -= 40 // a whole-series batch: thousands of files to index before the first byte
   if (r.wrongSeason) s -= 80
+  // Different shows share a title ("The Prince" is a 2023 Turkish drama and a cartoon): a year in the name settles which.
+  const years = ctx.kind !== 'anime' && ctx.year ? [...r.title.matchAll(/\b(?:19|20)\d\d\b(?![px])/g)].map(m => +m[0]) : []
+  if (years.length) s += years.some(y => Math.abs(y - ctx.year) <= 1) ? 40 : -60
   return s
 }
+// A video far shorter or longer than the title's runtime is another title with the same name.
+export const lengthFits = (seconds, runtimeMin) => !seconds || !runtimeMin || (seconds / 60 >= runtimeMin * 0.35 && seconds / 60 <= runtimeMin * 3)
 export const rank = (list, ctx) => [...list].sort((a, b) => score(b, ctx) - score(a, ctx))
-
-const words = s => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter(Boolean)
-export const nameHasTitle = (name, title) => {
-  const n = new Set(words(name))
-  return words(title).every(w => n.has(w))
-}
-
-export function matchAnimeEpisode (name, ep) {
-  const e = String(ep).replace(/^0+/, '')
-  const single = new RegExp(`(?:^|[\\s_\\-\\[(])0*${e}(?:v\\d)?(?=[\\s_\\[\\]().,-]|$)`)
-  if (single.test(name.replace(/\b\d{3,4}p\b/gi, ''))) return true
-  // Ranges are written "0001-1000", "01 ~ 12" or "S01E01-16".
-  const range = name.match(/\bS\d+E0*(\d{1,4})\s*[-~]\s*E?0*(\d{1,4})\b/i) || name.match(/\b0*(\d{1,4})\s*[-~]\s*0*(\d{1,4})\b/)
-  if (range && +range[1] <= ep && ep <= +range[2] && !/\b\d{3,4}p\b/.test(range[0])) return true
-  return /batch|complete/i.test(name) && !range
-}
-
-export function animeShowName (release) {
-  const n = release.replace(/^\s*(\[[^\]]*\]\s*)+/, '').replace(/_/g, ' ')
-  const cut = n.search(/\s-\s*\d|\s-\s*S\d|\sS\d+E\d+|\s\d{2,4}\s*(\(|\[|v\d|$)|\s\(?\d{3,4}p|\s\[/i)
-  return (cut > 0 ? n.slice(0, cut) : n).trim()
-}
-// Words that may follow the show's title without making it a different show. A later season or part ("Part 2") is a
-// different entry unless the title itself says so.
-const SAME_SHOW_EXTRAS = /^(?:(?:season|part|cour|s)\s*0*1\b|1st\s+season|tv|\(?(?:19|20)\d\d\)?|uncut|remastered|hd|bd|bluray|dub|dual|multi|complete|batch)(?:\s+|$)/i
-// 'other': the release is a different show that merely starts with this title (a spin-off such as "One Piece Log - Fish-Man
-// Island Saga" for "One Piece"); 'same' or 'unknown' (named differently, left to the search's relevance) otherwise.
-export function showVerdict (release, titles) {
-  const show = words(animeShowName(release)).join(' ')
-  if (!show) return 'unknown'
-  let verdict = 'unknown'
-  for (const t of titles) {
-    const w = words(t).join(' ')
-    if (!w) continue
-    if (show === w) return 'same'
-    if (show.startsWith(w + ' ')) {
-      let rest = show.slice(w.length + 1)
-      while (rest && SAME_SHOW_EXTRAS.test(rest)) rest = rest.replace(SAME_SHOW_EXTRAS, '')
-      if (!rest) return 'same'
-      verdict = 'other'
-    } else if (` ${show} `.includes(` ${w} `)) verdict = 'other' // a parody or spin-off wrapped around the title ("Koisuru One Piece")
-  }
-  return verdict
-}
-
-// Season number a release claims (1 when it doesn't say). The anime catalog lists each cour/season as its own entry,
-// so "Show S2 - 03" must not satisfy a lookup for the first entry's episode 3.
-export function animeSeason (name) {
-  const m = name.match(/\bS(\d{1,2})\b(?!E)|\b(\d{1,2})(?:st|nd|rd|th) Season|\bSeason[ _]?0*(\d{1,2})\b/i)
-  return m ? +(m[1] || m[2] || m[3]) : 1
-}
-const ANIME_PACK = /batch|complete|\bseason\b|\bS\d+\b(?!E)|\b\d{1,4}\s*[-~]\s*\d{1,4}\b/i
-// "Show Season 2 - 03" is one episode; "Show (Season 1) [BD]" or "Show 01-12" is a pack.
-export function isAnimePack (name) {
-  const n = name.replace(/\b\d{3,4}p\b/gi, '')
-  const season = /\bseason\s*\d+|\b\d+(st|nd|rd|th) season|\bS\d{1,2}\b(?!E)|\bseason\b/i
-  const rest = n.replace(new RegExp(season.source, 'gi'), ' ') // "Season 2 - 01" must not read as the range 2-01
-  if (/\b(batch|complete)\b|\b\d{1,4}\s*[-~]\s*\d{1,4}\b/i.test(rest)) return true
-  if (/\s-\s*\d{1,3}(v\d)?(?=[\s_[\]().,-]|$)/.test(rest)) return false
-  return season.test(n)
-}
-
-export const matchSeriesEpisode = (name, s, e) =>
-  new RegExp(`(?:\\bs0*${s}[ ._-]?e0*${e}\\b|\\b0*${s}x0*${e}\\b)`, 'i').test(name)
-const isSeasonPack = (name, s) => new RegExp(`\\bs0*${s}\\b|season[ ._-]?0*${s}\\b`, 'i').test(name) && !/\bs\d+[ ._-]?e\d+/i.test(name)
-
-export function pickFile (files, { type, season, episode, fileIdx } = {}) {
-  const vids = files.map((f, i) => ({ ...f, i })).filter(f => VIDEO_EXT.test(f.name) && !/sample/i.test(f.name))
-  if (!vids.length) return -1
-  if (type !== 'movie' && episode != null) {
-    const hit = vids.filter(f => type === 'anime'
-      ? matchAnimeEpisode(f.name.split(/[\\/]/).pop(), episode)
-      : matchSeriesEpisode(f.name.split(/[\\/]/).pop(), season, episode))
-    if (hit.length) return hit.sort((a, b) => b.length - a.length)[0].i
-    if (fileIdx != null && vids.some(f => f.i === fileIdx)) return fileIdx
-    if (vids.length > 1) return -1
-  }
-  return vids.sort((a, b) => b.length - a.length)[0].i
-}
 
 const toBytes = (n, unit) => parseFloat(n) * ({ KB: 1e3, KIB: 1024, MB: 1e6, MIB: 1048576, GB: 1e9, GIB: 1073741824, TB: 1e12, TIB: 1099511627776 })[unit.toUpperCase()]
 
@@ -214,8 +141,26 @@ async function apibay (query, filter) {
   }))
 }
 
+async function knaben (query, filter) {
+  const body = JSON.stringify({ search_field: 'title', query, order_by: 'seeders', order_direction: 'desc', size: 50, hide_unsafe: true, hide_xxx: true })
+  const j = await fetchJSON('https://api.knaben.org/v1', { method: 'POST', headers: { 'content-type': 'application/json' }, body, timeout: 9000 })
+  return (j.hits || []).filter(r => r.hash && filter(r.title)).map(r => ({
+    title: r.title, release: r.title, infoHash: r.hash.toLowerCase(), magnet: magnetFor(r.hash, r.title),
+    seeders: r.seeders || 0, size: r.bytes || 0, quality: parseQuality(r.title), provider: 'Knaben'
+  }))
+}
+
+// Every YTS release of a movie, by IMDb id.
+async function yts (imdb) {
+  const j = await getJSON(`https://movies-api.accel.li/api/v2/list_movies.json?query_term=${imdb}`)
+  return (j.data?.movies || []).flatMap(m => (m.torrents || []).map(t => {
+    const title = `${m.title_long} ${t.quality} ${t.type} ${t.video_codec}`
+    return { title, release: title, infoHash: t.hash.toLowerCase(), magnet: magnetFor(t.hash, m.title_long), seeders: t.seeds || 0, size: t.size_bytes || 0, quality: parseQuality(t.quality), provider: 'YTS' }
+  }))
+}
+
 const xml = (s, tag) => (s.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`)) || [])[1] || ''
-const unescapeXml = s => s.replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n)).replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+const unescapeXml = s => s.replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n)).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&')
 
 async function nyaa (query, filter) {
   const text = await getText(`https://nyaa.si/?page=rss&c=1_2&s=seeders&o=desc&q=${encodeURIComponent(query)}`, { timeout: 9000 })
@@ -236,51 +181,153 @@ async function nyaa (query, filter) {
   }).filter(r => r.infoHash && filter(r.title))
 }
 
+// AnimeTosho lists releases by AniDB id: `eid` is one episode, `aid` the whole show.
+async function tosho (query) {
+  const j = await getJSON(`https://animetosho.org/feed/json?${query}&order=seeders`)
+  return (Array.isArray(j) ? j : []).filter(x => x.info_hash).map(x => ({
+    title: x.title, release: x.torrent_name || x.title, infoHash: x.info_hash.toLowerCase(), magnet: magnetFor(x.info_hash, x.torrent_name || x.title),
+    seeders: x.seeders || 0, size: x.total_size || 0, quality: parseQuality(x.title), provider: 'AnimeTosho', files: x.num_files
+  }))
+}
+
+const MIN_FIRST_TIER = 3
+// A lookup runs in two tiers. The first asks sources keyed by id (Torrentio by IMDb or Kitsu id, AnimeTosho by AniDB episode
+// id), whose answers are already the right title and episode; the second searches by name and runs only when the first came
+// back with fewer than three seeded releases (`fallback` is a function so those requests are not sent unless needed).
+//
+// Rows an id vouches for still pass a numbering and year check, which drops the odd stray file ("Halloween costume haul" for
+// Halloween; a movie that is a few megabytes is not a movie). When the check would leave almost nothing it is skipped, so a parser blind spot cannot empty the list.
+const MIN_MOVIE_BYTES = 150e6
+const vouched = (job, target) => job.then(rows => {
+  const fits = r => matchRelease({ name: r.title, release: r.release }, target, { noTitle: true }) && !(target.kind === 'movie' && r.size && r.size < MIN_MOVIE_BYTES)
+  const kept = target ? rows.filter(fits) : rows
+  return (kept.length >= MIN_FIRST_TIER ? kept : rows).map(r => ({ ...r, idKeyed: true }))
+})
+const p2 = n => String(n).padStart(2, '0')
+
+function movieTiers (item) {
+  const target = { kind: 'movie', title: item.title, year: item.year }
+  const query = `${item.title} ${item.year || ''}`.trim()
+  // The text searches are fuzzy: trust a catalog tag when present, else the title and year in the name.
+  const named = n => matchRelease({ name: n }, target, { requireYear: true })
+  return {
+    first: [vouched(torrentio(`movie/${item.id}`), target)],
+    fallback: () => [vouched(yts(item.id), target), apibay(query, (n, r) => r.imdb ? r.imdb === item.id : named(n)), knaben(query, named)]
+  }
+}
+
+// Older episodes are found in season packs, so the text searches also ask for the season and for the complete series.
+function seriesTiers (item) {
+  const { title, season, episode } = item
+  const target = { kind: 'series', title, season, episode }
+  const named = n => matchRelease({ name: n }, target)
+  const queries = [`${title} S${p2(season)}E${p2(episode)}`, `${title} Season ${season}`, `${title} complete`]
+  return {
+    first: [vouched(torrentio(`series/${item.id}:${season}:${episode}`), target)],
+    fallback: () => queries.flatMap(q => [apibay(q, named), knaben(q, named)])
+  }
+}
+
+async function animeTiers (item) {
+  const alId = +String(item.id).replace('al:', '')
+  const [ids, nums] = await Promise.all([animeIds(alId), item.movie ? null : episodeNumbers(alId, item.episode)])
+  const titles = [...new Set([item.title, ...(item.altTitles || [])].filter(Boolean))].slice(0, 2)
+  const target = item.movie ? null : { kind: 'anime', titles, episode: item.episode, entrySeason: entrySeason(titles), ...nums }
+  const first = []
+  if (ids?.kitsu) first.push(vouched(torrentio(item.movie ? `movie/kitsu:${ids.kitsu}` : `series/kitsu:${ids.kitsu}:${item.episode}`), target))
+  if (nums?.eid) first.push(vouched(tosho(`eid=${nums.eid}`), target))
+  else if (item.movie && ids?.anidb) first.push(vouched(tosho(`aid=${ids.anidb}`), null))
+  const fallback = () => {
+    const jobs = []
+    if (ids?.anidb && !item.movie) jobs.push(vouched(tosho(`aid=${ids.anidb}`), target))
+    for (const t of titles) {
+      const tw = t.replace(/[^\p{L}\p{N} ]+/gu, ' ')
+      // The search is fuzzy: a title plus the episode number also finds other shows whose names start with it.
+      const own = n => item.movie || titleVerdict(n, titles) !== 'other'
+      const numbering = { kind: 'anime', episode: item.episode, ...nums }
+      jobs.push(nyaa(item.movie ? tw : `${tw} ${p2(item.episode)}`, n => own(n) && (item.movie || matchRelease({ name: n }, numbering, { noTitle: true }))))
+      if (!item.movie) jobs.push(nyaa(`${tw} batch`, n => own(n) && isPack(n) && matchRelease({ name: n }, numbering, { noTitle: true })))
+    }
+    return jobs
+  }
+  return { first, fallback }
+}
+
+const usable = rows => rows.filter(r => r.seeders > 0).length
+const wait = ms => new Promise(resolve => setTimeout(resolve, Math.max(0, ms)))
+const DEADLINE_MS = 300
+const HARD_CAP_MS = 4000
+
+// Runs a lookup's tiers. tiers.first[0] is the primary source. When it answers with enough seeded releases the lookup returns
+// at the deadline with whatever its tier-mates managed by then; when it fails or comes back thin, the name searches start
+// at once instead of after the slow tier-mates. Everything still in flight lands in `done`, so the caller can top up its cache.
+export async function runTiers (tiers, { deadline = DEADLINE_MS, cap = HARD_CAP_MS } = {}) {
+  const t0 = Date.now()
+  const got = []
+  let failed = false
+  const track = job => job.then(rows => { got.push(...rows) }, e => { failed = true; console.warn('[sources]', e.message) })
+  const first = tiers.first.map(track)
+  let all = Promise.all(first)
+  await first[0]
+  if (usable(got) >= MIN_FIRST_TIER) await Promise.race([all, wait(deadline - (Date.now() - t0))])
+  else {
+    all = Promise.all([...first, ...tiers.fallback().map(track)])
+    await Promise.race([all, wait(cap - (Date.now() - t0))])
+  }
+  return { rows: [...got], failed, done: all.then(() => ({ rows: [...got], failed })) }
+}
+
+// Live seeder counts. A source's number can be days old, so the best candidates are asked of the trackers themselves; a count
+// is used only when at least two trackers knew the torrent (one tracker not knowing it says little).
+export const hooks = { scrape }
+const seen = new Map()
+const SEEN_FRESH_MS = 10 * 60e3
+const SCRAPED = 15
+const withLive = list => list.map(r => { const s = seen.get(r.infoHash); return s?.trackers >= 2 ? { ...r, seeders: s.seeders, reportedSeeders: r.seeders } : r })
+async function refreshSeeders (hashes) {
+  const trackers = [...new Set([...TRACKERS, ...live])].filter(t => t.startsWith('udp://'))
+  const found = await hooks.scrape(hashes, trackers)
+  for (const [hash, s] of found) seen.set(hash, { ...s, at: Date.now() })
+  if (seen.size > 5000) for (const k of [...seen.keys()].slice(0, 1000)) seen.delete(k)
+}
+async function rankLive (list, sctx) {
+  const stale = rank(withLive(list), sctx).slice(0, SCRAPED).filter(r => !(seen.get(r.infoHash)?.at > Date.now() - SEEN_FRESH_MS)).map(r => r.infoHash)
+  if (stale.length) await Promise.race([refreshSeeders(stale).catch(() => {}), wait(700)])
+  return rank(withLive(list), sctx).slice(0, 25)
+}
+
+const LIST_TTL = 90 * 60e3
+const PARTIAL_TTL = 60e3 // what was found while a source failed is used, but asked for again soon
+const NOTHING_TTL = 5 * 60e3
 const cache = new Map()
 export const findSources = (item, ctx = {}) => once('src:' + JSON.stringify([item.type, item.id, item.season, item.episode]), () => find(item, ctx))
 async function find (item, ctx) {
   const key = JSON.stringify([item.type, item.id, item.season, item.episode])
   const hit = cache.get(key)
-  const sctx = { ...ctx, runtimeMin: item.runtimeMin || RUNTIME[item.type] }
-  if (hit && Date.now() - hit.at < 90 * 60e3) return rank(hit.list, sctx).slice(0, 25)
+  const sctx = { ...ctx, runtimeMin: item.runtimeMin || RUNTIME[item.type], year: item.year, kind: item.type }
+  if (hit && Date.now() - hit.at < hit.ttl) return rankLive(hit.list, sctx)
 
   const { type, season, episode } = item
-  const jobs = []
-  if (type === 'movie') {
-    jobs.push(torrentio(`movie/${item.id}`))
-    // The search is fuzzy: trust its catalog tag when present, else title + year in the name.
-    jobs.push(apibay(`${item.title} ${item.year || ''}`.trim(), (n, r) => r.imdb ? r.imdb === item.id : nameHasTitle(n, item.title) && (!item.year || n.includes(String(item.year)))))
-  } else if (type === 'series') {
-    jobs.push(torrentio(`series/${item.id}:${season}:${episode}`))
-    const tag = `S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`
-    jobs.push(apibay(`${item.title} ${tag}`, n => nameHasTitle(n, item.title) && matchSeriesEpisode(n, season, episode)))
-    jobs.push(apibay(`${item.title} S${String(season).padStart(2, '0')}`, n => nameHasTitle(n, item.title) && isSeasonPack(n, season)))
-  } else {
-    const ep = String(episode).padStart(2, '0')
-    const titles = [...new Set([item.title, ...(item.altTitles || [])].filter(Boolean))].slice(0, 2)
-    for (const t of titles) {
-      const tw = t.replace(/[^\p{L}\p{N} ]+/gu, ' ')
-      // The search is fuzzy: a title plus the episode number also finds other shows whose names start with it.
-      const own = n => item.movie || showVerdict(n, titles) !== 'other'
-      jobs.push(nyaa(item.movie ? tw : `${tw} ${ep}`, n => own(n) && (item.movie || matchAnimeEpisode(n, episode))))
-      if (!item.movie) jobs.push(nyaa(`${tw} batch`, n => own(n) && matchAnimeEpisode(n, episode) && ANIME_PACK.test(n)))
+  const tiers = type === 'movie' ? movieTiers(item) : type === 'series' ? seriesTiers(item) : await animeTiers(item)
+  const build = rows => {
+    const byHash = new Map()
+    for (const r of rows) if (!byHash.has(r.infoHash) || byHash.get(r.infoHash).seeders < r.seeders) byHash.set(r.infoHash, { ...r })
+    for (const r of byHash.values()) {
+      if (type === 'series') r.pack = !isEpisode(r.release, { type, season, episode })
+      else if (type === 'anime' && !item.movie) {
+        r.pack = r.files != null ? r.files > 1 : isPack(r.release)
+        r.wrongSeason = !r.idKeyed && seasonOf(r.release) !== entrySeason([item.title, ...(item.altTitles || [])])
+      }
+      else r.pack = /\b(pack|collection|trilogy|anthology|saga|complete)\b|\b\d-\d\b/i.test(r.release)
     }
+    return [...byHash.values()]
   }
-  const settled = await Promise.allSettled(jobs)
-  const byHash = new Map()
-  for (const s of settled) {
-    if (s.status === 'rejected') { console.warn('[sources]', s.reason.message); continue }
-    for (const r of s.value) if (!byHash.has(r.infoHash) || byHash.get(r.infoHash).seeders < r.seeders) byHash.set(r.infoHash, r)
-  }
-  for (const r of byHash.values()) {
-    if (type === 'series') r.pack = !matchSeriesEpisode(r.release, season, episode)
-    else if (type === 'anime' && !item.movie) {
-      r.pack = isAnimePack(r.release)
-      r.wrongSeason = animeSeason(r.release) !== Math.max(...[item.title, ...(item.altTitles || [])].map(animeSeason))
-    }
-    else r.pack = /\b(pack|collection|trilogy|anthology|saga|complete)\b|\b\d-\d\b/i.test(r.release)
-  }
-  const all = [...byHash.values()]
-  if (all.length) cache.set(key, { at: Date.now(), list: all })
-  return rank(all, sctx).slice(0, 25)
+  const { rows, failed, done } = await runTiers(tiers)
+  const list = build(rows)
+  // Nothing found is remembered briefly, unless a source errored: that says nothing about the title.
+  if (list.length) cache.set(key, { at: Date.now(), list, ttl: failed ? PARTIAL_TTL : LIST_TTL })
+  else if (!failed) cache.set(key, { at: Date.now(), list, ttl: NOTHING_TTL })
+  // Sources that answered after the deadline top up the cached list for the next request.
+  done.then(late => { const full = build(late.rows); if (full.length > list.length || (!late.failed && failed)) cache.set(key, { at: Date.now(), list: full, ttl: late.failed ? PARTIAL_TTL : LIST_TTL }) }).catch(() => {})
+  return rankLive(list, sctx)
 }
