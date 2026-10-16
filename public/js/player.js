@@ -428,6 +428,7 @@ export async function watch (type, id, season, episode) {
         entry.status = prep != null ? `Preparing the language... ${Math.round(prep * 100)}%` : `Improving quality... ${Math.round(better * 100)}%`
         refreshT = setTimeout(() => subSel === entry && loadEntry(entry, auto, true), prep != null ? 5000 : 20000)
       } else if (better != null) entry.status = ''
+      entry.retried = false
       baseCues = parseVtt(text); applyCues(); drawMenu()
       if (!syncRes && syncState !== 'checking') runSync(entry)
       const dur = v.duration || info?.duration || 0; const last = cues.length ? cues.at(-1).e : 0
@@ -441,7 +442,11 @@ export async function watch (type, id, season, episode) {
         const eng = subs.find(x => x.lang === 'eng' && x !== entry && !x.forced && embeddedOk(x))
         toast('This subtitle only covers part of the video.', eng ? { action: { label: 'Use English', run: () => showSub(eng) }, ms: 9000 } : { ms: 6000 })
       }
-    } catch (e) { if (gen === subGen && e.name !== 'AbortError') { toast('This subtitle could not be loaded.'); if (entry.embedded) { entry.status = ''; drawMenu() } } }
+    } catch (e) {
+      if (gen === subGen && e.name !== 'AbortError') {
+        // A provider's file can fail once and load on the next try; that is retried quietly before the viewer is told.
+        if (!entry.embedded && !entry.retried) { entry.retried = true; setTimeout(() => gen === subGen && subSel === entry && loadEntry(entry, auto), 1500); return }
+        toast('This subtitle could not be loaded.'); if (entry.embedded) { entry.status = ''; drawMenu() } } }
   }
   const embeddedOk = s => !s.embedded || st.phase === 'done' || (st.length && info?.duration && (st.readable ?? st.downloaded) / st.length * info.duration * 0.85 > 60)
 
@@ -491,14 +496,30 @@ export async function watch (type, id, season, episode) {
     const want = S.me.settings.sublang !== 'off' ? S.me.settings.sublang : langOf(S.me.settings.lang)[1]
     const langs = [...new Set([want, langOf(S.me.settings.lang)[1], 'eng'])].join(',')
     const qs = new URLSearchParams({ type, id, langs, release: st.name || '', ...(season != null && { season, episode }) })
+    const ask = () => api(`/api/subs?${qs}`)
     let raw = []
-    for (let i = 0; i < 3 && !raw.length; i++) { if (i) await new Promise(r => setTimeout(r, 3000 * i)); raw = await api(`/api/subs?${qs}`).catch(() => []) }
-    const ext = raw.map(s => ({ lang: s.lang, label: LANG(s.lang) + (s.label.match(/ #\d+$/)?.[0] || ''), hint: s.hint, best: s.best, forced: s.forced, src: `/api/sub?url=${enc(s.url)}${s.enc ? '&enc=' + enc(s.enc) : ''}` }))
-    subs = [...embedded, ...ext]
-    const base = subs.find(x => x.lang === 'eng' && !x.forced && !x.pending && embeddedOk(x))
-    if (base) for (const [c2, c3] of targets) if (supported.includes(c2)) subs.push({ lang: c3, label: 'Auto-translated', hint: 'Translated from English', src: `/api/sub/translate?src=${enc(base.src)}&to=${c2}${S.me.settings.bestTranslation ? '&hq=1' : ''}`, translated: { src: base.src, to: c2 }, manualOnly: true })
+    for (let i = 0; i < 3 && !raw.length; i++) { if (i) await new Promise(r => setTimeout(r, 3000 * i)); raw = await ask().catch(() => []) }
+    // Entries already shown keep their identity (the picked one stays picked) when a fuller list arrives.
+    const apply = list => {
+      const known = new Map(subs.filter(x => x.src).map(x => [x.src, x]))
+      const own = x => known.get(x.src) || x
+      const ext = list.map(s => ({ lang: s.lang, label: LANG(s.lang) + (s.label.match(/ #\d+$/)?.[0] || ''), hint: s.hint, best: s.best, forced: s.forced, src: `/api/sub?url=${enc(s.url)}${s.enc ? '&enc=' + enc(s.enc) : ''}` })).map(own)
+      subs = [...embedded, ...ext]
+      const base = subs.find(x => x.lang === 'eng' && !x.forced && !x.pending && embeddedOk(x))
+      if (base) for (const [c2, c3] of targets) if (supported.includes(c2)) subs.push(own({ lang: c3, label: 'Auto-translated', hint: 'Translated from English', src: `/api/sub/translate?src=${enc(base.src)}&to=${c2}${S.me.settings.bestTranslation ? '&hq=1' : ''}`, translated: { src: base.src, to: c2 }, manualOnly: true }))
+    }
+    apply(raw)
+    subsDone = !raw.some(s => s.partial)
+    autoSub(subsDone); drawMenu()
+    // The server answers with its fast providers first (flagged partial) and keeps looking; the fuller list is picked up here.
+    for (let i = 0; i < 8 && !subsDone && !dead; i++) {
+      await new Promise(r => setTimeout(r, 4000))
+      const more = await ask().catch(() => null)
+      if (!more || dead) continue
+      raw = more; apply(raw); subsDone = !raw.some(s => s.partial)
+      autoSub(subsDone); drawMenu()
+    }
     subsDone = true
-    autoSub(true); drawMenu()
   }
 
   const cap = () => (quality !== 'auto' ? +quality : autoH)
