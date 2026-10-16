@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.0](https://github.com/dodoflix/dodobox/compare/v0.6.0...v0.7.0) (2026-10-16)
+
+
+### Features
+
+* Discord Rich Presence while something plays ([#33](https://github.com/dodoflix/dodobox/issues/33)) ([db15c32](https://github.com/dodoflix/dodobox/commit/db15c32fe2746f8b7bd920a76a7fd55e2be0e427))
+
+
+### Bug fixes
+
+* Discord presence text follows the interface language ([#35](https://github.com/dodoflix/dodobox/issues/35)) ([82c1e8e](https://github.com/dodoflix/dodobox/commit/82c1e8ea2532a90b5e2169706f927db5a23def22))
+
 ## [0.6.0](https://github.com/dodoflix/dodobox/compare/v0.5.0...v0.6.0) (2026-10-16)
 
 
