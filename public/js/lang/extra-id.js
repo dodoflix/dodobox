@@ -38,7 +38,7 @@ export const rows = [
 /*more*/ 'Tersimpan', 'Tidak ada berkas yang bisa diputar di dalam torrent',
 /*more*/ 'tidak ditemukan', 'Nama wajib diisi', 'Perbarui dari komputer tempat Dodobox berjalan',
 /*more*/ 'Nonton bareng', 'Mulai sesi nonton', 'Kode sesi', 'Gabung', 'Temanmu juga perlu Dodobox. Bagikan kodenya kepada mereka.', 'Mencari temanmu...', 'Salin kode', 'Kode disalin', 'Keluar dari sesi', 'Menonton', 'Tonton bersama', 'Itu bukan kode sesi', 'Kamu sudah berada di sesi', 'Kamu tidak berada di sesi',
-/*more*/ 'Dapatkan kode untuk dibagikan, lalu tonton apa saja bersama, episode demi episode.', 'atau', 'Gabung dengan kode', 'Pilih tontonan dan semua ikut.'
+/*more*/ 'Dapatkan kode untuk dibagikan, lalu tonton apa saja bersama, episode demi episode.', 'atau', 'Gabung dengan kode', 'Pilih tontonan dan semua ikut.', 'Kirim pesan ke pesta', 'Pesan', 'Kirim', 'Tampilkan gambar', 'Emoji', 'Obrolan disembunyikan di layar penuh iPhone'
 ]
 export const patterns = [
   'Hai $1, buat jadi milikmu', 'Musim $1', 'Musim $1 · Episode $2', 'Lanjutkan S$1 E$2', 'S$1 E$2$3', 'Tayang $1', '$1 j $2 mnt', '$1 mnt', '$1sisa $2 j $3 mnt', '$1sisa $2 mnt',
@@ -49,5 +49,5 @@ export const patterns = [
   'Menyiapkan bahasa... $1%', 'Menerjemahkan... $1%',
   'Meningkatkan kualitas... $1%',
   'Memasang... $1%',
-  'Dodobox $1 tersedia', 'Versi $1 tersedia', 'Anda memiliki versi $1.', 'Tarik image baru lalu buat ulang container: $1', 'Hanya paksa: $1', 'Subtitel $1 tidak ditemukan', 'Kode QR untuk $1', '$1 bergabung ke sesi', '$1 keluar dari sesi', '$1 sedang menonton $2'
+  'Dodobox $1 tersedia', 'Versi $1 tersedia', 'Anda memiliki versi $1.', 'Tarik image baru lalu buat ulang container: $1', 'Hanya paksa: $1', 'Subtitel $1 tidak ditemukan', 'Kode QR untuk $1', '$1 bergabung ke sesi', '$1 keluar dari sesi', '$1 sedang menonton $2', '$1 menjeda pemutaran', '$1 melanjutkan pemutaran', '$1 melompat ke $2'
 ]

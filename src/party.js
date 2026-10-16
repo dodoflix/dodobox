@@ -9,7 +9,8 @@ import { EventEmitter } from 'node:events'
 
 const scrypt = promisify(crypto.scrypt)
 const EXT = 'dodobox_party'
-export const LIMITS = { members: 12, message: 4096, hiEvery: 20e3, ttl: 70e3, seen: 500, skew: 10 * 60e3 }
+export const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥']
+export const LIMITS = { members: 12, message: 4096, chat: 100, text: 500, hiEvery: 20e3, ttl: 70e3, seen: 500, skew: 10 * 60e3 }
 // WebRTC trackers let two homes behind different routers connect (they exchange the offer, a STUN server does the rest); the others find plain TCP peers.
 export const TRACKERS = ['wss://tracker.openwebtorrent.com', 'wss://tracker.webtorrent.dev', 'wss://tracker.btorrent.xyz', 'wss://tracker.files.fm:7073/announce',
   'udp://tracker.opentrackr.org:1337/announce', 'udp://open.stealth.si:80/announce']
@@ -60,6 +61,7 @@ export function cleanItem (x) {
   return { type: x.type, id: x.id, season: int(x.season), episode: int(x.episode), title: str(x.title, 120) }
 }
 export const cleanSource = x => (x && typeof x.infoHash === 'string' && /^[0-9a-f]{40}$/.test(x.infoHash) ? { infoHash: x.infoHash } : null)
+const clock = t => { const s = Math.floor(t); const h = Math.floor(s / 3600); const m = Math.floor(s % 3600 / 60); const r = String(s % 60).padStart(2, '0'); return h ? `${h}:${String(m).padStart(2, '0')}:${r}` : `${m}:${r}` }
 const sameItem = (a, b) => !!a && !!b && a.type === b.type && a.id === b.id && a.season === b.season && a.episode === b.episode
 
 export class Party extends EventEmitter {
@@ -74,6 +76,7 @@ export class Party extends EventEmitter {
     this.code = null; this.key = null; this.client = null; this.torrent = null
     this.phase = 'idle' // idle, connecting (nobody else yet), live
     this.self = { id: crypto.randomBytes(4).toString('hex'), name: '', color: '' }
+    this.chat = []; this.lastNote = null
     this.members = new Map(); this.wires = new Set(); this.seen = new Set(); this.seq = 0
     this.state = null // what is playing: { item, source, pos, paused, at }
     clearInterval(this.timer)
@@ -150,8 +153,10 @@ export class Party extends EventEmitter {
     if (!known && this.members.size >= LIMITS.members) return
     const who = this.members.get(m.f) || { id: m.f, name: '', color: '' }
     who.at = Date.now()
-    if (m.k === 'hi') { who.name = str(m.name, 24) || 'Guest'; who.color = str(m.color, 16) }
+    const first = m.k === 'hi' && !who.named
+    if (m.k === 'hi') { who.name = str(m.name, 24) || 'Guest'; who.color = str(m.color, 16); who.named = true }
     this.members.set(m.f, who)
+    if (first) this.note(`join:${m.f}:${m.q}`, who, `${who.name} joined the party`)
     if (!known) { this.say('hi'); const now = this.status().now; if (now) this.say('st', now) }
     if (this.phase === 'connecting' && this.members.size > 1) this.phase = 'live'
     this.act(m, who)
@@ -162,18 +167,61 @@ export class Party extends EventEmitter {
     const from = { id: who.id, name: who.name }
     const item = cleanItem(m.item); const source = cleanSource(m.source)
     const pos = secs(m.pos)
-    if (m.k === 'by') { this.members.delete(m.f); this.changed(); this.emit('event', { type: 'left', from }); return }
+    if (m.k === 'ch') { const text = str(m.text, LIMITS.text).trim(); if (text) this.hear({ id: `${m.f}:${m.q}`, from: { id: who.id, name: who.name, color: who.color }, text, at: Date.now() }); return }
+    if (m.k === 'rx') { this.react(m.to, who.id, m.e); return }
+    if (m.k === 'by') { this.members.delete(m.f); this.changed(); this.emit('event', { type: 'left', from }); this.note(`by:${m.f}:${m.q}`, who, `${who.name || 'Guest'} left the party`); return }
     if (m.k === 'st' && item) { this.state = { item, source, pos: pos ?? 0, paused: !!m.paused, at: Date.now() }; this.emit('event', { type: 'state', from, ...this.state }) }
-    if (m.k === 'ld' && item) { this.state = { item, source, pos: 0, paused: true, at: Date.now() }; this.emit('event', { type: 'load', from, item, source }) }
+    if (m.k === 'ld' && item) {
+      this.note(`${m.f}:${m.q}`, who, `${who.name} is watching ${item.title}${item.season != null ? ` S${item.season} E${item.episode}` : ''}`.trim())
+      this.state = { item, source, pos: 0, paused: true, at: Date.now() }; this.emit('event', { type: 'load', from, item, source })
+    }
+    if (pos != null && m.k !== 'tk' && ['pl', 'pa', 'sk'].includes(m.k)) this.note(`${m.f}:${m.q}`, who, `${who.name} ${{ pl: 'resumed playback', pa: 'paused playback', sk: `skipped to ${clock(pos)}` }[m.k]}`)
     if (['pl', 'pa', 'sk', 'tk'].includes(m.k) && pos != null) {
       if (this.state) Object.assign(this.state, { pos, paused: m.k === 'pa' || (m.k === 'tk' && !!m.paused), at: Date.now() })
       this.emit('event', { type: 'cmd', k: m.k, pos, paused: !!m.paused, from })
     }
   }
 
+  // What a member did, as a line in the chat. The same thing from the same member twice in a moment (a scrub) is one line.
+  note (id, who, text) {
+    const key = `${who.id}:${text}`
+    if (this.lastNote?.key === key && Date.now() - this.lastNote.at < 1500) return
+    this.lastNote = { key, at: Date.now() }
+    this.hear({ id, sys: true, from: { id: who.id, name: who.name, color: who.color }, text, at: Date.now() })
+  }
+
+  // One reaction per member per emoji on a message; sending it again takes it back.
+  react (id, member, emoji) {
+    const msg = typeof id === 'string' && REACTIONS.includes(emoji) && this.chat.find(x => x.id === id && !x.sys)
+    if (!msg) return
+    const had = msg.rx[emoji] || []
+    const now = had.includes(member) ? had.filter(x => x !== member) : [...had, member]
+    if (now.length) msg.rx[emoji] = now; else delete msg.rx[emoji]
+    this.emit('event', { type: 'react', id, rx: msg.rx })
+  }
+
+  hear (msg) {
+    if (!msg.sys) msg.rx = {}
+    this.chat.push(msg)
+    if (this.chat.length > LIMITS.chat) this.chat.shift()
+    this.emit('event', { type: 'chat', msg })
+  }
+
   // What the local page does is sent on, and remembered for members who join later.
   send (k, data = {}) {
     if (this.phase === 'idle') throw Object.assign(new Error('Not in a party'), { code: 409 })
+    if (k === 'ch') {
+      if (this.phase !== 'live') throw Object.assign(new Error('Not connected yet'), { code: 409 })
+      const text = str(data.text, LIMITS.text).trim()
+      if (!text) throw Object.assign(new Error('Bad message'), { code: 400 })
+      this.say('ch', { text })
+      return this.hear({ id: `${this.self.id}:${this.seq}`, from: { id: this.self.id, name: this.self.name, color: this.self.color }, text, at: Date.now() })
+    }
+    if (k === 'rx') {
+      if (!REACTIONS.includes(data.e) || !this.chat.some(x => x.id === data.to && !x.sys)) throw Object.assign(new Error('Bad message'), { code: 400 })
+      this.say('rx', { to: data.to, e: data.e })
+      return this.react(data.to, this.self.id, data.e)
+    }
     const item = cleanItem(data.item); const source = cleanSource(data.source); const pos = secs(data.pos)
     if (k === 'st' || k === 'ld') {
       if (!item) throw Object.assign(new Error('Bad title'), { code: 400 })
@@ -189,7 +237,7 @@ export class Party extends EventEmitter {
 
   prune () {
     let any = false
-    for (const [id, m] of this.members) if (id !== this.self.id && Date.now() - m.at > LIMITS.ttl) { this.members.delete(id); any = true }
+    for (const [id, m] of this.members) if (id !== this.self.id && Date.now() - m.at > LIMITS.ttl) { this.members.delete(id); any = true; this.note(`gone:${id}:${Date.now()}`, m, `${m.name || 'Guest'} left the party`) }
     if (any) this.changed()
   }
 

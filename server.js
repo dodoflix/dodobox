@@ -343,11 +343,11 @@ const routes = [
     json(req, res, list.map(({ magnet, ...s }) => ({ ...s, measuredBps: measured.get(s.infoHash)?.bps })))
   }],
   // Watch party: the page asks, this server talks to the other members (src/party.js) and tells the page what they do.
-  ['GET', /^\/api\/party$/, (req, res) => json(req, res, party.status())],
+  ['GET', /^\/api\/party$/, (req, res) => json(req, res, { ...party.status(), chat: party.chat })],
   ['GET', /^\/api\/party\/events$/, (req, res) => {
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', 'x-accel-buffering': 'no' })
     const out = e => res.write(`data: ${JSON.stringify(e)}\n\n`)
-    out({ type: 'status', ...party.status() })
+    out({ type: 'status', ...party.status(), chat: party.chat })
     party.on('event', out)
     const beat = setInterval(() => res.write(': keep\n\n'), 20000)
     req.on('close', () => { party.off('event', out); clearInterval(beat) })
