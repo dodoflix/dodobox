@@ -27,29 +27,9 @@ by running the matching `npm run bench` command, not by argument.
 
 ## Changes, in dependency order
 
-Landed: `src/release.js`, the single release-name parser, and `src/ids.js` with the anime tier of `src/sources.js` (see
-[how it works](architecture.md)). The sections below are what is left; their acceptance numbers come from the commands
+Landed: `src/release.js`, the single release-name parser, `src/ids.js`, and the two-tier lookups in `src/sources.js` for
+movies, series and anime (see [how it works](architecture.md)). The sections below are what is left; their acceptance numbers come from the commands
 named in each.
-
-### Source adapters and tiers: `src/sources.js`
-
-One adapter per source returning the same row shape, grouped into tiers per kind. A tier runs in parallel; the next tier
-runs when the previous one errored or returned fewer than three usable rows.
-
-| kind | first tier (parallel) | fallback tier |
-|---|---|---|
-| movie | Torrentio by IMDb id | YTS by IMDb id, TPB and Knaben text search |
-| series | Torrentio by IMDb id | TPB and Knaben with three query shapes: episode, "Season N", "complete" |
-| anime | Torrentio by Kitsu id, AnimeTosho by AniDB episode id | AnimeTosho by AniDB show id (client-side matching), Nyaa with episode, batch and English-title batch queries |
-
-- Rows from id-keyed sources still pass a sanity gate: year within a year of the title, numbering consistent with the
-  request, a video-sized file. About 2% of Torrentio rows for common words are unrelated files.
-- Pack rows from the fallback tier carry no file index; the engine picks the file with `pickFile` once the
-  torrent metadata arrives.
-- Per-host limits in `src/http.js` for the new hosts. AnimeTosho serialises requests (about 0.7 s each), so it gets one
-  in flight.
-- Done when: `coverage --set edge` shows at least one seeded release for every title with the first tier, and `fallback`
-  shows the fallback tier alone covering the same titles.
 
 ### Orchestration: `findSources`
 
@@ -81,10 +61,9 @@ runs when the previous one errored or returned fewer than three usable rows.
 
 ## Order of work
 
-1. Movie and series tiers, the sanity gate and the pack fallback.
-2. Orchestration deadline and cache changes (for anime too: the second tier waits for the first today).
-3. Ranking rewrite with the tracker scrape.
-4. Search fusion.
+1. Orchestration deadline and cache changes.
+2. Ranking rewrite with the tracker scrape.
+3. Search fusion.
 
 Each step lands as its own change with the before and after numbers of the relevant command in the description.
 

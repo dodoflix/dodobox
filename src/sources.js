@@ -140,6 +140,24 @@ async function apibay (query, filter) {
   }))
 }
 
+async function knaben (query, filter) {
+  const body = JSON.stringify({ search_field: 'title', query, order_by: 'seeders', order_direction: 'desc', size: 50, hide_unsafe: true, hide_xxx: true })
+  const j = await fetchJSON('https://api.knaben.org/v1', { method: 'POST', headers: { 'content-type': 'application/json' }, body, timeout: 9000 })
+  return (j.hits || []).filter(r => r.hash && filter(r.title)).map(r => ({
+    title: r.title, release: r.title, infoHash: r.hash.toLowerCase(), magnet: magnetFor(r.hash, r.title),
+    seeders: r.seeders || 0, size: r.bytes || 0, quality: parseQuality(r.title), provider: 'Knaben'
+  }))
+}
+
+// Every YTS release of a movie, by IMDb id.
+async function yts (imdb) {
+  const j = await getJSON(`https://movies-api.accel.li/api/v2/list_movies.json?query_term=${imdb}`)
+  return (j.data?.movies || []).flatMap(m => (m.torrents || []).map(t => {
+    const title = `${m.title_long} ${t.quality} ${t.type} ${t.video_codec}`
+    return { title, release: title, infoHash: t.hash.toLowerCase(), magnet: magnetFor(t.hash, m.title_long), seeders: t.seeds || 0, size: t.size_bytes || 0, quality: parseQuality(t.quality), provider: 'YTS' }
+  }))
+}
+
 const xml = (s, tag) => (s.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`)) || [])[1] || ''
 const unescapeXml = s => s.replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n)).replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
 
@@ -171,32 +189,65 @@ async function tosho (query) {
   }))
 }
 
-// Anime lookups, in two tiers. The first asks sources keyed by id (Torrentio by Kitsu id, AnimeTosho by AniDB episode id),
-// whose answers are already the right episode; the second searches by name and runs only when the first came back thin.
+const MIN_FIRST_TIER = 3
+// A lookup runs in two tiers. The first asks sources keyed by id (Torrentio by IMDb or Kitsu id, AnimeTosho by AniDB episode
+// id), whose answers are already the right title and episode; the second searches by name and runs only when the first came
+// back with fewer than three seeded releases (`fallback` is a function so those requests are not sent unless needed).
+//
+// Rows an id vouches for still pass a numbering and year check, which drops the odd stray file ("Halloween costume haul" for
+// Halloween; a movie that is a few megabytes is not a movie). When the check would leave almost nothing it is skipped, so a parser blind spot cannot empty the list.
+const MIN_MOVIE_BYTES = 150e6
+const vouched = (job, target) => job.then(rows => {
+  const fits = r => matchRelease({ name: r.title, release: r.release }, target, { noTitle: true }) && !(target.kind === 'movie' && r.size && r.size < MIN_MOVIE_BYTES)
+  const kept = target ? rows.filter(fits) : rows
+  return (kept.length >= MIN_FIRST_TIER ? kept : rows).map(r => ({ ...r, idKeyed: true }))
+})
+const p2 = n => String(n).padStart(2, '0')
+
+function movieTiers (item) {
+  const target = { kind: 'movie', title: item.title, year: item.year }
+  const query = `${item.title} ${item.year || ''}`.trim()
+  // The text searches are fuzzy: trust a catalog tag when present, else the title and year in the name.
+  const named = n => matchRelease({ name: n }, target, { requireYear: true })
+  return {
+    first: [vouched(torrentio(`movie/${item.id}`), target)],
+    fallback: () => [vouched(yts(item.id), target), apibay(query, (n, r) => r.imdb ? r.imdb === item.id : named(n)), knaben(query, named)]
+  }
+}
+
+// Older episodes are found in season packs, so the text searches also ask for the season and for the complete series.
+function seriesTiers (item) {
+  const { title, season, episode } = item
+  const target = { kind: 'series', title, season, episode }
+  const named = n => matchRelease({ name: n }, target)
+  const queries = [`${title} S${p2(season)}E${p2(episode)}`, `${title} Season ${season}`, `${title} complete`]
+  return {
+    first: [vouched(torrentio(`series/${item.id}:${season}:${episode}`), target)],
+    fallback: () => queries.flatMap(q => [apibay(q, named), knaben(q, named)])
+  }
+}
+
 async function animeTiers (item) {
   const alId = +String(item.id).replace('al:', '')
   const [ids, nums] = await Promise.all([animeIds(alId), item.movie ? null : episodeNumbers(alId, item.episode)])
   const titles = [...new Set([item.title, ...(item.altTitles || [])].filter(Boolean))].slice(0, 2)
-  const target = { kind: 'anime', titles, episode: item.episode, entrySeason: entrySeason(titles), ...nums }
-  // Releases the ids vouch for still pass a numbering check; when it would leave almost nothing, it is skipped.
-  const vouched = job => job.then(rows => {
-    const kept = item.movie ? rows : rows.filter(r => matchRelease({ name: r.title, release: r.release }, target, { noTitle: true }))
-    return (kept.length >= 3 ? kept : rows).map(r => ({ ...r, idKeyed: true }))
-  })
+  const target = item.movie ? null : { kind: 'anime', titles, episode: item.episode, entrySeason: entrySeason(titles), ...nums }
   const first = []
-  if (ids?.kitsu) first.push(vouched(torrentio(item.movie ? `movie/kitsu:${ids.kitsu}` : `series/kitsu:${ids.kitsu}:${item.episode}`)))
-  if (nums?.eid) first.push(vouched(tosho(`eid=${nums.eid}`)))
-  else if (item.movie && ids?.anidb) first.push(vouched(tosho(`aid=${ids.anidb}`)))
-  const fallback = []
-  if (ids?.anidb && !item.movie) fallback.push(vouched(tosho(`aid=${ids.anidb}`)))
-  const ep = String(item.episode).padStart(2, '0')
-  for (const t of titles) {
-    const tw = t.replace(/[^\p{L}\p{N} ]+/gu, ' ')
-    // The search is fuzzy: a title plus the episode number also finds other shows whose names start with it.
-    const own = n => item.movie || titleVerdict(n, titles) !== 'other'
-    const numbering = { kind: 'anime', episode: item.episode, ...nums }
-    fallback.push(nyaa(item.movie ? tw : `${tw} ${ep}`, n => own(n) && (item.movie || matchRelease({ name: n }, numbering, { noTitle: true }))))
-    if (!item.movie) fallback.push(nyaa(`${tw} batch`, n => own(n) && isPack(n) && matchRelease({ name: n }, numbering, { noTitle: true })))
+  if (ids?.kitsu) first.push(vouched(torrentio(item.movie ? `movie/kitsu:${ids.kitsu}` : `series/kitsu:${ids.kitsu}:${item.episode}`), target))
+  if (nums?.eid) first.push(vouched(tosho(`eid=${nums.eid}`), target))
+  else if (item.movie && ids?.anidb) first.push(vouched(tosho(`aid=${ids.anidb}`), null))
+  const fallback = () => {
+    const jobs = []
+    if (ids?.anidb && !item.movie) jobs.push(vouched(tosho(`aid=${ids.anidb}`), target))
+    for (const t of titles) {
+      const tw = t.replace(/[^\p{L}\p{N} ]+/gu, ' ')
+      // The search is fuzzy: a title plus the episode number also finds other shows whose names start with it.
+      const own = n => item.movie || titleVerdict(n, titles) !== 'other'
+      const numbering = { kind: 'anime', episode: item.episode, ...nums }
+      jobs.push(nyaa(item.movie ? tw : `${tw} ${p2(item.episode)}`, n => own(n) && (item.movie || matchRelease({ name: n }, numbering, { noTitle: true }))))
+      if (!item.movie) jobs.push(nyaa(`${tw} batch`, n => own(n) && isPack(n) && matchRelease({ name: n }, numbering, { noTitle: true })))
+    }
+    return jobs
   }
   return { first, fallback }
 }
@@ -205,7 +256,6 @@ const gather = async jobs => (await Promise.allSettled(jobs)).flatMap(s => {
   if (s.status === 'rejected') { console.warn('[sources]', s.reason.message); return [] }
   return s.value
 })
-const MIN_FIRST_TIER = 3
 
 const cache = new Map()
 export const findSources = (item, ctx = {}) => once('src:' + JSON.stringify([item.type, item.id, item.season, item.episode]), () => find(item, ctx))
@@ -216,24 +266,9 @@ async function find (item, ctx) {
   if (hit && Date.now() - hit.at < 90 * 60e3) return rank(hit.list, sctx).slice(0, 25)
 
   const { type, season, episode } = item
-  const jobs = []
-  let tiers
-  if (type === 'movie') {
-    jobs.push(torrentio(`movie/${item.id}`))
-    // The search is fuzzy: trust its catalog tag when present, else title + year in the name.
-    jobs.push(apibay(`${item.title} ${item.year || ''}`.trim(), (n, r) => r.imdb ? r.imdb === item.id : matchRelease({ name: n }, { kind: 'movie', title: item.title, year: item.year }, { requireYear: true })))
-  } else if (type === 'series') {
-    jobs.push(torrentio(`series/${item.id}:${season}:${episode}`))
-    const tag = `S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`
-    const target = { kind: 'series', title: item.title, season, episode }
-    jobs.push(apibay(`${item.title} ${tag}`, n => matchRelease({ name: n }, target)))
-    jobs.push(apibay(`${item.title} S${String(season).padStart(2, '0')}`, n => matchRelease({ name: n }, target)))
-  } else {
-    tiers = await animeTiers(item)
-    jobs.push(...tiers.first)
-  }
-  let rows = await gather(jobs)
-  if (tiers && rows.filter(r => r.seeders > 0).length < MIN_FIRST_TIER) rows = rows.concat(await gather(tiers.fallback))
+  const tiers = type === 'movie' ? movieTiers(item) : type === 'series' ? seriesTiers(item) : await animeTiers(item)
+  let rows = await gather(tiers.first)
+  if (rows.filter(r => r.seeders > 0).length < MIN_FIRST_TIER) rows = rows.concat(await gather(tiers.fallback()))
   const byHash = new Map()
   for (const r of rows) if (!byHash.has(r.infoHash) || byHash.get(r.infoHash).seeders < r.seeders) byHash.set(r.infoHash, r)
   for (const r of byHash.values()) {
