@@ -1,16 +1,15 @@
 // Release matchers on the corpus snapshot (offline).
-//   --matchers repo,tokenizer,...   --dump <matcher>:<kind> (write misses and false positives to .cache/)
+//   --matchers src/release.js,anitomyscript,...   --dump <matcher>:<kind> (write misses and false positives to .cache/)
 // recall: share of releases the id-keyed services returned for the exact target that the matcher accepts.
 // FP neighbor: accepts a single-episode release for the adjacent episode. FP other: accepts another show's release.
 import { readSnapshot, cacheFile, writeJSON } from '../lib/store.js'
-import { isExtra } from '../candidates/tokenizer.js'
-import repo from '../candidates/match-repo.js'
-import tokenizer from '../candidates/tokenizer.js'
+import { isExtra, matchRelease } from '../../src/release.js'
 import ctrl from '../candidates/match-ctrl.js'
 import ptt from '../candidates/match-ptt.js'
 import anitomy from '../candidates/match-anitomy.js'
 
-const ALL = [repo, tokenizer, ctrl, ptt, anitomy].filter(Boolean)
+// the code in src/ first, then the third-party parsers it is compared with
+const ALL = [{ id: 'src/release.js', match: matchRelease }, ctrl, ptt, anitomy].filter(Boolean)
 const NOISE = /\b(henshu|mini anime|marumaru|ppoi|cap\.\d+|temporada)\b/i // recaps and dubs the services file under the episode
 const tkey = t => `${t.id}|${t.season ?? t.tvdbSeason ?? ''}|${t.episode ?? ''}`
 function rng (seed) { return () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296 } }

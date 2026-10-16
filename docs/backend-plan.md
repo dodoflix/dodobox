@@ -27,6 +27,9 @@ by running the matching `npm run bench` command, not by argument.
 
 ## Changes, in dependency order
 
+Landed: `src/release.js`, the single release-name parser (see [how it works](architecture.md)). The sections below are
+what is left; their acceptance numbers come from the commands named in each.
+
 ### Id layer: `src/ids.js` (new)
 
 - Keep the Fribb anime list on disk (`data/`), refreshed daily from GitHub, reduced to AniList id to
@@ -36,19 +39,6 @@ by running the matching `npm run bench` command, not by argument.
   per-host limiter in `src/http.js`.
 - Replaces `animeImdb` and the IMDb-suggest search in `src/meta.js`, and feeds the subtitle lookup that needs an IMDb id.
 - Done when: `idmap` shows the in-process lookup answering every popular entry, and no anime play issues an IMDb search.
-
-### Release parser: `src/release.js` (new)
-
-- One tokenizer producing title segments, seasons, episodes, ranges, bracketed alternative numbers, year, pack flag;
-  parsed once per name and cached. Port of `bench/candidates/tokenizer.js` and `bench/candidates/pick.js`.
-- Exports `matchRelease(row, target)`, `pickEpisodeFile(files, target)` and `isExtra(name)`.
-- `target` carries every numbering an anime episode may be released under: local, TVDB season and episode, absolute.
-- Replaces `nameHasTitle`, `releaseIsTitle`, `showVerdict`, `animeShowName`, `matchAnimeEpisode`, `matchSeriesEpisode`,
-  `isSeasonPack`, `isAnimePack`, `animeSeason` and `pickFile` in `src/sources.js`, and the name parsing in
-  `src/local.js` and `src/sidecar.js` where it overlaps.
-- Done when: `match` shows recall at or above the current best on every kind, false positives on the adjacent
-  episode below 2%, and `pick` leaves fewer than 15% of tasks without a file and none on a wrong episode. The
-  adjacent-episode and other-show cases in the corpus become unit tests in `test/`.
 
 ### Source adapters and tiers: `src/sources.js`
 
@@ -63,7 +53,7 @@ runs when the previous one errored or returned fewer than three usable rows.
 
 - Rows from id-keyed sources still pass a sanity gate: year within a year of the title, numbering consistent with the
   request, a video-sized file. About 2% of Torrentio rows for common words are unrelated files.
-- Pack rows from the fallback tier carry no file index; the engine picks the file with `pickEpisodeFile` once the
+- Pack rows from the fallback tier carry no file index; the engine picks the file with `pickFile` once the
   torrent metadata arrives.
 - Per-host limits in `src/http.js` for the new hosts. AnimeTosho serialises requests (about 0.7 s each), so it gets one
   in flight.
@@ -100,12 +90,11 @@ runs when the previous one errored or returned fewer than three usable rows.
 
 ## Order of work
 
-1. `src/release.js` with its tests. Nothing else can be judged without it.
-2. `src/ids.js`, then the anime tier in `src/sources.js` (largest measured gain).
-3. Movie and series tiers, the sanity gate and the pack fallback.
-4. Orchestration deadline and cache changes.
-5. Ranking rewrite with the tracker scrape.
-6. Search fusion.
+1. `src/ids.js`, then the anime tier in `src/sources.js` (largest measured gain).
+2. Movie and series tiers, the sanity gate and the pack fallback.
+3. Orchestration deadline and cache changes.
+4. Ranking rewrite with the tracker scrape.
+5. Search fusion.
 
 Each step lands as its own change with the before and after numbers of the relevant command in the description.
 

@@ -1,4 +1,5 @@
 import { getJSON as fetchJSON, getText, once } from './http.js'
+import { matchRelease, titleVerdict, isPack, isEpisode, seasonOf, entrySeason } from './release.js'
 
 // Torrent discovery: stream and search providers for movies and series, an anime tracker for anime.
 const TRACKERS = [
@@ -19,8 +20,6 @@ export async function refreshTrackers () {
     if (found.length) live = found
   } catch {}
 }
-export const VIDEO_EXT = /\.(mkv|mp4|m4v|webm|avi|mov|ts|wmv)$/i
-
 export const magnetFor = (hash, name = '', extraTrackers = []) =>
   `magnet:?xt=urn:btih:${hash}&dn=${encodeURIComponent(name)}` +
   [...new Set([...extraTrackers, ...TRACKERS, ...live])].map(t => '&tr=' + encodeURIComponent(t)).join('')
@@ -103,95 +102,6 @@ export function score (r, ctx = {}) {
 export const lengthFits = (seconds, runtimeMin) => !seconds || !runtimeMin || (seconds / 60 >= runtimeMin * 0.35 && seconds / 60 <= runtimeMin * 3)
 export const rank = (list, ctx) => [...list].sort((a, b) => score(b, ctx) - score(a, ctx))
 
-const words = s => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter(Boolean)
-export const nameHasTitle = (name, title) => {
-  const n = new Set(words(name))
-  return words(title).every(w => n.has(w))
-}
-
-// A release is the title only when the title is followed by a season, year, quality or source tag: "The Prince" must not pick
-// "The Dragon Prince" or "The Prince of Tennis" (which merely contain its words).
-const AFTER_TITLE = /^(s\d+(e\d+)?|e\d+|\d+x\d+|seasons?|complete|pack|collection|(19|20)\d\d|\d{3,4}p|4k|uhd|us|uk|au|nz|ca|nf|amzn|hmax|dsnp|atvp|web|webrip|webdl|hdtv|bluray|bdrip|brrip|dvdrip|hdrip|x264|x265|h264|h265|hevc|remux|proper|repack|multi|dual|extended|unrated|imax|internal|hdr|dv|remastered)$/
-export const releaseIsTitle = (release, title) => {
-  const lead = w => (w[0] === 'the' || w[0] === 'a') && w.length > 1 ? w.slice(1) : w
-  const n = lead(words(release.replace(/^\s*(\[[^\]]*\]\s*)+/, '').replace(/^(www\.)?[\w-]+\.(com|org|net|to|io)\s*-\s*/i, '')))
-  const t = lead(words(title))
-  return !!t.length && t.every((w, i) => n[i] === w) && (n.length === t.length || AFTER_TITLE.test(n[t.length]))
-}
-
-export function matchAnimeEpisode (name, ep) {
-  const e = String(ep).replace(/^0+/, '')
-  const single = new RegExp(`(?:^|[\\s_\\-\\[(])0*${e}(?:v\\d)?(?=[\\s_\\[\\]().,-]|$)`)
-  if (single.test(name.replace(/\b\d{3,4}p\b/gi, ''))) return true
-  // Ranges are written "0001-1000", "01 ~ 12" or "S01E01-16".
-  const range = name.match(/\bS\d+E0*(\d{1,4})\s*[-~]\s*E?0*(\d{1,4})\b/i) || name.match(/\b0*(\d{1,4})\s*[-~]\s*0*(\d{1,4})\b/)
-  if (range && +range[1] <= ep && ep <= +range[2] && !/\b\d{3,4}p\b/.test(range[0])) return true
-  return /batch|complete/i.test(name) && !range
-}
-
-export function animeShowName (release) {
-  const n = release.replace(/^\s*(\[[^\]]*\]\s*)+/, '').replace(/_/g, ' ')
-  const cut = n.search(/\s-\s*\d|\s-\s*S\d|\sS\d+E\d+|\s\d{2,4}\s*(\(|\[|v\d|$)|\s\(?\d{3,4}p|\s\[/i)
-  return (cut > 0 ? n.slice(0, cut) : n).trim()
-}
-// Words that may follow the show's title without making it a different show. A later season or part ("Part 2") is a
-// different entry unless the title itself says so.
-const SAME_SHOW_EXTRAS = /^(?:(?:season|part|cour|s)\s*0*1\b|1st\s+season|tv|\(?(?:19|20)\d\d\)?|uncut|remastered|hd|bd|bluray|dub|dual|multi|complete|batch)(?:\s+|$)/i
-// 'other': the release is a different show that merely starts with this title (a spin-off such as "One Piece Log - Fish-Man
-// Island Saga" for "One Piece"); 'same' or 'unknown' (named differently, left to the search's relevance) otherwise.
-export function showVerdict (release, titles) {
-  const show = words(animeShowName(release)).join(' ')
-  if (!show) return 'unknown'
-  let verdict = 'unknown'
-  for (const t of titles) {
-    const w = words(t).join(' ')
-    if (!w) continue
-    if (show === w) return 'same'
-    if (show.startsWith(w + ' ')) {
-      let rest = show.slice(w.length + 1)
-      while (rest && SAME_SHOW_EXTRAS.test(rest)) rest = rest.replace(SAME_SHOW_EXTRAS, '')
-      if (!rest) return 'same'
-      verdict = 'other'
-    } else if (` ${show} `.includes(` ${w} `)) verdict = 'other' // a parody or spin-off wrapped around the title ("Koisuru One Piece")
-  }
-  return verdict
-}
-
-// Season number a release claims (1 when it doesn't say). The anime catalog lists each cour/season as its own entry,
-// so "Show S2 - 03" must not satisfy a lookup for the first entry's episode 3.
-export function animeSeason (name) {
-  const m = name.match(/\bS(\d{1,2})\b(?!E)|\b(\d{1,2})(?:st|nd|rd|th) Season|\bSeason[ _]?0*(\d{1,2})\b/i)
-  return m ? +(m[1] || m[2] || m[3]) : 1
-}
-const ANIME_PACK = /batch|complete|\bseason\b|\bS\d+\b(?!E)|\b\d{1,4}\s*[-~]\s*\d{1,4}\b/i
-// "Show Season 2 - 03" is one episode; "Show (Season 1) [BD]" or "Show 01-12" is a pack.
-export function isAnimePack (name) {
-  const n = name.replace(/\b\d{3,4}p\b/gi, '')
-  const season = /\bseason\s*\d+|\b\d+(st|nd|rd|th) season|\bS\d{1,2}\b(?!E)|\bseason\b/i
-  const rest = n.replace(new RegExp(season.source, 'gi'), ' ') // "Season 2 - 01" must not read as the range 2-01
-  if (/\b(batch|complete)\b|\b\d{1,4}\s*[-~]\s*\d{1,4}\b/i.test(rest)) return true
-  if (/\s-\s*\d{1,3}(v\d)?(?=[\s_[\]().,-]|$)/.test(rest)) return false
-  return season.test(n)
-}
-
-export const matchSeriesEpisode = (name, s, e) =>
-  new RegExp(`(?:\\bs0*${s}[ ._-]?e0*${e}\\b|\\b0*${s}x0*${e}\\b)`, 'i').test(name)
-const isSeasonPack = (name, s) => new RegExp(`\\bs0*${s}\\b|season[ ._-]?0*${s}\\b`, 'i').test(name) && !/\bs\d+[ ._-]?e\d+/i.test(name)
-
-export function pickFile (files, { type, season, episode, fileIdx } = {}) {
-  const vids = files.map((f, i) => ({ ...f, i })).filter(f => VIDEO_EXT.test(f.name) && !/sample/i.test(f.name))
-  if (!vids.length) return -1
-  if (type !== 'movie' && episode != null) {
-    const hit = vids.filter(f => type === 'anime'
-      ? matchAnimeEpisode(f.name.split(/[\\/]/).pop(), episode)
-      : matchSeriesEpisode(f.name.split(/[\\/]/).pop(), season, episode))
-    if (hit.length) return hit.sort((a, b) => b.length - a.length)[0].i
-    if (fileIdx != null && vids.some(f => f.i === fileIdx)) return fileIdx
-    if (vids.length > 1) return -1
-  }
-  return vids.sort((a, b) => b.length - a.length)[0].i
-}
-
 const toBytes = (n, unit) => parseFloat(n) * ({ KB: 1e3, KIB: 1024, MB: 1e6, MIB: 1048576, GB: 1e9, GIB: 1073741824, TB: 1e12, TIB: 1099511627776 })[unit.toUpperCase()]
 
 const getJSON = url => fetchJSON(url, { timeout: 9000 })
@@ -264,21 +174,23 @@ async function find (item, ctx) {
   if (type === 'movie') {
     jobs.push(torrentio(`movie/${item.id}`))
     // The search is fuzzy: trust its catalog tag when present, else title + year in the name.
-    jobs.push(apibay(`${item.title} ${item.year || ''}`.trim(), (n, r) => r.imdb ? r.imdb === item.id : releaseIsTitle(n, item.title) && (!item.year || n.includes(String(item.year)))))
+    jobs.push(apibay(`${item.title} ${item.year || ''}`.trim(), (n, r) => r.imdb ? r.imdb === item.id : matchRelease({ name: n }, { kind: 'movie', title: item.title, year: item.year }, { requireYear: true })))
   } else if (type === 'series') {
     jobs.push(torrentio(`series/${item.id}:${season}:${episode}`))
     const tag = `S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`
-    jobs.push(apibay(`${item.title} ${tag}`, n => releaseIsTitle(n, item.title) && matchSeriesEpisode(n, season, episode)))
-    jobs.push(apibay(`${item.title} S${String(season).padStart(2, '0')}`, n => releaseIsTitle(n, item.title) && isSeasonPack(n, season)))
+    const target = { kind: 'series', title: item.title, season, episode }
+    jobs.push(apibay(`${item.title} ${tag}`, n => matchRelease({ name: n }, target)))
+    jobs.push(apibay(`${item.title} S${String(season).padStart(2, '0')}`, n => matchRelease({ name: n }, target)))
   } else {
     const ep = String(episode).padStart(2, '0')
     const titles = [...new Set([item.title, ...(item.altTitles || [])].filter(Boolean))].slice(0, 2)
     for (const t of titles) {
       const tw = t.replace(/[^\p{L}\p{N} ]+/gu, ' ')
       // The search is fuzzy: a title plus the episode number also finds other shows whose names start with it.
-      const own = n => item.movie || showVerdict(n, titles) !== 'other'
-      jobs.push(nyaa(item.movie ? tw : `${tw} ${ep}`, n => own(n) && (item.movie || matchAnimeEpisode(n, episode))))
-      if (!item.movie) jobs.push(nyaa(`${tw} batch`, n => own(n) && matchAnimeEpisode(n, episode) && ANIME_PACK.test(n)))
+      const own = n => item.movie || titleVerdict(n, titles) !== 'other'
+      const target = { kind: 'anime', episode }
+      jobs.push(nyaa(item.movie ? tw : `${tw} ${ep}`, n => own(n) && (item.movie || matchRelease({ name: n }, target, { noTitle: true }))))
+      if (!item.movie) jobs.push(nyaa(`${tw} batch`, n => own(n) && isPack(n) && matchRelease({ name: n }, target, { noTitle: true })))
     }
   }
   const settled = await Promise.allSettled(jobs)
@@ -288,10 +200,10 @@ async function find (item, ctx) {
     for (const r of s.value) if (!byHash.has(r.infoHash) || byHash.get(r.infoHash).seeders < r.seeders) byHash.set(r.infoHash, r)
   }
   for (const r of byHash.values()) {
-    if (type === 'series') r.pack = !matchSeriesEpisode(r.release, season, episode)
+    if (type === 'series') r.pack = !isEpisode(r.release, { type, season, episode })
     else if (type === 'anime' && !item.movie) {
-      r.pack = isAnimePack(r.release)
-      r.wrongSeason = animeSeason(r.release) !== Math.max(...[item.title, ...(item.altTitles || [])].map(animeSeason))
+      r.pack = isPack(r.release)
+      r.wrongSeason = seasonOf(r.release) !== entrySeason([item.title, ...(item.altTitles || [])])
     }
     else r.pack = /\b(pack|collection|trilogy|anthology|saga|complete)\b|\b\d-\d\b/i.test(r.release)
   }

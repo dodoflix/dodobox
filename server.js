@@ -7,7 +7,8 @@ import qr from 'qrcode-generator'
 import { Bonjour } from 'bonjour-service'
 import { fileURLToPath } from 'node:url'
 import { catalog, meta, animeImdb } from './src/meta.js'
-import { findSources, measured, score, refreshTrackers, showVerdict, magnetFor, lengthFits } from './src/sources.js'
+import { findSources, measured, score, refreshTrackers, magnetFor, lengthFits } from './src/sources.js'
+import { titleVerdict } from './src/release.js'
 import { party, newCode, cleanItem } from './src/party.js'
 import { listSubtitles, allowedSubUrl, fetchSubtitle, srtToVtt, decode, toVtt, legacyEncoding } from './src/subs.js'
 import * as engine from './src/engine.js'
@@ -96,7 +97,7 @@ async function play (b) {
     const ctx0 = { type: item.type, id: item.id, season: item.season, episode: item.episode }
     let have = engine.findEntry(ctx0)
     // An earlier search could pick another show's release for an anime episode ("One Piece Log" for "One Piece"); such a download is dropped.
-    if (have && item.type === 'anime' && showVerdict(engine.status(have.hash, true, have.file)?.name || '', [item.title, ...(item.altTitles || [])]) === 'other') { await engine.remove(have.hash, have.file); have = null }
+    if (have && item.type === 'anime' && titleVerdict(engine.status(have.hash, true, have.file)?.name || '', [item.title, ...(item.altTitles || [])]) === 'other') { await engine.remove(have.hash, have.file); have = null }
     if (have && !exclude.includes(have.hash)) { if (b.pin) engine.pin(have.hash); return engine.status(have.hash, false, have.file) }
   }
   const list = (await findSources(item, ctxOf(b))).filter(s => !exclude.includes(s.infoHash) && !wrong.has(`${b.type}:${b.id}:${s.infoHash}`))

@@ -2,7 +2,7 @@
 import WebTorrent from 'webtorrent'
 import fs from 'node:fs'
 import path from 'node:path'
-import { pickFile } from './sources.js'
+import { pickFile } from './release.js'
 import { sidecarsFor, SUB_FILE } from './sidecar.js'
 import { sendRange, MIME } from './range.js'
 

@@ -41,8 +41,9 @@ numbering (and the year for movies) is checked; for text-search sources the full
 is the share of the five most seeded relevant releases, pooled over all sources, that a source returns. The pool is
 biased toward whatever the id-keyed sources return.
 
-**Candidates and baselines.** `candidates/` holds the implementations under test. Files named `*-repo.js` run the code
-currently in `src/`, so every report compares a candidate against what ships. Third-party matchers are optional.
+**Candidates and baselines.** `match` and `pick` run `src/release.js` itself, so they report on what ships, next to the
+optional third-party parsers in `candidates/`. `candidates/rank-repo.js` runs the current `score()` and
+`candidates/rank-gates.js` is the ranker under evaluation. A candidate that wins moves into `src/` and the bench follows.
 
 ## Extending
 
@@ -118,11 +119,11 @@ other-show negatives.
 
 | matcher | movie | series | anime | FP adjacent episode | us per call |
 |---|---|---|---|---|---|
-| current filters in `src/sources.js` | 80% | 70% | 30% | 0.7 to 1.0% | 3 to 4 |
+| regex helpers in `src/sources.js` (before `src/release.js`) | 80% | 70% | 30% | 0.7 to 1.0% | 3 to 4 |
 | `parse-torrent-title` | 87% | 86% | 26% | 0 to 1.9% | 13 to 44 |
 | `@ctrl/video-filename-parser` | 87% | 85% | 66% | 55% on series | 33 to 78 |
 | `anitomyscript` (wasm) | | | 80% | 0.3% | 9 |
-| `candidates/tokenizer.js` | 89% | 93% | 82% | 0.9 to 1.9% | 6 to 21 |
+| `src/release.js` | 89% | 93% | 82% | 0.9 to 1.9% | 5 to 19 |
 
 Most remaining misses are releases whose title is translated ("Scissione", "Duna") although the id already proved the
 match: title matching is skipped for id-keyed sources. Text-search precision was checked by reading about 90 accepted
@@ -134,11 +135,11 @@ releases from TPB and Nyaa; all were the right title. One known hole: "Vol 05" r
 
 | picker | tasks with no file | tasks with a file |
 |---|---|---|
-| current `pickFile` | 405 | 37% |
-| `candidates/pick.js` | 86 | 87% |
+| `pickFile` before `src/release.js` | 405 | 37% |
+| `pickFile` in `src/release.js` | 86 | 87% |
 
-The current picker answers with a file in the wrong episode in many of its answers (Kaguya-sama episodes 4 to 9 all
-return episode 10; Naruto episodes 1 to 12 return episode 274 from a pack that starts later). The candidate returns -1
+The earlier picker answered with a file in the wrong episode in many of its answers (Kaguya-sama episodes 4 to 9 all
+return episode 10; Naruto episodes 1 to 12 return episode 274 from a pack that starts later). The new one returns -1
 when the pack does not contain the episode, reads whether the pack numbers by season, absolutely or locally, and skips
 openings, endings and specials. Where it still differs from `anitomyscript`, the cause is an extra the other parser
 took, or a TVDB/AniDB numbering conflict that no parser can settle.

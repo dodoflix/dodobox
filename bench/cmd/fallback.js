@@ -4,7 +4,7 @@
 import { req, sleep } from '../lib/net.js'
 import { goldSet } from '../lib/store.js'
 import { targetOf, labelOf } from '../lib/targets.js'
-import { matchRow } from '../candidates/tokenizer.js'
+import { matchRelease } from '../../src/release.js'
 
 const p2 = n => String(n).padStart(2, '0')
 const clean = s => (s || '').replace(/[^\p{L}\p{N} ]+/gu, ' ').trim()
@@ -39,7 +39,7 @@ async function run (kind, gold, providers, shapes) {
     for (const [shape, make] of Object.entries(shapes)) for (const provider of providers) {
       const q = make(g); if (!q) continue
       const rows = await SEARCH[provider](q).catch(() => []); await sleep(provider === 'nyaa' ? 900 : 120)
-      hits[i][`${provider} / ${shape}`] = rows.filter(r => r.seeders >= 5 && matchRow({ name: r.title, release: r.title }, t)).length
+      hits[i][`${provider} / ${shape}`] = rows.filter(r => r.seeders >= 5 && matchRelease({ name: r.title, release: r.title }, t)).length
     }
   }
   const cols = Object.keys(hits[0])

@@ -1,4 +1,4 @@
-import { tok, lead } from './tokenizer.js'
+import { tok, lead } from '../../src/release.js'
 
 const SEASONY = /(\d+(st|nd|rd|th) season|season \d+|part \d+|cour \d+|final season|the final season|\bs\d+\b|\(\d{4}\))/gi
 const base = t => lead(tok(t.replace(SEASONY, ' ')))

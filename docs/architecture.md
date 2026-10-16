@@ -3,6 +3,7 @@
 ```
 browser / TV / phone (public/)  <->  server.js  <->  src/meta.js       catalog and artwork metadata, disk-cached
                                                 <->  src/sources.js    torrent search providers, ranked
+                                                <->  src/release.js    release-name parsing: title, episode, pack, file choice
                                                 <->  src/engine.js     torrent client, library, storage cap
                                                 <->  src/local.js      your own media folders
                                                 <->  src/transcode.js  stream probe, on-demand HLS, hardware encoder
@@ -21,6 +22,8 @@ browser / TV / phone (public/)  <->  server.js  <->  src/meta.js       catalog a
 ## Choosing a source
 
 `src/sources.js` ranks candidates by resolution, seeders, codec, language, and whether the bitrate fits the line's measured speed (`src/speed.js`) and the viewer's Download size mode. On play the top few start together for a few seconds and the fastest real downloader wins; the others are removed. Magnets carry a fixed tracker list plus a community list of healthy trackers refreshed twice a day.
+
+`src/release.js` is the single place that reads torrent and file names. It answers whether a release is the requested title (and not a longer title that contains it), whether it is the requested episode under any of the numberings fansubs use (season and episode, absolute, from 1), whether it is a pack, and which file of a pack to open. Names are parsed once and cached.
 
 ## Streaming to every device
 

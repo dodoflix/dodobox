@@ -5,18 +5,18 @@
 import { ID_KEYED } from '../lib/providers.js'
 import { sourcesRaw } from '../lib/store.js'
 import { keyOf, labelOf, targetOf } from '../lib/targets.js'
-import { matchRow } from '../candidates/tokenizer.js'
+import { matchRelease } from '../../src/release.js'
 import { pct } from '../lib/net.js'
 
 const years = s => [...s.matchAll(/\b(?:19|20)\d\d\b/g)].map(m => +m[0])
 function isHit (provider, g, r, target) {
   if (r.seeders < 5) return false
   if (ID_KEYED.has(provider)) {
-    if (g.kind !== 'movie') return matchRow({ name: r.title, release: r.release }, target, { noTitle: true })
+    if (g.kind !== 'movie') return matchRelease({ name: r.title, release: r.release }, target, { noTitle: true })
     const y = years(`${r.title} ${r.release || ''}`)
     return !y.length || y.some(v => Math.abs(v - g.year) <= 1)
   }
-  return matchRow({ name: r.title, release: r.release || r.title }, target)
+  return matchRelease({ name: r.title, release: r.release || r.title }, target)
 }
 
 export default async function coverage (args) {

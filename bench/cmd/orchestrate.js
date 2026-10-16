@@ -6,7 +6,7 @@
 import { sourcesRaw } from '../lib/store.js'
 import { keyOf, targetOf } from '../lib/targets.js'
 import { ID_KEYED } from '../lib/providers.js'
-import { matchRow } from '../candidates/tokenizer.js'
+import { matchRelease } from '../../src/release.js'
 import { pct } from '../lib/net.js'
 
 const PLANS = {
@@ -25,7 +25,7 @@ export default async function orchestrate (args) {
     const t = targetOf(x.g)
     for (const r of x.rows || []) {
       if (r.seeders < 5) continue
-      const ok = ID_KEYED.has(p.id) ? (x.g.kind === 'movie' || matchRow({ name: r.title, release: r.release }, t, { noTitle: true })) : matchRow({ name: r.title, release: r.release || r.title }, t)
+      const ok = ID_KEYED.has(p.id) ? (x.g.kind === 'movie' || matchRelease({ name: r.title, release: r.release }, t, { noTitle: true })) : matchRelease({ name: r.title, release: r.release || r.title }, t)
       if (ok) { const m = top.get(keyOf(x.g)) || top.set(keyOf(x.g), new Map()).get(keyOf(x.g)); m.set(r.hash, Math.max(m.get(r.hash) || 0, r.seeders)) }
     }
   }
