@@ -62,7 +62,7 @@ test('lookup: a healthy primary returns at the deadline, slow tier-mates top up 
   assert.ok(Date.now() - t0 < 600, 'does not wait for the slow source')
   assert.equal(r.rows.length, 3)
   assert.equal(searched, false)
-  assert.equal((await r.done).length, 4, 'the late row is delivered through done')
+  assert.equal((await r.done).rows.length, 4, 'the late row is delivered through done')
 })
 
 test('lookup: a failing primary starts the name searches at once, not after the slow tier-mates', async () => {

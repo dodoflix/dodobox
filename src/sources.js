@@ -274,7 +274,7 @@ export async function runTiers (tiers, { deadline = DEADLINE_MS, cap = HARD_CAP_
     all = Promise.all([...first, ...tiers.fallback().map(track)])
     await Promise.race([all, wait(cap - (Date.now() - t0))])
   }
-  return { rows: [...got], failed, done: all.then(() => [...got]) }
+  return { rows: [...got], failed, done: all.then(() => ({ rows: [...got], failed })) }
 }
 
 // Live seeder counts. A source's number can be days old, so the best candidates are asked of the trackers themselves; a count
@@ -297,6 +297,7 @@ async function rankLive (list, sctx) {
 }
 
 const LIST_TTL = 90 * 60e3
+const PARTIAL_TTL = 60e3 // what was found while a source failed is used, but asked for again soon
 const NOTHING_TTL = 5 * 60e3
 const cache = new Map()
 export const findSources = (item, ctx = {}) => once('src:' + JSON.stringify([item.type, item.id, item.season, item.episode]), () => find(item, ctx))
@@ -324,9 +325,9 @@ async function find (item, ctx) {
   const { rows, failed, done } = await runTiers(tiers)
   const list = build(rows)
   // Nothing found is remembered briefly, unless a source errored: that says nothing about the title.
-  if (list.length) cache.set(key, { at: Date.now(), list, ttl: LIST_TTL })
+  if (list.length) cache.set(key, { at: Date.now(), list, ttl: failed ? PARTIAL_TTL : LIST_TTL })
   else if (!failed) cache.set(key, { at: Date.now(), list, ttl: NOTHING_TTL })
   // Sources that answered after the deadline top up the cached list for the next request.
-  done.then(late => { const full = build(late); if (full.length > list.length) cache.set(key, { at: Date.now(), list: full, ttl: LIST_TTL }) }).catch(() => {})
+  done.then(late => { const full = build(late.rows); if (full.length > list.length || (!late.failed && failed)) cache.set(key, { at: Date.now(), list: full, ttl: late.failed ? PARTIAL_TTL : LIST_TTL }) }).catch(() => {})
   return rankLive(list, sctx)
 }

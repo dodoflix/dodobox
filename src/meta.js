@@ -21,17 +21,23 @@ let saveT = null
 // Saved at most every 20 s (stringifying a big cache blocks the server for a moment).
 const saveCache = () => { if (saveT) return; saveT = setTimeout(() => { saveT = null; fs.writeFile(FILE, JSON.stringify(Object.fromEntries([...ttl].filter(([k]) => persist(k)))), () => {}) }, 20000).unref() }
 const refreshing = new Set()
+// A value built while a source failed (artwork missing, an episode list absent) is marked, and is kept only briefly: it is better
+// than nothing now, but must not stand in for the real answer for hours.
+const partial = new WeakSet()
+const PARTIAL_MS = 60e3
+export const markPartial = v => { if (v && typeof v === 'object') partial.add(v); return v }
 export async function cached (key, maxAge, fn) {
   const hit = ttl.get(key)
-  const fresh = hit && Date.now() - hit.at < maxAge
+  const fresh = hit && Date.now() - hit.at < (hit.short ? PARTIAL_MS : maxAge)
   const load = async () => {
     const v = await fn()
-    ttl.set(key, { at: Date.now(), v })
+    ttl.set(key, { at: Date.now(), v, ...(partial.has(v) && { short: true }) })
     if (ttl.size > 1500) ttl.delete(ttl.keys().next().value)
     saveCache()
     return v
   }
   if (fresh) return hit.v
+  if (hit?.short) { try { return await load() } catch { return hit.v } }
   if (hit && Date.now() - hit.at < MAX_STALE) {
     if (!refreshing.has(key)) { refreshing.add(key); load().catch(() => {}).finally(() => refreshing.delete(key)) }
     return hit.v
@@ -130,11 +136,13 @@ export const animeImdb = async item => {
 const animeArt = async item => {
   const m = await animeImdb(item); if (!m) return null
   const bg = `https://images.metahub.space/background/large/${m.id}/img`
-  const r = await fetchRetry(bg, { method: 'HEAD', tries: 1, timeout: 6000 }).catch(() => null)
+  // A missing image answers 404 (final); anything else failed, which is not the same as having no artwork.
+  const r = await fetchRetry(bg, { method: 'HEAD', tries: 1, timeout: 6000 }).catch(e => (e.final ? null : undefined))
+  if (r === undefined) return undefined
   return r && /^image\//.test(r.headers.get('content-type') || '') && +r.headers.get('content-length') > 60000
     ? { background: proxied(bg), poster: proxied(`https://images.metahub.space/poster/large/${m.id}/img`) } : null
 }
-const withArt = async item => { const a = await animeArt(item); return a ? { ...item, ...a } : item }
+const withArt = async item => { const a = await animeArt(item); return a === undefined ? markPartial({ ...item }) : a ? { ...item, ...a } : item }
 
 const IMDB_KIND = { movie: /^(movie|short|tvMovie|video)$/, series: /^(tvSeries|tvMiniSeries)$/ }
 async function imdbSuggest (q, type) {
@@ -173,7 +181,9 @@ export const catalog = ({ type, q, genre, page = 1, sort = 'popular', safe = fal
         minPop: !q && (sort === 'rating' ? 15000 : sort === 'new' ? 4000 : null), notStatus: !q && sort === 'new' ? 'NOT_YET_RELEASED' : null, status: !q && sort === 'airing' ? 'RELEASING' : null
       })
       const items = media.map(aniItem).map(({ videos, ...x }) => x)
-      return q ? items : [...await Promise.all(items.slice(0, 10).map(withArt)), ...items.slice(10)]
+      if (q) return items
+      const out = [...await Promise.all(items.slice(0, 10).map(withArt)), ...items.slice(10)]
+      return out.some(i => partial.has(i)) ? markPartial(out) : out
     }
     // Its "year" catalog is keyed by year instead of genre, so "newest" is this year's titles, filtered by genre afterwards.
     const byYear = sort === 'new' && !q
@@ -191,7 +201,7 @@ export const catalog = ({ type, q, genre, page = 1, sort = 'popular', safe = fal
       const items = fuse(suggested.value || [], searched.value || [])
       // A search that failed is not an answer: caching "no results" would hide the title for hours.
       if (!items.length && (suggested.reason || searched.reason)) throw suggested.reason || searched.reason
-      return items
+      return suggested.reason || searched.reason ? markPartial(items) : items
     }
     return fromCatalog()
   })
@@ -207,7 +217,7 @@ async function kitsuEpisodes (anilistId, count) {
     const pages = await Promise.all(Array.from({ length: Math.ceil(Math.min(count, 60) / 20) }, (_, n) => getJSON(`https://kitsu.io/api/edge/anime/${kid}/episodes?page%5Blimit%5D=20&page%5Boffset%5D=${n * 20}&sort=number`, { headers: H, tries: 1 }).catch(() => ({ data: [] }))))
     for (const j of pages) for (const e of j.data || []) out[e.attributes.number] = { title: e.attributes.canonicalTitle, thumbnail: e.attributes.thumbnail?.original, released: e.attributes.airdate }
     return out
-  } catch { return {} }
+  } catch { return null }
 }
 
 export const meta = (type, id) => {
@@ -218,7 +228,9 @@ export const meta = (type, id) => {
       if (!m) throw Object.assign(new Error('not found'), { code: 404 })
       const base = aniItem(m)
       const enrich = async () => {
-        const [item, k] = await Promise.all([withArt(base), !base.movie && base.videos.some(v => !v.thumbnail) ? kitsuEpisodes(m.id, base.videos.length) : {}])
+        const [item, found] = await Promise.all([withArt(base), !base.movie && base.videos.some(v => !v.thumbnail) ? kitsuEpisodes(m.id, base.videos.length) : {}])
+        const k = found || {}
+        if (!found) markPartial(item)
         for (const v of item.videos) {
           const e = k[v.episode]; if (!e) continue
           if (!v.thumbnail && e.thumbnail) v.thumbnail = proxied(e.thumbnail)
@@ -232,8 +244,8 @@ export const meta = (type, id) => {
       const full = enrich()
       const quick = await Promise.race([full, new Promise(resolve => setTimeout(resolve, 800))])
       if (quick) return quick
-      full.then(item => { ttl.set(`meta6:${type}:${id}`, { at: Date.now(), v: item }); saveCache() }).catch(() => {})
-      return base
+      full.then(item => { ttl.set(`meta6:${type}:${id}`, { at: Date.now(), v: item, ...(partial.has(item) && { short: true }) }); saveCache() }).catch(() => {})
+      return markPartial(base)
     }
     const { meta: m } = await getJSON(`${CINEMETA}/meta/${type}/${id}.json`)
     const item = cineItem(m, type)

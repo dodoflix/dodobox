@@ -35,7 +35,7 @@ Browsers get the file directly when it is a real mp4/webm with H.264/VP9/AV1 vid
 
 ## Reliability and caching
 
-Outbound requests go through `src/http.js`: retries with jittered backoff, a per-provider rate limit, a circuit breaker, and merging of identical requests in flight. Catalog data lives in a stale-while-revalidate cache (`src/meta.js`): served at once, refreshed in the background, kept up to a week if the provider is down. Torrent searches are cached for 90 minutes, subtitle lists for 6 hours; subtitle files, posters and translations are cached on disk.
+Outbound requests go through `src/http.js`: retries with jittered backoff, a per-provider rate limit, a circuit breaker, and merging of identical requests in flight. Catalog data lives in a stale-while-revalidate cache (`src/meta.js`): served at once, refreshed in the background, kept up to a week if the provider is down. Torrent searches are cached for 90 minutes, subtitle lists for 6 hours; subtitle files, posters and translations are cached on disk. Nothing built while a source failed is kept as if it were whole: a failed search is an error rather than "no results", a list or value assembled with something missing (subtitles without the slower provider, artwork or episode names that did not load, sources without the one that errored) is kept for a minute or two, and the browser is not told to keep an empty list.
 
 ## Subtitles
 

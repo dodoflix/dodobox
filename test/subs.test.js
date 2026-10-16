@@ -10,9 +10,9 @@ const restFile = n => ({ SubLanguageID: 'tur', SubFormat: 'srt', SubDownloadLink
 function stub ({ restDelay = 0, restFails = false }) {
   const real = globalThis.fetch
   globalThis.fetch = async url => {
-    const u = String(url)
-    if (u.includes('opensubtitles-v3.strem.io')) return json({ subtitles: [addonFile] })
-    if (u.includes('rest.opensubtitles.org')) { await sleep(restDelay); return restFails ? new Response('busy', { status: 500 }) : json([restFile(1), restFile(2)]) }
+    const host = new URL(url).hostname
+    if (host === 'opensubtitles-v3.strem.io') return json({ subtitles: [addonFile] })
+    if (host === 'rest.opensubtitles.org') { await sleep(restDelay); return restFails ? new Response('busy', { status: 500 }) : json([restFile(1), restFile(2)]) }
     return new Response('nothing', { status: 404 })
   }
   return () => { globalThis.fetch = real }

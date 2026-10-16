@@ -29,3 +29,21 @@ test('a movie dated in the future is not playable, a released one is', () => {
   assert.equal(cineItem({ id: 'tt2', name: 'Old', released: '2001-05-05T00:00:00.000Z', year: '2001' }, 'movie').unplayable, null)
   assert.equal(cineItem({ id: 'tt3', name: 'Show', released: future, year: '2030' }, 'series').unplayable, null, 'series are judged by their episodes')
 })
+
+test('a value built while a source failed is kept for a minute, not for hours', async () => {
+  const { cached, markPartial } = await import('../src/meta.js')
+  const { mock } = await import('node:test')
+  mock.timers.enable({ apis: ['Date'], now: Date.now() })
+  try {
+    let calls = 0
+    const ask = () => cached('test:partial-value', 12 * 3600e3, async () => { calls++; return calls === 1 ? markPartial([1]) : [1, 2] })
+    assert.deepEqual(await ask(), [1])
+    assert.deepEqual(await ask(), [1], 'asked again at once: served from the cache')
+    assert.equal(calls, 1)
+    mock.timers.tick(61e3)
+    assert.deepEqual(await ask(), [1, 2], 'a minute later it is asked for again')
+    mock.timers.tick(3600e3)
+    assert.deepEqual(await ask(), [1, 2], 'a complete value stays')
+    assert.equal(calls, 2)
+  } finally { mock.timers.reset() }
+})

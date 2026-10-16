@@ -47,7 +47,8 @@ const send = (req, res, code, type, body, extra = {}) => {
 }
 const json = (req, res, data, code = 200) => send(req, res, code, 'application/json', JSON.stringify(data), { 'cache-control': 'no-store' })
 const safeOf = req => req.headers['x-adult-filter'] === '1'
-const jsonCached = (req, res, data, maxAge = 180) => send(req, res, 200, 'application/json', JSON.stringify(data), { 'cache-control': `private, max-age=${maxAge}, stale-while-revalidate=${maxAge * 5}`, vary: 'x-lang, x-adult-filter, accept-encoding' })
+// An empty list may be a failure in disguise: the browser is not told to keep it.
+const jsonCached = (req, res, data, maxAge = 180) => send(req, res, 200, 'application/json', JSON.stringify(data), { 'cache-control': Array.isArray(data) && !data.length ? 'no-store' : `private, max-age=${maxAge}, stale-while-revalidate=${maxAge * 5}`, vary: 'x-lang, x-adult-filter, accept-encoding' })
 const isLocal = req => /^(::1|127\.0\.0\.1|::ffff:127\.0\.0\.1)$/.test(req.socket.remoteAddress || '')
 const fail = (req, res, code, msg) => json(req, res, { error: msg }, code)
 const body = req => new Promise((resolve, reject) => {
@@ -152,16 +153,17 @@ async function picksFor (id, lang, safe) {
   const liked = Object.values(p.ratings).filter(r => r.v > 0).sort((a, b) => b.at - a.at).slice(0, 4)
   const seen = new Set([...Object.keys(p.history), ...Object.keys(p.ratings), ...p.list.map(x => `${x.type}:${x.id}`), ...Object.values(p.ratings).filter(r => r.v < 0).map(r => `${r.type}:${r.id}`)])
   const out = []
+  let failed = false
   for (const r of liked) {
     const g = (r.genres || [])[0]; if (!g) continue
-    const items = await catalog({ type: r.type, genre: g, page: 1, safe }).catch(() => [])
+    const items = await catalog({ type: r.type, genre: g, page: 1, safe }).catch(() => { failed = true; return [] })
     const fresh = items.filter(i => !seen.has(`${i.type}:${i.id}`)).slice(0, 18)
     if (fresh.length < 6) continue
     fresh.forEach(i => seen.add(`${i.type}:${i.id}`))
     out.push({ because: r.name, genre: g, items: await localizeItems(fresh, lang) })
     if (out.length >= 2) break
   }
-  if (out.length) picksCache.set(k, { at: Date.now(), v: out })
+  if (out.length && !failed) picksCache.set(k, { at: Date.now(), v: out })
   return out
 }
 
@@ -210,7 +212,7 @@ async function shelfItems (id, lang, safe) {
   if (kind === 'top') {
     if (a !== 'anime') items = await chartItems(a).catch(() => [])
     if (items.length < 5) items = (await catalog({ type: a, safe })).slice(0, 10)
-  } else if (kind === 'country') items = await chartItems(a, b).catch(() => [])
+  } else if (kind === 'country') items = await chartItems(a, b) // a failure is an error, not an empty shelf
   else if (kind === 'new') items = await catalog({ type: a, sort: 'new', safe })
   else if (kind === 'rated') items = await catalog({ type: a, sort: 'rating', safe })
   else if (kind === 'airing') items = await catalog({ type: a, sort: 'airing', safe })
