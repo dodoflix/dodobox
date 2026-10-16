@@ -1,0 +1,11 @@
+{
+  "name": "dodobox-bench",
+  "private": true,
+  "type": "module",
+  "description": "Benchmarks for source discovery, release matching, ranking and orchestration. Not shipped.",
+  "optionalDependencies": {
+    "@ctrl/video-filename-parser": "5.12.0",
+    "anitomyscript": "2.0.4",
+    "parse-torrent-title": "3.0.1"
+  }
+}

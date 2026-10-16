@@ -27,6 +27,7 @@
     "start": "node server.js",
     "watch": "node --watch server.js",
     "lint": "eslint .",
+    "bench": "node bench/run.js",
     "test": "node --test",
     "desktop": "electron .",
     "dist": "electron-builder --publish never"
