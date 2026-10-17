@@ -31,7 +31,7 @@ Keep a pull request to one change. Add or update a test when behaviour changes, 
 
 ## Releases
 
-Releases are automatic. Every merge to `main` updates a release pull request with the next version and changelog. Merging that pull request tags the release, publishes the notes and pushes the container image to `ghcr.io/dodoflix/dodobox`.
+Releases are automatic. Every merge to `main` updates a release pull request with the next version and changelog. Merging that pull request tags the release, publishes the notes and pushes the container image to `ghcr.io/dodoflix/dodobox` and Docker Hub (`dodoflix/dodobox`). Docker Hub needs the `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` repository secrets.
 
 ## Scope
 

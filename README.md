@@ -14,7 +14,7 @@ Start it (needs [Node.js](https://nodejs.org) 24+):
 npm install && npm start
 ```
 
-Or download an installer for Windows, macOS or Linux from the [releases](https://github.com/dodoflix/dodobox/releases), or run the container: `docker run --network host -v dodobox:/data ghcr.io/dodoflix/dodobox`
+Or download an installer for Windows, macOS or Linux from the [releases](https://github.com/dodoflix/dodobox/releases), or run the container: `docker run --network host -v dodobox:/data dodoflix/dodobox`
 
 It prints an address for your phone and TV. Dodobox has no login, so keep it on a network you trust.
 
