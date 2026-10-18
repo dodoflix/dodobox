@@ -17,9 +17,9 @@ card() {
 
 card "$S/search.jpg" 640 16 "$T/left.png"
 card "$S/episodes.jpg" 640 16 "$T/right.png"
-card "$S/home.jpg" 1020 20 "$T/mid.png"
-card "$S/phone-home.jpg" 240 30 "$T/ph1.png"
-card "$S/phone-title.jpg" 240 30 "$T/ph2.png"
+card "$S/home.jpg" 1020 16 "$T/mid.png"
+card "$S/phone-home.jpg" 240 16 "$T/ph1.png"
+card "$S/phone-title.jpg" 240 16 "$T/ph2.png"
 
 # offsets include the shadow padding that card() adds around each image
 magick -size 1800x860 radial-gradient:'rgb(78,40,24)-rgb(11,11,16)' -gravity center -background '#0b0b10' -extent 1800x860 -gravity NorthWest \
