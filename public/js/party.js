@@ -6,6 +6,12 @@ import { emojify, PICKER, REACTIONS, onlyEmoji, parseLink, LINK, trimLink } from
 
 const LAG = 0.25 // seconds a command is old by the time it arrives
 const DRIFT = 1.5 // seconds apart before a heartbeat moves the video
+// Hidden as it is typed, with a button to show it (a wrong password cannot be told apart from an empty party, so a typo has to be easy to see).
+// A text field that is drawn as dots, not type=password: this is not a login, and browsers and password managers offer saved logins for anything typed password.
+// Where the dots are not supported (Firefox) it falls back to type=password.
+// It is also read-only until it gets focus, because browsers skip autofill on read-only fields and ignore autocomplete=off on the rest.
+const MASK = CSS.supports('-webkit-text-security', 'disc')
+const passField = `<div class="pp-pass"><input class="field${MASK ? ' masked' : ''}" name="partykey" type="${MASK ? 'text' : 'password'}" placeholder="Password (optional)" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="64" enterkeyhint="go" readonly aria-label="Password (optional)" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"><button type="button" class="icon-btn" data-a="peek" aria-label="Show password" aria-pressed="false">${icon('eye')}</button></div>`
 const href = i => `#/watch/${i.type}/${enc(i.id)}` + (i.season != null ? `/${i.season}/${i.episode}` : '')
 const same = (a, b) => !!a && !!b && a.type === b.type && a.id === b.id && (a.season ?? null) === (b.season ?? null) && (a.episode ?? null) === (b.episode ?? null)
 
@@ -61,6 +67,7 @@ document.addEventListener('input', e => {
   if (f.selectionStart === f.value.length) { const v = emojify(f.value); if (v !== f.value) f.value = v }
   draft = f.value
 })
+document.addEventListener('focusin', e => { if (e.target.matches?.('.pp-pass input[readonly]')) e.target.removeAttribute('readonly') })
 // Escape closes the emoji picker before it closes the panel.
 document.addEventListener('keydown', e => {
   if (!e.target.closest?.('.party-pop')) return
@@ -214,12 +221,12 @@ function html (ctx) {
   let body
   if (!s.active) {
     body = `<p class="pp-lead">Get a code to share, then watch anything together, episode after episode.</p>
-      <form class="pp-start"><input class="field pp-pass" name="password" placeholder="Password (optional)" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="64" enterkeyhint="go" aria-label="Password (optional)">
+      <form class="pp-start">${passField}
         <button class="btn btn-ink" data-autofocus>Start a party</button></form>
       <p class="pp-note">Friends need Dodobox too. Share the code with them.</p>
       <div class="pp-or"><span>or</span></div>
       <form class="pp-join"><label for="pp-code">Join with a code</label><div class="pp-row"><input id="pp-code" class="field" name="code" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24"><button class="btn btn-ghost">Join</button></div>
-        <input class="field pp-pass" name="password" placeholder="Password (optional)" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="64" enterkeyhint="go" aria-label="Password (optional)"></form>`
+        ${passField}</form>`
   } else {
     const n = s.now?.item
     const poster = n ? posterOf(n) : ''
@@ -265,12 +272,12 @@ function behaviour (ctx, host) {
       if (e.target.classList.contains('pp-start')) {
         // From the player it starts on what is playing; from anywhere else it is an empty room.
         try {
-          take(await api('/api/party/start', { method: 'POST', body: { password: e.target.password.value, ...ctx && { item: ctx.item, hash: ctx.hash(), pos: ctx.v.currentTime, paused: ctx.v.paused } } }))
+          take(await api('/api/party/start', { method: 'POST', body: { password: e.target.partykey.value, ...ctx && { item: ctx.item, hash: ctx.hash(), pos: ctx.v.currentTime, paused: ctx.v.paused } } }))
           seen = new Set(status.members.map(m => m.id)); listen(); paintChip(); host.redraw()
         } catch (err) { toast(err.message) }
         return
       }
-      try { take(await api('/api/party/join', { method: 'POST', body: { code: e.target.code.value, password: e.target.password.value } })); seen = new Set(status.members.map(m => m.id)); listen(); paintChip(); host.redraw() } catch (err) { toast(err.message) }
+      try { take(await api('/api/party/join', { method: 'POST', body: { code: e.target.code.value, password: e.target.partykey.value } })); seen = new Set(status.members.map(m => m.id)); listen(); paintChip(); host.redraw() } catch (err) { toast(err.message) }
     },
     async click (e) {
       const bubble = e.target.closest('.pp-log p')
@@ -291,6 +298,11 @@ function behaviour (ctx, host) {
         }
         if (a === 'close') host.close()
         if (a === 'leave') { await api('/api/party/leave', { method: 'POST' }); take({ active: false, members: [], now: null }); seen = null; es?.close(); es = null; paintChip(); host.redraw() }
+        if (a === 'peek') {
+          const f = btn.parentElement.querySelector('input'); const show = MASK ? f.classList.contains('masked') : f.type === 'password'
+          if (MASK) f.classList.toggle('masked', !show); else f.type = show ? 'text' : 'password'
+          btn.setAttribute('aria-pressed', show); btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); btn.innerHTML = icon(show ? 'eye-off' : 'eye')
+        }
         if (a === 'who') toast(btn.dataset.name)
         if (a === 'go') { host.close(); location.hash = href(status.now.item) }
         if (a === 'copy') { await navigator.clipboard?.writeText(status.code); toast('Code copied') }

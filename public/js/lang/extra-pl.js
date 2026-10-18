@@ -42,6 +42,7 @@ export const rows = [
 /*more*/ 'Status w Discordzie', 'Pokazuje w Discordzie, co oglądasz, jeśli działa na tym komputerze.',
 /*more*/ 'Przegląda', 'Szuka czegoś do obejrzenia', 'We wspólnym seansie', 'Wybiera, co obejrzeć', 'Pobierz Dodobox', 'Wydania',
 /*more*/ 'Hasło (opcjonalne)', 'Twoi znajomi też potrzebują hasła.',
+/*more*/ 'Pokaż hasło', 'Ukryj hasło',
 ]
 export const patterns = [
   'Cześć $1, dostosuj to do siebie', 'Sezon $1', 'Sezon $1 · Odcinek $2', 'Wznów S$1 O$2', 'S$1 O$2$3', 'Premiera $1', '$1 godz. $2 min', '$1 min', '$1zostało $2 godz. $3 min', '$1zostało $2 min',

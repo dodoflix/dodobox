@@ -370,6 +370,8 @@ export const ROWS = [
   ['Releases', 'Sürümler', 'Versiones', 'Versions', 'Versionen'],
   ['Password (optional)', 'Parola (isteğe bağlı)', 'Contraseña (opcional)', 'Mot de passe (facultatif)', 'Passwort (optional)'],
   ['Friends also need the password.', 'Arkadaşlarının parolayı da bilmesi gerekir.', 'Tus amigos también necesitan la contraseña.', 'Vos amis ont aussi besoin du mot de passe.', 'Deine Freunde brauchen auch das Passwort.'],
+  ['Show password', 'Parolayı göster', 'Mostrar contraseña', 'Afficher le mot de passe', 'Passwort anzeigen'],
+  ['Hide password', 'Parolayı gizle', 'Ocultar contraseña', 'Masquer le mot de passe', 'Passwort verbergen'],
 ]
 
 // Patterns for text that carries numbers or names. $1, $2 refer to captured groups; the same order for every language.
