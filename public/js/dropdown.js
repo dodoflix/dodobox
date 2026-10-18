@@ -1,5 +1,5 @@
 // Replaces native <select class="field"> with a styled dropdown; the select stays hidden as the source of truth.
-import { esc, icon } from './util.js'
+import { esc, icon, placeLeft } from './util.js'
 
 let open = null
 const close = () => { if (open) { open.pop.remove(); open.btn.setAttribute('aria-expanded', 'false'); open.btn.focus({ preventScroll: true }); document.removeEventListener('pointerdown', outside, true); open = null } }
@@ -28,10 +28,10 @@ function build (sel) {
     const r = btn.getBoundingClientRect()
     const below = innerHeight - r.bottom
     const h = Math.min(pop.scrollHeight, innerHeight * 0.5)
-    pop.style.minWidth = Math.max(r.width, 180) + 'px'
-    pop.style.left = Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.right - pop.offsetWidth)) + 'px'
-    pop.style.top = (below > h + 16 || below > r.top ? r.bottom + 6 : Math.max(8, r.top - h - 6)) + 'px'
     pop.style.maxHeight = Math.min(innerHeight * 0.5, Math.max(below, r.top) - 16) + 'px'
+    pop.style.minWidth = Math.max(r.width, 180) + 'px'
+    placeLeft(pop, Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.right - pop.offsetWidth)))
+    pop.style.top = (below > h + 16 || below > r.top ? r.bottom + 6 : Math.max(8, r.top - h - 6)) + 'px'
     btn.setAttribute('aria-expanded', 'true')
     open = { pop, btn }
     document.addEventListener('pointerdown', outside, true)

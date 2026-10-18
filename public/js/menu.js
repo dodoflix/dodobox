@@ -1,4 +1,4 @@
-import { $, esc, icon } from './util.js'
+import { $, esc, icon, placeLeft } from './util.js'
 import { S } from './session.js'
 import { showPicker } from './profiles.js'
 
@@ -15,7 +15,7 @@ function open (focus) {
     <button role="menuitem" data-switch>${icon('user')}Switch profile</button>`
   document.body.append(pop)
   pop.style.top = r.bottom + 8 + 'px'
-  pop.style.left = Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.right - pop.offsetWidth)) + 'px'
+  placeLeft(pop, Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.right - pop.offsetWidth)))
   btn.setAttribute('aria-expanded', 'true')
   pop.addEventListener('pointerenter', () => clearTimeout(hideT))
   // Touch fires pointerleave right after the tap lifts; only a mouse leaving should close the menu.
