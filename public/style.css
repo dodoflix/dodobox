@@ -702,7 +702,7 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 .party-chip:hover { color: var(--ink); border-color: rgb(255 255 255 / .3); }
 .party-chip .i { width: 1.15rem; height: 1.15rem; }
 .party-chip.live .i { color: rgb(var(--glow)); }
-.party-pop { display: grid; grid-template-columns: minmax(0, 1fr); container-type: inline-size; gap: 1rem; width: min(22.5rem, calc(100vw - 2rem)); overflow: auto; padding: 1.1rem 1.25rem 1.15rem; animation: rise .3s var(--ease) both; }
+.party-pop { display: grid; grid-template-columns: minmax(0, 1fr); container-type: inline-size; gap: 1rem; width: min(22.5rem, calc(100vw - 2rem)); overflow: auto; padding: .7rem .85rem .75rem; border: .4rem solid transparent; animation: rise .3s var(--ease) both; }
 .party-pop.in-page { position: fixed; z-index: var(--z-popover); top: 4.4rem; right: max(var(--pad), 1rem); max-height: calc(100vh - 4.4rem - 1rem); max-height: calc(100svh - 4.4rem - 1rem); }
 .party-pop.in-player { position: absolute; z-index: 8; right: max(var(--pad), env(safe-area-inset-right)); bottom: calc(var(--safe-b) + 6.2rem); max-height: calc(100% - var(--safe-b) - 6.2rem - var(--safe-t) - 1rem); }
 .party-pop > * { margin: 0; }
@@ -848,7 +848,7 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 .qs-box { display: grid; grid-template-rows: auto minmax(0, 1fr); width: min(44rem, 100%); max-height: calc(100vh - 5rem); max-height: calc(100svh - 5rem); border-radius: var(--r-panel); background: var(--panel); box-shadow: var(--shadow-float); overflow: hidden; }
 .qs-box .searchbox { margin: .6rem; height: 3.2rem; }
 .qs-box .searchbox .icon-btn { width: 2.2rem; height: 2.2rem; margin-right: -.6rem; }
-.qs-res { overflow-y: auto; padding: 0 .6rem .6rem; overscroll-behavior: contain; }
+.qs-res { overflow-y: auto; margin: 0 .4rem .5rem 0; padding: 0 .2rem .1rem .6rem; overscroll-behavior: contain; }
 .qs-res:empty { display: none; }
 .qs-h { margin: .9rem .4rem .3rem; font: 650 var(--fs-s)/1 var(--text); color: var(--ink3); }
 .qs-res .recent { padding: 0 .4rem .4rem; }
