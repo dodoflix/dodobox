@@ -81,6 +81,20 @@ test('download priority: idle streams pause, manual downloads give way only whil
   assert.equal(pauseReason(manual(undefined), now, false), null) // runs in the background
   assert.equal(pauseReason(manual(undefined), now, true), 'watching') // gives way to what is on screen
   assert.equal(pauseReason(manual(now - 2e3), now, true), null) // unless it is the one being watched
+  assert.equal(pauseReason(manual(undefined, { held: true }), now, false), 'user') // paused by hand
+  assert.equal(pauseReason(manual(undefined), now, false, true), 'priority') // waits for the prioritized one
+  assert.equal(pauseReason(manual(undefined, { priority: true }), now, false, true), null) // which itself runs
+  assert.equal(pauseReason(manual(now - 2e3, { held: true }), now, false), null) // a paused download plays when asked for
+})
+
+test('a title can be removed from the watch history', () => {
+  const p = state.createProfile('Hist')
+  state.saveProgress(p.id, { type: 'anime', id: 'al:5', name: 'A', pos: 10, dur: 100 })
+  assert.equal(state.me(p.id).history.length, 1)
+  assert.equal(state.me(p.id).recent.length, 1)
+  assert.equal(state.removeHistory(p.id, 'anime', 'al:5'), true)
+  assert.equal(state.me(p.id).history.length, 0)
+  assert.equal(state.me(p.id).recent.length, 0) // gone from continue watching too
 })
 
 test('a profile id of "__proto__" finds nothing and cannot change Object.prototype', () => {

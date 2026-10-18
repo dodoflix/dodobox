@@ -80,31 +80,39 @@ function addExtra (hash, ctx) {
   save()
 }
 
-// Idle streams pause, and manual downloads give way while something is being watched.
+// Idle streams pause, and manual downloads give way while something is being watched or a prioritized download is running.
 const WATCH_MS = 25e3 // a title is "being watched" while the player has asked for it this recently
 const IDLE_MS = 45e3 // an unpinned download nobody has asked for this long is paused
-export const pauseReason = (e, now, watching) => {
+export const pauseReason = (e, now, watching, urgent) => {
   const used = e.lastUsed || 0
   if (now - used < WATCH_MS) return null
-  if (e.pinned) return watching ? 'watching' : null
+  if (e.pinned) return e.held ? 'user' : watching ? 'watching' : urgent && !e.priority ? 'priority' : null
   return now - (used || e.added || 0) > IDLE_MS ? 'idle' : null
 }
-const paused = new Map() // hash -> 'watching' | 'idle'
-const selectRows = (e, t) => { for (const r of rowsOf(e)) if (r.fileIdx != null) t.files[r.fileIdx]?.select() }
+// Pausing is per file: a pack can hold several of the episodes asked for, and pausing or prioritizing one must leave the others alone.
+const paused = new Map() // `${hash}:${fileIdx}` -> 'watching' | 'idle' | 'user' | 'priority'
+const rowKey = (e, r) => `${e.hash}:${r.fileIdx}`
+const fileOf = (r, t) => (r.fileIdx != null ? t.files[r.fileIdx] : null)
+const pending = (r, t) => { const f = fileOf(r, t); return !!f && !f.done }
 // Pausing is deselecting. torrent.pause() would also refuse every peer the swarm offers meanwhile, so a resumed torrent finds none until its next announce (many minutes) and playback sits on "buffering".
-function setPaused (e, t, reason) {
-  if (reason === (paused.get(e.hash) ?? null)) return
-  if (reason) {
-    if (!paused.has(e.hash)) for (const f of t.files) f.deselect()
-    paused.set(e.hash, reason)
-  } else { paused.delete(e.hash); selectRows(e, t) }
+function setPaused (e, t, r, reason) {
+  const k = rowKey(e, r)
+  if (reason === (paused.get(k) ?? null)) return
+  if (reason) { fileOf(r, t)?.deselect(); paused.set(k, reason) } else { paused.delete(k); fileOf(r, t)?.select() }
 }
-const downloading = (e, t) => rowsOf(e).some(r => r.fileIdx != null && t.files[r.fileIdx] && !t.files[r.fileIdx].done)
 function rebalance () {
   const now = Date.now()
   const live = Object.values(lib).map(e => ({ e, t: torrentOf(e.hash) })).filter(x => x.t?.ready)
-  const watching = live.some(({ e, t }) => now - (e.lastUsed || 0) < WATCH_MS && downloading(e, t))
-  for (const { e, t } of live) setPaused(e, t, downloading(e, t) ? pauseReason(e, now, watching) : null)
+  const watching = live.some(({ e, t }) => now - (e.lastUsed || 0) < WATCH_MS && rowsOf(e).some(r => pending(r, t)))
+  const urgent = live.some(({ e, t }) => rowsOf(e).some(r => r.priority && !r.held && pending(r, t)))
+  for (const { e, t } of live) {
+    for (const r of rowsOf(e)) {
+      // A paused download that is the one being watched plays, then is paused again.
+      const viewed = e.lastFile === r.fileIdx && now - (e.lastUsed || 0) < WATCH_MS
+      const view = { ...e, held: r.held && !viewed, priority: r.priority }
+      setPaused(e, t, r, pending(r, t) ? pauseReason(view, now, watching, urgent) : null)
+    }
+  }
 }
 // A torrent someone is waiting on that gets nothing asks the trackers and the DHT for peers again, and a torrent that never found its metadata is dropped.
 const stalled = new Map() // hash -> { since, askedAt }
@@ -118,7 +126,7 @@ function heal () {
       if (!e.pinned && now - Math.max(e.lastUsed || 0, e.added || 0) > NO_METADATA_MS) remove(e.hash).catch(() => {})
       continue
     }
-    const wanted = now - (e.lastUsed || 0) < WATCH_MS && !paused.has(e.hash) && downloading(e, t)
+    const wanted = now - (e.lastUsed || 0) < WATCH_MS && rowsOf(e).some(r => pending(r, t) && !paused.has(rowKey(e, r)))
     if (!wanted || t.downloadSpeed > 0) { stalled.delete(e.hash); continue }
     const s = stalled.get(e.hash) || stalled.set(e.hash, { since: now, askedAt: 0 }).get(e.hash)
     if (now - s.since < 8000 || now - s.askedAt < 30000) continue
@@ -130,6 +138,29 @@ setInterval(() => { rebalance(); heal() }, 5000).unref()
 
 export function pin (hash) { if (lib[hash]) { lib[hash].pinned = true; save() } }
 
+// Pause, resume and prioritize act on one episode (one file of its torrent).
+export function hold (hash, file, on) {
+  const e = lib[hash]; if (!e) return false
+  const r = rowFor(e, file)
+  r.held = on || undefined
+  if (on) delete r.priority
+  save(); rebalance()
+  return true
+}
+export function prioritize (hash, file, on) {
+  const e = lib[hash]; if (!e) return false
+  const r = rowFor(e, file)
+  r.priority = on || undefined
+  if (on) delete r.held
+  save(); rebalance()
+  return true
+}
+// For a download that was just started from the queue: its row is found by the episode it holds.
+export function prioritizeCtx (ctx, on) {
+  const f = findEntry(ctx); if (!f) return false
+  return prioritize(f.hash, f.file, on)
+}
+
 const torrentOf = hash => client.torrents.find(t => t.infoHash === hash)
 
 const rowsOf = e => [e, ...(e.extra || [])]
@@ -138,7 +169,7 @@ const rowFor = (e, file) => (file == null ? e : rowsOf(e).find(x => x.fileIdx ==
 export function status (hash, silent, file) {
   const e = lib[hash]
   if (!e) return null
-  if (!silent) touch(hash)
+  if (!silent) touch(hash, file == null ? e.fileIdx : +file)
   const row = rowFor(e, file)
   const t = torrentOf(hash)
   const f = row.fileIdx != null && t?.ready ? t.files[row.fileIdx] : null
@@ -147,11 +178,13 @@ export function status (hash, silent, file) {
     key: row.fileIdx != null ? `${hash}:${row.fileIdx}` : hash,
     ctx: row.ctx,
     pinned: !!e.pinned,
+    held: !!row.held,
+    priority: !!row.priority,
     error: row.error || e.error,
-    phase: row.error || e.error ? 'error' : !t?.ready ? 'metadata' : f?.done ? 'done' : paused.has(hash) ? 'paused' : 'downloading',
-    pausedReason: paused.get(hash) || null,
+    phase: row.error || e.error ? 'error' : !t?.ready ? 'metadata' : f?.done ? 'done' : paused.has(rowKey(e, row)) ? 'paused' : 'downloading',
+    pausedReason: paused.get(rowKey(e, row)) || null,
     peers: t?.numPeers ?? 0,
-    speed: paused.has(hash) ? 0 : t?.downloadSpeed ?? 0,
+    speed: paused.has(rowKey(e, row)) ? 0 : t?.downloadSpeed ?? 0,
     fileIdx: row.fileIdx,
     name: f?.name || row.name || null,
     length: f?.length ?? 0,
@@ -180,7 +213,7 @@ export async function remove (hash, file) {
   const t = torrentOf(hash)
   if (file != null && e.extra?.length) {
     const k = +file
-    if (e.fileIdx === k) { const x = e.extra.shift(); t?.files[k]?.deselect(); Object.assign(e, { ctx: x.ctx, fileIdx: x.fileIdx, name: x.name }); save(); return true }
+    if (e.fileIdx === k) { const x = e.extra.shift(); t?.files[k]?.deselect(); Object.assign(e, { ctx: x.ctx, fileIdx: x.fileIdx, name: x.name, held: x.held, priority: x.priority }); save(); return true }
     const at = e.extra.findIndex(x => x.fileIdx === k)
     if (at >= 0) { e.extra.splice(at, 1); t?.files[k]?.deselect(); save(); return true }
   }
@@ -234,14 +267,16 @@ export async function serve (hash, idx, req, res) {
   if (t && !t.ready) await new Promise(resolve => { const timer = setTimeout(resolve, 15000); t.once('ready', () => { clearTimeout(timer); resolve() }) })
   const f = t?.files[idx]
   if (!f || res.destroyed) { if (!res.destroyed) res.writeHead(t ? 503 : 404, { 'retry-after': '3' }).end(); return }
-  touch(hash)
+  touch(hash, idx)
   sendRange(req, res, { length: f.length, type: MIME[path.extname(f.name).slice(1).toLowerCase()] || 'application/octet-stream', stream: (start, end) => f.createReadStream({ start, end }) })
 }
 
-export function touch (hash) {
+export function touch (hash, file) {
   const e = lib[hash]; if (!e) return
   e.lastUsed = Date.now()
-  if (paused.has(hash)) { const t = torrentOf(hash); if (t) setPaused(e, t, null) } // someone is watching again: continue at once
+  if (file != null) e.lastFile = file
+  const t = torrentOf(hash)
+  if (t?.ready) for (const r of rowsOf(e)) if (paused.has(rowKey(e, r)) && (r.fileIdx === file || !r.held)) setPaused(e, t, r, null) // someone is watching again: continue at once
 }
 
 export function findEntry (ctx) {

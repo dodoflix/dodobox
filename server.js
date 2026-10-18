@@ -332,6 +332,7 @@ const routes = [
   ['PATCH', /^\/api\/me$/, async (req, res) => { needProfile(req); state.updateProfile(pid(req), await jbody(req)); json(req, res, state.me(pid(req))) }],
   ['PUT', /^\/api\/progress$/, async (req, res) => { needProfile(req); json(req, res, { ok: state.saveProgress(pid(req), await jbody(req)) }) }],
   ['PUT', /^\/api\/presence$/, async (req, res) => { needProfile(req); const b = await jbody(req); presence({ ...b, art: remote(b.poster), party: party.phase === 'idle' ? null : { id: crypto.createHash('sha1').update(party.code).digest('hex').slice(0, 16), size: party.members.size, max: LIMITS.members } }); json(req, res, { ok: true }) }],
+  ['DELETE', /^\/api\/history\/(movie|series|anime)\/([^/]{1,80})$/, (req, res, [, type, id]) => { needProfile(req); json(req, res, { ok: state.removeHistory(pid(req), type, decodeURIComponent(id)) }) }],
   ['PUT', /^\/api\/rating$/, async (req, res) => { needProfile(req); const b = await jbody(req); for (const k of picksCache.keys()) if (k.startsWith(pid(req) + ':')) picksCache.delete(k); json(req, res, state.setRating(pid(req), b.item, b.value)) }],
   ['GET', /^\/api\/picks$/, async (req, res) => { needProfile(req); json(req, res, await picksFor(pid(req), req.headers['x-lang'], safeOf(req))) }],
   ['GET', /^\/api\/shelves$/, (req, res, _, q) => { const p = needProfile(req); const c = (q.get('country') || '').toUpperCase(); json(req, res, shelvesFor(p, /^[A-Z]{2}$/.test(c) ? c : '', TYPES.includes(q.get('type')) ? q.get('type') : '')) }],
@@ -539,8 +540,10 @@ const routes = [
 
   ['POST', /^\/api\/download$/, async (req, res) => { const b = await jbody(req); b.mode ||= modeOf(req); b.audio ||= audioOf(req); b.sublang ||= sublangOf(req); b.safe = safeOf(req); json(req, res, await downloads.enqueue(b)) }],
   ['GET', /^\/api\/downloads$/, async (req, res) => { const d = downloads.state(); json(req, res, { queue: await hideAdult(d.queue, safeOf(req)), failed: await hideAdult(d.failed, safeOf(req)) }) }],
+  ['POST', /^\/api\/downloads\/(.+)\/(prioritize|unprioritize)$/, (req, res, [, k, what]) => json(req, res, { ok: downloads.prioritize(decodeURIComponent(k), what === 'prioritize') })],
   ['DELETE', /^\/api\/downloads\/(.+)$/, (req, res, [, k]) => { downloads.cancel(decodeURIComponent(k)); json(req, res, { ok: true }) }],
   ['GET', /^\/api\/library$/, async (req, res) => json(req, res, await hideAdult(engine.library(), safeOf(req), e => e.ctx || {}))],
+  ['POST', /^\/api\/library\/(\w+)(?::(\d+))?\/(pause|resume|prioritize|unprioritize)$/, (req, res, [, h, f, what]) => json(req, res, { ok: what === 'pause' || what === 'resume' ? engine.hold(h.toLowerCase(), f, what === 'pause') : engine.prioritize(h.toLowerCase(), f, what === 'prioritize') })],
   ['DELETE', /^\/api\/library\/(\w+)(?::(\d+))?$/, async (req, res, [, h, f]) => json(req, res, { ok: await engine.remove(h, f) })]
 ]
 

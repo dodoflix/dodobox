@@ -27,6 +27,12 @@ export async function toggleList (item) {
   return on
 }
 
+export async function removeHistory (type, id) {
+  const gone = x => !(x.type === type && x.id === id)
+  S.me.history = S.me.history.filter(gone); S.me.recent = S.me.recent.filter(gone)
+  await api(`/api/history/${type}/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {})
+}
+
 export function recordProgress (b) {
   S.me.progress[pk(b.type, b.id, b.season, b.episode)] = [b.pos, b.dur, Date.now()]
   const rest = S.me.recent.filter(r => !(r.type === b.type && r.id === b.id))

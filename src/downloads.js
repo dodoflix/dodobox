@@ -10,21 +10,30 @@ let play = null; let running = false
 
 const key = j => `${j.type}:${j.id}:${j.season ?? ''}:${j.episode ?? ''}`
 const sleep = ms => new Promise(r => setTimeout(r, ms))
-const active = () => engine.library().filter(r => r.pinned && r.phase !== 'done' && r.phase !== 'error').length
+const active = () => engine.library().filter(r => r.pinned && !r.held && r.phase !== 'done' && r.phase !== 'error').length
 
 export const init = fn => { play = fn; setInterval(pump, 4000).unref() }
-export const state = () => ({ queue: queue.map(({ key: k, type, id, title, poster, season, episode }) => ({ key: k, type, id, title, poster, season, episode })), failed })
+export const state = () => ({ queue: queue.map(({ key: k, type, id, title, poster, season, episode, priority }) => ({ key: k, type, id, title, poster, season, episode, priority: !!priority })), failed })
+// A prioritized job goes to the front, behind earlier prioritized ones, and starts even when every slot is busy.
+export function prioritize (k, on = true) {
+  const i = queue.findIndex(j => j.key === k); if (i < 0) return false
+  const [job] = queue.splice(i, 1)
+  job.priority = on
+  queue.splice(on ? queue.filter(j => j.priority).length : queue.length, 0, job)
+  pump()
+  return true
+}
 export function cancel (k) {
   const i = queue.findIndex(j => j.key === k); if (i >= 0) queue.splice(i, 1)
   const f = failed.findIndex(j => j.key === k); if (f >= 0) failed.splice(f, 1)
 }
 
-export async function enqueue ({ type, id, season, episode, all, mode, audio, sublang, safe }) {
+export async function enqueue ({ type, id, season, episode, all, from, to, mode, audio, sublang, safe }) {
   const m = await meta(type, id)
   const flat = type === 'movie' || m.movie
   const now = new Date()
   const targets = flat ? [{ season: null, episode: null }]
-    : all ? (m.videos || []).filter(v => v.season === +season && (!v.released || new Date(v.released) <= now)).map(v => ({ season: v.season, episode: v.episode }))
+    : all ? (m.videos || []).filter(v => v.season === +season && (from == null || v.episode >= +from) && (to == null || v.episode <= +to) && (!v.released || new Date(v.released) <= now)).map(v => ({ season: v.season, episode: v.episode }))
       : [{ season: +season, episode: +episode }]
   let added = 0
   for (const t of targets) {
@@ -44,9 +53,12 @@ async function pump () {
   if (running || !play) return
   running = true
   try {
-    while (queue.length && active() < MAX_ACTIVE) {
+    while (queue.length && (queue[0].priority || active() < MAX_ACTIVE)) {
       const job = queue.shift()
-      try { await play({ type: job.type, id: job.id, season: job.season, episode: job.episode, mode: job.mode, audio: job.audio, sublang: job.sublang, safe: job.safe, pin: true }) } catch (e) {
+      try {
+        await play({ type: job.type, id: job.id, season: job.season, episode: job.episode, mode: job.mode, audio: job.audio, sublang: job.sublang, safe: job.safe, pin: true })
+        if (job.priority) engine.prioritizeCtx({ type: job.type, id: job.id, season: job.season, episode: job.episode }, true)
+      } catch (e) {
         failed.unshift({ key: job.key, type: job.type, id: job.id, title: job.title, poster: job.poster, season: job.season, episode: job.episode, error: e.message, at: Date.now() })
         failed.length = Math.min(failed.length, 20)
       }
