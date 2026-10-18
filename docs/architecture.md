@@ -11,6 +11,7 @@ browser / TV / phone (public/)  <->  server.js  <->  src/meta.js       catalog a
                                                 <->  src/transcode.js  stream probe, on-demand HLS, hardware encoder
                                                 <->  src/subs.js       subtitle providers
                                                 <->  src/state.js      profiles, progress, My List, settings
+                                                <->  src/lock.js       profile PINs: hashing, session tokens, throttling
                                                 <->  src/images.js     poster proxy with disk cache
 ```
 

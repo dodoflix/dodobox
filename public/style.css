@@ -293,6 +293,8 @@ select.field { padding-right: .5rem; }
 .pf:hover, .pf:focus-visible { color: var(--ink); }
 .pf:hover .circle, .pf:focus-visible .circle { transform: scale(1.07); box-shadow: 0 0 0 4px var(--ink), 0 0 50px rgb(255 255 255 / .12); }
 .pf:focus-visible { outline: none; box-shadow: none; }
+.pf .lockmark { position: absolute; right: .5rem; bottom: .5rem; display: grid; place-items: center; width: 1.9rem; height: 1.9rem; border-radius: var(--r-tag); background: rgb(0 0 0 / .6); color: #fff; }
+.pf .lockmark .i { width: 1.05rem; height: 1.05rem; }
 .pf .edit { position: absolute; inset: 0; display: grid; place-items: center; border-radius: var(--r-panel); background: rgb(0 0 0 / .55); }
 .new-form { display: grid; gap: 1.1rem; justify-items: center; width: min(26rem, 90vw); }
 .new-form .field { width: 100%; height: 3.4rem; font-size: var(--fs-l); text-align: center; font-weight: 700; }
@@ -903,3 +905,23 @@ html.tv .pp-now .pp-poster { display: none; }
   .party-pop:has(.pp-chat) .pp-poster { display: none; }
   .party-pop:has(.pp-chat) .pp-log { max-height: 9rem; }
 }
+
+/* PIN question: a keypad that works with a remote or a thumb, and a field for a keyboard. */
+.pin-layer { position: fixed; inset: 0; z-index: var(--z-modal); display: grid; place-items: center; padding: 1rem; background: rgb(0 0 0 / .72); backdrop-filter: blur(6px); animation: rise .25s var(--ease) both; }
+.pin-box { display: grid; gap: .8rem; justify-items: center; width: min(21rem, 100%); padding: 1.4rem 1.4rem 1rem; border-radius: var(--r-panel); background: var(--panel); box-shadow: var(--shadow-float); text-align: center; }
+.pin-box h2 { margin: 0; font: 800 1.6rem/1.1 var(--display); text-transform: uppercase; letter-spacing: .04em; }
+.pin-box .dim { margin: 0; font-size: var(--fs-s); }
+.pin-field { width: 100%; height: 3.2rem; border: 1px solid var(--line); border-radius: var(--r-field); background: var(--s2); color: var(--ink); text-align: center; font: 700 1.6rem/1 var(--text); letter-spacing: .5em; padding-left: .5em; }
+.pin-field:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.pin-err { min-height: 1.3em; margin: 0; color: var(--danger-ink); font-size: var(--fs-s); font-weight: 650; }
+.pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; width: 100%; }
+.pin-pad button { height: 3.4rem; border: 0; border-radius: var(--r-field); background: var(--s2); color: var(--ink); font: 700 1.35rem/1 var(--text); display: grid; place-items: center; transition: background .15s, transform .1s; }
+.pin-pad button:hover, .pin-pad button:focus-visible { background: var(--s3); }
+.pin-pad button:active { transform: scale(.95); }
+.pin-pad button.ok { background: var(--ink); color: var(--on-ink); }
+.pin-pad .i { width: 1.3rem; height: 1.3rem; }
+.pin-box .actions { margin: 0; }
+.pin-box.shake { animation: pin-shake .35s var(--ease); }
+@keyframes pin-shake { 20%, 60% { transform: translateX(-.5rem); } 40%, 80% { transform: translateX(.5rem); } }
+.pin-actions { display: flex; gap: .5rem; }
+@media (prefers-reduced-motion: reduce) { .pin-box.shake, .pin-layer { animation: none; } }

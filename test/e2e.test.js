@@ -168,6 +168,42 @@ test('the adult filter hides adult-marked titles from the viewer\'s lists', asyn
   assert.deepEqual(await ids(), ['al:900002', 'tt9000002'], 'the profile setting decides, even before the page has sent its header')
 })
 
+test('a profile PIN guards the profile and nothing else', async () => {
+  const J = { 'content-type': 'application/json' }
+  const call = async (p, { method = 'GET', headers = {}, body } = {}) => { const r = await get(p, { method, headers: { ...J, ...headers }, body: body && JSON.stringify(body) }); return { status: r.status, body: await r.json().catch(() => ({})) } }
+  const { id } = (await call('/api/profiles', { method: 'POST', body: { name: 'Pinned' } })).body
+  const { body: { id: other } } = await call('/api/profiles', { method: 'POST', body: { name: 'Neighbour' } })
+  const set = await call('/api/me/pin', { method: 'PUT', headers: { 'x-profile': id }, body: { pin: '12' } })
+  assert.equal(set.status, 400, 'a PIN is 4 to 8 digits')
+  const made = await call('/api/me/pin', { method: 'PUT', headers: { 'x-profile': id }, body: { pin: '2468' } })
+  assert.equal(made.status, 200); assert.ok(made.body.token)
+  assert.equal((await call('/api/profiles')).body.find(p => p.id === id).locked, true)
+  assert.equal(JSON.stringify((await call('/api/profiles')).body).includes('hash'), false, 'the hash never leaves the server')
+  // Without the token the profile is nobody: its data, its settings and its identity are closed.
+  assert.deepEqual((await call('/api/me', { headers: { 'x-profile': id } })).body, { error: 'Locked' })
+  assert.equal((await call('/api/list', { method: 'PUT', headers: { 'x-profile': id }, body: { item: { type: 'movie', id: 'tt1', name: 'x' }, on: true } })).status, 401)
+  assert.equal((await call('/api/profiles/' + id, { method: 'DELETE', headers: { 'x-profile': other } })).status, 401, 'another profile cannot delete it')
+  assert.equal((await call('/api/me', { headers: { 'x-profile': id, 'x-token': made.body.token } })).body.hasPin, true)
+  // Downloads and playing do not belong to a profile.
+  assert.equal((await call('/api/library', { headers: { 'x-profile': id } })).status, 200)
+  // A wrong PIN is refused, and after five in a row so is the right one for a while.
+  for (let i = 0; i < 5; i++) assert.equal((await call(`/api/profiles/${id}/unlock`, { method: 'POST', body: { pin: '0000' } })).status, 403)
+  assert.equal((await call(`/api/profiles/${id}/unlock`, { method: 'POST', body: { pin: '2468' } })).status, 429)
+  // Locking ends the session; changing the PIN needs the current one and ends the others.
+  await call(`/api/profiles/${id}/lock`, { method: 'POST', headers: { 'x-profile': id, 'x-token': made.body.token } })
+  assert.equal((await call('/api/me', { headers: { 'x-profile': id, 'x-token': made.body.token } })).status, 401)
+  const { body: { id: two } } = await call('/api/profiles', { method: 'POST', body: { name: 'Second' } })
+  const t2 = (await call('/api/me/pin', { method: 'PUT', headers: { 'x-profile': two }, body: { pin: '1357' } })).body.token
+  const h2 = { 'x-profile': two, 'x-token': t2 }
+  assert.equal((await call('/api/me/pin', { method: 'PUT', headers: h2, body: { pin: '9999', current: '0000' } })).status, 403)
+  const changed = await call('/api/me/pin', { method: 'PUT', headers: h2, body: { pin: '9999', current: '1357' } })
+  assert.equal((await call('/api/me', { headers: h2 })).status, 401, 'the old session ended')
+  assert.equal((await call('/api/me', { headers: { 'x-profile': two, 'x-token': changed.body.token } })).status, 200)
+  const gone = await call('/api/me/pin', { method: 'PUT', headers: { 'x-profile': two, 'x-token': changed.body.token }, body: { pin: '', current: '9999' } })
+  assert.equal(gone.status, 200)
+  assert.equal((await call('/api/me', { headers: { 'x-profile': two } })).status, 200, 'without a PIN the profile is open again')
+})
+
 test('requests from another site, and from a made-up hostname, are refused', async () => {
   const { request } = await import('node:http')
   const hit = (method, path, headers) => new Promise((resolve, reject) => {

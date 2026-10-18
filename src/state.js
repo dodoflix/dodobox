@@ -53,10 +53,18 @@ export function flush () {
   fs.renameSync(tmp, FILE)
 }
 
-export const profiles = () => Object.values(db.profiles).map(({ id, name, color }) => ({ id, name, color }))
+export const profiles = () => Object.values(db.profiles).map(({ id, name, color, pin }) => ({ id, name, color, locked: !!pin }))
 // Ids come from the URL and a header: "__proto__" must not find Object.prototype.
 const own = id => (Object.hasOwn(db.profiles, id) ? db.profiles[id] : undefined)
 export const profile = own
+export const hasPin = id => !!own(id)?.pin
+export const pinOf = id => own(id)?.pin || null
+export function setPin (id, record) {
+  const p = own(id); if (!p) return false
+  if (record) p.pin = record; else delete p.pin
+  persist()
+  return true
+}
 
 export function createProfile (name, color) {
   name = String(name || '').trim().slice(0, 24)
@@ -144,7 +152,7 @@ export function setRating (id, item, value) {
 
 export const me = id => {
   const p = own(id)
-  return p && { id: p.id, name: p.name, color: p.color, settings: p.settings, list: p.list, progress: p.progress, recent: Object.values(p.recent).sort((a, b) => b.at - a.at).slice(0, 20), history: Object.values(p.history).sort((a, b) => b.at - a.at).slice(0, 200), ratings: p.ratings }
+  return p && { id: p.id, name: p.name, color: p.color, hasPin: !!p.pin, settings: p.settings, list: p.list, progress: p.progress, recent: Object.values(p.recent).sort((a, b) => b.at - a.at).slice(0, 20), history: Object.values(p.history).sort((a, b) => b.at - a.at).slice(0, 200), ratings: p.ratings }
 }
 
 const GLOBAL = { maxStorageGB: 40, mediaDirs: null }

@@ -4,6 +4,7 @@ import { S, setSetting } from './session.js'
 import { focusFirst } from './nav.js'
 import { upgradeSelects } from './dropdown.js'
 import { uiLangFor } from './i18n.js'
+import { changePin } from './pin.js'
 
 export const LANGUAGES = [['en', 'eng', 'English'], ['tr', 'tur', 'Türkçe'], ['es', 'spa', 'Español'], ['fr', 'fre', 'Français'], ['de', 'ger', 'Deutsch'], ['it', 'ita', 'Italiano'], ['pt', 'por', 'Português'], ['ru', 'rus', 'Русский'], ['ar', 'ara', 'العربية'], ['ja', 'jpn', '日本語'], ['ko', 'kor', '한국어'], ['zh', 'chi', '中文'], ['nl', 'dut', 'Nederlands'], ['pl', 'pol', 'Polski'], ['id', 'ind', 'Indonesia'], ['hi', 'hin', 'हिन्दी'], ['vi', 'vie', 'Tiếng Việt'], ['el', 'ell', 'Ελληνικά'], ['he', 'heb', 'עברית'], ['sv', 'swe', 'Svenska']]
 export const SOURCE_MODES = [['balanced', 'Balanced'], ['compact', 'Smallest'], ['lossless', 'Best quality']]
@@ -49,36 +50,48 @@ export async function profileOnboarding () {
   let mode = S.me.settings.sourceMode || 'balanced'
   let adult = !!S.me.settings.adultFilter
   let discord = S.me.settings.discordPresence !== false
-  const draw = () => {
-    const l = stage(`<h1>Hi ${esc(S.me.name)}, make it yours</h1>
-      <div class="ob-form">
+  // Three short pages instead of one long one: language, taste, privacy. Choices live in the variables above, so Back never loses one.
+  const chips = (list, on, attr) => list.map(([v, n]) => `<button class="chip ${on(v) ? 'on' : ''}" data-${attr}="${v}" aria-pressed="${on(v)}">${n}</button>`).join('')
+  const PAGES = [
+    { title: () => `Hi ${esc(S.me.name)}, make it yours`, rows: () => `
         <label class="ob-row"><span><b>Language</b><small>Titles, descriptions and subtitles use it when available.</small></span>
           <select class="field" id="ob-lang">${LANGUAGES.map(([c, , n]) => `<option value="${c}" ${c === lang ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
         <div class="ob-row"><span><b>Show subtitles</b><small>Turned on automatically when they exist.</small></span>
-          <button class="switch" role="switch" id="ob-subs" aria-checked="${subs}" aria-label="Show subtitles"></button></div>
-        <div class="ob-row stack"><span><b>What do you like?</b><small>Pick any. Your home screen starts with these.</small></span>
-          <div class="chips">${[['movie', 'Movies'], ['series', 'Series'], ['anime', 'Anime']].map(([t, n]) => `<button class="chip ${interests.has(t) ? 'on' : ''}" data-i="${t}" aria-pressed="${interests.has(t)}">${n}</button>`).join('')}</div></div>
+          <button class="switch" role="switch" id="ob-subs" aria-checked="${subs}" aria-label="Show subtitles"></button></div>` },
+    { title: () => 'What do you like?', rows: () => `
+        <div class="ob-row stack"><span><b>Your taste</b><small>Pick any. Your home screen starts with these.</small></span>
+          <div class="chips">${chips([['movie', 'Movies'], ['series', 'Series'], ['anime', 'Anime']], v => interests.has(v), 'i')}</div></div>
         <div class="ob-row stack"><span><b>Download size</b><small>Balanced avoids huge files. Smallest starts fastest. Best quality accepts very large files.</small></span>
-          <div class="chips">${SOURCE_MODES.map(([m, n]) => `<button class="chip ${m === mode ? 'on' : ''}" data-m="${m}" aria-pressed="${m === mode}">${n}</button>`).join('')}</div></div>
+          <div class="chips">${chips(SOURCE_MODES, v => v === mode, 'm')}</div></div>` },
+    { title: () => 'Your privacy', rows: () => `
+        <div class="ob-row"><span><b>PIN code</b><small>Optional. Keeps your list, history and settings private: it is asked when someone opens this profile. Downloads stay open to everyone.</small></span>
+          <button class="btn btn-ghost sm" id="ob-pin">${S.me.hasPin ? 'Change' : 'Set a PIN'}</button></div>
         <div class="ob-row"><span><b>Adult content filter</b><small>Hide titles that are marked as adult. Off by default.</small></span>
           <button class="switch" role="switch" id="ob-adult" aria-checked="${adult}" aria-label="Adult content filter"></button></div>
         <div class="ob-row"><span><b>Discord presence</b><small>Show what you are watching in Discord, when it runs on this computer.</small></span>
-          <button class="switch" role="switch" id="ob-discord" aria-checked="${discord}" aria-label="Discord presence"></button></div>
-      </div>
-      <div class="actions"><button class="btn btn-ink" data-save data-autofocus>Start watching</button></div>`, 0, 1)
+          <button class="switch" role="switch" id="ob-discord" aria-checked="${discord}" aria-label="Discord presence"></button></div>` }
+  ]
+  let page = 0
+  const draw = () => {
+    const last = page === PAGES.length - 1
+    const l = stage(`<h1>${PAGES[page].title()}</h1>
+      <div class="ob-form">${PAGES[page].rows()}</div>
+      <div class="actions">${page ? '<button class="btn btn-quiet" data-back>Back</button>' : ''}<button class="btn btn-ink" data-next data-autofocus>${last ? 'Start watching' : 'Next'}</button></div>`, page, PAGES.length)
+    upgradeSelects(l)
     return l
   }
   const l = draw()
-  upgradeSelects(l)
   await new Promise(resolve => {
     l.onchange = e => { if (e.target.id === 'ob-lang') { lang = e.target.value; subs = lang !== 'en' || subs; $('#ob-subs', l).setAttribute('aria-checked', subs) } }
     l.onclick = e => {
       const sw = e.target.closest('#ob-subs'); if (sw) { subs = !subs; sw.setAttribute('aria-checked', subs) }
       const c = e.target.closest('[data-i]'); if (c) { interests.has(c.dataset.i) ? interests.delete(c.dataset.i) : interests.add(c.dataset.i); c.classList.toggle('on'); c.setAttribute('aria-pressed', interests.has(c.dataset.i)) }
       const ad = e.target.closest('#ob-adult'); if (ad) { adult = !adult; ad.setAttribute('aria-checked', adult) }
+      const pn = e.target.closest('#ob-pin'); if (pn) changePin(S.me).then(ok => { if (ok) pn.textContent = S.me.hasPin ? 'Change' : 'Set a PIN' })
       const dc = e.target.closest('#ob-discord'); if (dc) { discord = !discord; dc.setAttribute('aria-checked', discord) }
       const mb = e.target.closest('[data-m]'); if (mb) { mode = mb.dataset.m; l.querySelectorAll('[data-m]').forEach(x => { x.classList.toggle('on', x === mb); x.setAttribute('aria-pressed', x === mb) }) }
-      if (e.target.closest('[data-save]')) resolve()
+      if (e.target.closest('[data-back]')) { page--; draw() }
+      if (e.target.closest('[data-next]')) { if (page === PAGES.length - 1) resolve(); else { page++; draw() } }
     }
   })
   const [code, sub3] = langOf(lang)

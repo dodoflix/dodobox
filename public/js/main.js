@@ -1,7 +1,7 @@
 import { $, $$, esc, isTV, toast, known, lowres } from './util.js'
 import { initAmbient } from './ambient.js'
 import { S, tryRestore, pickProfile } from './session.js'
-import { api, newPage, setLang } from './api.js'
+import { api, newPage, setLang, armLock } from './api.js'
 import { showPicker } from './profiles.js'
 import { focusFirst, usingKeys, onBack } from './nav.js'
 import { home, warmHome } from './home.js'
@@ -107,8 +107,9 @@ async function boot () {
   const first = await tryRestore()
   if (!first) {
     const all = await api('/api/profiles').catch(() => [])
-    if (all.length === 1) await pickProfile(all[0].id); else await showPicker()
+    if (all.length === 1 && !all[0].locked) await pickProfile(all[0].id); else await showPicker()
   }
+  armLock()
   if (!S.me.settings.onboarded) await profileOnboarding()
   store.set('ui', uiLangFor(S.me.settings.lang))
   await initI18n(S.me.settings.lang)
