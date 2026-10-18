@@ -373,6 +373,7 @@ export const ROWS = [
   ['Show password', 'Parolayı göster', 'Mostrar contraseña', 'Afficher le mot de passe', 'Passwort anzeigen'],
   ['Hide password', 'Parolayı gizle', 'Ocultar contraseña', 'Masquer le mot de passe', 'Passwort verbergen'],
   ['Paste', 'Yapıştır', 'Pegar', 'Coller', 'Einfügen'],
+  ['The browser blocked pasting. Paste into the field yourself.', 'Tarayıcı yapıştırmayı engelledi. Alana kendin yapıştır.', 'El navegador bloqueó el pegado. Pega en el campo tú mismo.', 'Le navigateur a bloqué le collage. Collez directement dans le champ.', 'Der Browser hat das Einfügen blockiert. Füge es selbst in das Feld ein.'],
 ]
 
 // Patterns for text that carries numbers or names. $1, $2 refer to captured groups; the same order for every language.

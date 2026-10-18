@@ -44,6 +44,7 @@ export const rows = [
 /*more*/ 'Mật khẩu (tùy chọn)', 'Bạn bè của bạn cũng cần mật khẩu.',
 /*more*/ 'Hiện mật khẩu', 'Ẩn mật khẩu',
 /*more*/ 'Dán',
+/*more*/ 'Trình duyệt đã chặn dán. Hãy tự dán vào ô.',
 ]
 export const patterns = [
   'Chào $1, hãy biến nó thành của bạn', 'Mùa $1', 'Mùa $1 · Tập $2', 'Tiếp tục S$1 E$2', 'S$1 E$2$3', 'Phát sóng $1', '$1 giờ $2 phút', '$1 phút', '$1còn $2 giờ $3 phút', '$1còn $2 phút',

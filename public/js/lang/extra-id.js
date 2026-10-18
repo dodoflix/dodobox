@@ -44,6 +44,7 @@ export const rows = [
 /*more*/ 'Kata sandi (opsional)', 'Teman-temanmu juga membutuhkan kata sandi.',
 /*more*/ 'Tampilkan kata sandi', 'Sembunyikan kata sandi',
 /*more*/ 'Tempel',
+/*more*/ 'Peramban memblokir tempel. Tempel sendiri ke kolom.',
 ]
 export const patterns = [
   'Hai $1, buat jadi milikmu', 'Musim $1', 'Musim $1 · Episode $2', 'Lanjutkan S$1 E$2', 'S$1 E$2$3', 'Tayang $1', '$1 j $2 mnt', '$1 mnt', '$1sisa $2 j $3 mnt', '$1sisa $2 mnt',

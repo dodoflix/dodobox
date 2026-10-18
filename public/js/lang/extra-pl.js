@@ -44,6 +44,7 @@ export const rows = [
 /*more*/ 'Hasło (opcjonalne)', 'Twoi znajomi też potrzebują hasła.',
 /*more*/ 'Pokaż hasło', 'Ukryj hasło',
 /*more*/ 'Wklej',
+/*more*/ 'Przeglądarka zablokowała wklejanie. Wklej samodzielnie w polu.',
 ]
 export const patterns = [
   'Cześć $1, dostosuj to do siebie', 'Sezon $1', 'Sezon $1 · Odcinek $2', 'Wznów S$1 O$2', 'S$1 O$2$3', 'Premiera $1', '$1 godz. $2 min', '$1 min', '$1zostało $2 godz. $3 min', '$1zostało $2 min',

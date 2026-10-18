@@ -17,6 +17,7 @@ const pasteBtn = CAN_PASTE ? `<button type="button" class="icon-btn" data-a="pas
 const passField = `<div class="pp-pass" style="--n:${CAN_PASTE ? 2 : 1}"><input class="field${MASK ? ' masked' : ''}" name="partykey" type="${MASK ? 'text' : 'password'}" placeholder="Password (optional)" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="64" enterkeyhint="go" readonly aria-label="Password (optional)" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"><span class="pp-act">${pasteBtn}<button type="button" class="icon-btn" data-a="peek" aria-label="Show password" aria-pressed="false">${icon('eye')}</button></span></div>`
 const codeField = `<div class="pp-pass" style="--n:${CAN_PASTE ? 1 : 0}"><input id="pp-code" class="field" name="code" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24"><span class="pp-act">${pasteBtn}</span></div>`
 // A code pasted inside a sentence ("join my party: ABCD-...") is picked out of it: codes are shown with dashes, so that form wins; anything else is left as pasted.
+const fill = (f, text) => { const t = text.trim(); f.value = (f.name === 'code' ? codeIn(t) : t).slice(0, f.maxLength) }
 const codeIn = text => text.match(/\b[0-9A-Za-z]{4}(?:-[0-9A-Za-z]{4}){3}\b/)?.[0] ?? text
 const href = i => `#/watch/${i.type}/${enc(i.id)}` + (i.season != null ? `/${i.season}/${i.episode}` : '')
 const same = (a, b) => !!a && !!b && a.type === b.type && a.id === b.id && (a.season ?? null) === (b.season ?? null) && (a.episode ?? null) === (b.episode ?? null)
@@ -73,6 +74,8 @@ document.addEventListener('input', e => {
   if (f.selectionStart === f.value.length) { const v = emojify(f.value); if (v !== f.value) f.value = v }
   draft = f.value
 })
+// Ctrl+V or a long press in the code field gets the same treatment as the paste button: a code inside a copied message is picked out of it.
+document.addEventListener('paste', e => { if (e.target.matches?.('.pp-pass input[name=code]')) { e.preventDefault(); fill(e.target, e.clipboardData?.getData('text') || '') } })
 document.addEventListener('focusin', e => { if (e.target.matches?.('.pp-pass input[readonly]')) e.target.removeAttribute('readonly') })
 // Escape closes the emoji picker before it closes the panel.
 document.addEventListener('keydown', e => {
@@ -307,11 +310,8 @@ function behaviour (ctx, host) {
         if (a === 'paste') {
           const f = btn.closest('.pp-pass').querySelector('input')
           f.removeAttribute('readonly'); f.focus()
-          try {
-            let t = (await navigator.clipboard.readText()).trim()
-            if (f.name === 'code') t = codeIn(t)
-            f.value = t.slice(0, f.maxLength)
-          } catch { /* permission refused: the field is focused for Ctrl+V */ }
+          // The browser may ask first (once in Chrome, every time in Firefox and Safari); a refusal leaves the field focused so it can be pasted into by hand.
+          try { fill(f, await navigator.clipboard.readText()) } catch { toast('The browser blocked pasting. Paste into the field yourself.') }
         }
         if (a === 'peek') {
           const f = btn.closest('.pp-pass').querySelector('input'); const show = MASK ? f.classList.contains('masked') : f.type === 'password'

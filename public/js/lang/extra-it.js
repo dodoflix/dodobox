@@ -44,6 +44,7 @@ export const rows = [
 /*more*/ 'Password (facoltativa)', 'Anche i tuoi amici hanno bisogno della password.',
 /*more*/ 'Mostra password', 'Nascondi password',
 /*more*/ 'Incolla',
+/*more*/ 'Il browser ha bloccato l\'incolla. Incolla tu nel campo.',
 ]
 export const patterns = [
   'Ciao $1, rendilo tuo', 'Stagione $1', 'Stagione $1 · Episodio $2', 'Riprendi S$1 E$2', 'S$1 E$2$3', 'Esce il $1', '$1 h $2 min', '$1 min', '$1restano $2 h $3 min', '$1restano $2 min',
