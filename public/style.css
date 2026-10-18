@@ -50,10 +50,12 @@ a { color: inherit; text-decoration: none; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 img { display: block; }
-* { scrollbar-width: thin; scrollbar-color: var(--thumb) transparent; }
+/* Firefox draws its scrollbar from the standard properties (its auto width is the slim rounded one; thin is a hairline). Chromium ignores the ::-webkit-scrollbar rules whenever those are set (and then adds arrow buttons), so there they are left on auto and the scrollbar is drawn by the pseudo-elements: the same slim rounded thumb everywhere. */
+* { scrollbar-color: var(--thumb) transparent; }
+@supports selector(::-webkit-scrollbar) { * { scrollbar-color: auto; } }
 body { -webkit-user-select: none; user-select: none; }
 input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; }
-::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-thumb { background: var(--thumb); border-radius: var(--r-tag); }
+::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; } ::-webkit-scrollbar-button { display: none; } ::-webkit-scrollbar-thumb { background: var(--thumb); border-radius: var(--r-tag); }
 :focus { outline: none; }
 :focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; border-radius: var(--r-tag); }
 html.tv :focus-visible { outline-width: 4px; box-shadow: 0 0 0 10px rgb(var(--glow) / .35); }
