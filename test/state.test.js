@@ -82,3 +82,13 @@ test('download priority: idle streams pause, manual downloads give way only whil
   assert.equal(pauseReason(manual(undefined), now, true), 'watching') // gives way to what is on screen
   assert.equal(pauseReason(manual(now - 2e3), now, true), null) // unless it is the one being watched
 })
+
+test('a profile id of "__proto__" finds nothing and cannot change Object.prototype', () => {
+  assert.equal(state.profile('__proto__'), undefined)
+  assert.equal(state.updateProfile('__proto__', { name: 'pwned', color: 'red' }), null)
+  assert.equal(state.saveProgress('constructor', { type: 'movie', id: 'x', pos: 1, dur: 10 }), false)
+  assert.equal({}.name, undefined)
+  const p = state.createProfile('Cy')
+  state.updateProfile(p.id, { settings: { constructor: 1, lang: 'tr' } })
+  assert.equal(Object.hasOwn(state.profile(p.id).settings, 'constructor'), false)
+})

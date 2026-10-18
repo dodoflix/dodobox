@@ -69,7 +69,7 @@ export async function image (u, w, { webp = false, signal } = {}) {
     try {
       const scale = `scale='min(${sw},iw)':-2:flags=lanczos`
       const args = webp ? ['-quality', '78'] : ['-q:v', sw >= 1080 ? '2' : '4']
-      const buf = await run(['-i', 'pipe:0', '-vf', scale, '-frames:v', '1', ...(webp ? ['-c:v', 'libwebp'] : []), ...args, '-f', webp ? 'webp' : 'mjpeg', 'pipe:1'], orig.buf)
+      const buf = await run(['-protocol_whitelist', 'pipe', '-i', 'pipe:0', '-vf', scale, '-frames:v', '1', ...(webp ? ['-c:v', 'libwebp'] : []), ...args, '-f', webp ? 'webp' : 'mjpeg', 'pipe:1'], orig.buf)
       if (buf.length) { await writeFile(small, buf); return { buf, type: `image/${webp ? 'webp' : 'jpeg'}` } }
     } catch {} finally { release() }
     return webp ? image(u, w, { signal }) : { buf: orig.buf, type: orig.type }

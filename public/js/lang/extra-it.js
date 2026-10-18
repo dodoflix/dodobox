@@ -41,6 +41,7 @@ export const rows = [
 /*more*/ 'Ottieni un codice da condividere e guardate tutto insieme, episodio dopo episodio.', 'oppure', 'Unisciti con un codice', 'Scegli cosa guardare e tutti ti seguono.', 'Scrivi al gruppo', 'Messaggi', 'Invia', 'Mostra immagine', 'Emoji', 'La chat è nascosta a schermo intero su iPhone',
 /*more*/ 'Presenza su Discord', 'Mostra su Discord cosa stai guardando, se è in esecuzione su questo computer.',
 /*more*/ 'Sta sfogliando', 'Cerca qualcosa da guardare', 'In una visione di gruppo', 'Sceglie cosa guardare', 'Scarica Dodobox', 'Versioni',
+/*more*/ 'Password (facoltativa)', 'Anche i tuoi amici hanno bisogno della password.',
 ]
 export const patterns = [
   'Ciao $1, rendilo tuo', 'Stagione $1', 'Stagione $1 · Episodio $2', 'Riprendi S$1 E$2', 'S$1 E$2$3', 'Esce il $1', '$1 h $2 min', '$1 min', '$1restano $2 h $3 min', '$1restano $2 min',

@@ -152,3 +152,18 @@ test('deleting from the library removes files', async () => {
   assert.deepEqual(await (await get(`/api/library/${hash}`, { method: 'DELETE' })).json(), { ok: true })
   assert.deepEqual(fs.readdirSync(dl, { recursive: true }), [])
 })
+
+test('requests from another site, and from a made-up hostname, are refused', async () => {
+  const { request } = await import('node:http')
+  const hit = (method, path, headers) => new Promise((resolve, reject) => {
+    const r = request({ host: '127.0.0.1', port: new URL(base).port, method, path, headers }, res => { res.resume(); resolve(res.statusCode) })
+    r.on('error', reject); r.end(method === 'POST' ? '{}' : undefined)
+  })
+  assert.equal(await hit('POST', '/api/party/leave', { 'sec-fetch-site': 'cross-site' }), 403)
+  assert.equal(await hit('POST', '/api/party/leave', { origin: 'https://evil.example' }), 403)
+  assert.equal(await hit('POST', '/api/party/leave', { 'sec-fetch-site': 'same-origin' }), 200)
+  assert.equal(await hit('POST', '/api/party/leave', { origin: base }), 200)
+  assert.equal(await hit('POST', '/api/party/leave', {}), 200, 'no browser headers: a script or a TV app')
+  assert.equal(await hit('GET', '/api/party', { host: 'evil.example' }), 421)
+  assert.equal(await hit('GET', '/api/party', { host: 'localhost:3000' }), 200)
+})

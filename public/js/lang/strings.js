@@ -368,6 +368,8 @@ export const ROWS = [
   ['Picking something to watch', 'İzlenecek şeyi seçiyor', 'Eligiendo qué ver', 'Choisit quoi regarder', 'Wählt etwas zum Anschauen'],
   ['Get Dodobox', 'Dodobox\'ı indir', 'Consigue Dodobox', 'Obtenir Dodobox', 'Dodobox holen'],
   ['Releases', 'Sürümler', 'Versiones', 'Versions', 'Versionen'],
+  ['Password (optional)', 'Parola (isteğe bağlı)', 'Contraseña (opcional)', 'Mot de passe (facultatif)', 'Passwort (optional)'],
+  ['Friends also need the password.', 'Arkadaşlarının parolayı da bilmesi gerekir.', 'Tus amigos también necesitan la contraseña.', 'Vos amis ont aussi besoin du mot de passe.', 'Deine Freunde brauchen auch das Passwort.'],
 ]
 
 // Patterns for text that carries numbers or names. $1, $2 refer to captured groups; the same order for every language.

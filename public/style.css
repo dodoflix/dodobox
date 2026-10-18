@@ -681,7 +681,8 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 .party-pop .icon-btn .i { width: 1.2rem; height: 1.2rem; }
 .pp-lead { color: var(--ink2); line-height: 1.5; }
 .pp-note { color: var(--ink3); font-size: var(--fs-m); line-height: 1.45; }
-.pp-lead + .btn { width: 100%; }
+.pp-start { display: grid; grid-template-columns: minmax(0, 1fr); gap: .6rem; }
+.pp-start .btn-ink { width: 100%; }
 .pp-or { display: flex; align-items: center; gap: .8rem; color: var(--ink3); font-size: var(--fs-m); }
 .pp-or::before, .pp-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .pp-join { display: grid; grid-template-columns: minmax(0, 1fr); gap: .6rem; }

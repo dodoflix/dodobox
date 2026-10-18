@@ -124,3 +124,28 @@ test('joining with a bad code, or twice, is refused', async () => {
   assert.throws(() => p.send('ch', { text: 'hi' }), /Not connected yet/, 'nobody to talk to yet')
   p.leave()
 })
+
+test('one member cannot flood the party, and a hostile colour is replaced', async () => {
+  const p = mk(); await p.join(newCode(), { name: 'Me' })
+  const send = (q, extra) => p.receive(seal(p.key, { f: 'spam', q, ts: Date.now(), k: 'hi', name: 'S', ...extra }), null)
+  send(1, { color: 'red;position:fixed' })
+  assert.equal(p.members.get('spam').color, '#888')
+  for (let q = 2; q < 200; q++) p.receive(seal(p.key, { f: 'spam', q, ts: Date.now(), k: 'ch', text: 'x' }), null)
+  assert.ok(p.chat.filter(m => !m.sys).length <= 31, 'a sender gets a small burst, then waits')
+  p.leave()
+})
+
+test('a password makes another swarm and key, and the same code without it stays as before', async () => {
+  const code = '0000-1111-2222-3333'
+  const plain = await derive(code); const locked = await derive(code, 'tea')
+  assert.notEqual(locked.infoHash, plain.infoHash)
+  assert.notEqual(locked.key.toString('hex'), plain.key.toString('hex'))
+  assert.notEqual((await derive(code, 'Tea')).infoHash, locked.infoHash, 'case matters')
+  const p = mk(); await p.join(code, { name: 'A' }, null, '  tea ')
+  assert.equal(p.status().locked, true)
+  assert.equal(p.key.toString('hex'), locked.key.toString('hex'), 'spaces around it are ignored')
+  p.leave()
+  const q = mk(); await q.join(code, { name: 'B' })
+  assert.equal(q.status().locked, false)
+  q.leave()
+})

@@ -41,6 +41,7 @@ export const rows = [
 /*more*/ 'Skaffa en kod att dela och titta på vad som helst tillsammans, avsnitt för avsnitt.', 'eller', 'Gå med med en kod', 'Välj något att titta på så följer alla med.', 'Meddela sällskapet', 'Meddelanden', 'Skicka', 'Visa bild', 'Emoji', 'Chatten är dold i helskärm på iPhone',
 /*more*/ 'Discord-status', 'Visar i Discord vad du tittar på, om Discord körs på den här datorn.',
 /*more*/ 'Bläddrar', 'Letar efter något att titta på', 'På en tittarfest', 'Väljer vad de ska titta på', 'Hämta Dodobox', 'Versioner',
+/*more*/ 'Lösenord (valfritt)', 'Dina vänner behöver också lösenordet.',
 ]
 export const patterns = [
   'Hej $1, gör det till ditt', 'Säsong $1', 'Säsong $1 · Avsnitt $2', 'Återuppta S$1 A$2', 'S$1 A$2$3', 'Sänds $1', '$1 h $2 min', '$1 min', '$1$2 h $3 min kvar', '$1$2 min kvar',
