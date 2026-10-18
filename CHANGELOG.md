@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.8.0](https://github.com/dodoflix/dodobox/compare/v0.7.0...v0.8.0) (2026-10-18)
+
+
+### Features
+
+* adult filter covers movies, series and personal lists, sukebei sources for adult anime ([#41](https://github.com/dodoflix/dodobox/issues/41)) ([0cc0e82](https://github.com/dodoflix/dodobox/commit/0cc0e82fd76b520cbf021df104e88f706e193226))
+* download controls, history removal, player stats and fixes ([#42](https://github.com/dodoflix/dodobox/issues/42)) ([f4fc910](https://github.com/dodoflix/dodobox/commit/f4fc910439c9634a4b3c73b0e28a5c786860ac7b))
+* optional watch party password and security hardening ([#37](https://github.com/dodoflix/dodobox/issues/37)) ([c9596b5](https://github.com/dodoflix/dodobox/commit/c9596b50882474d6c76d717056cc2ae6fa84a470))
+* preview and detail info, scroll arrows on strips, rounded posters ([#40](https://github.com/dodoflix/dodobox/issues/40)) ([2992823](https://github.com/dodoflix/dodobox/commit/2992823a49bf4010f2e0f33becc56ddd287a7b5f))
+* profile PINs, asked in setup, and setup split into three pages ([#46](https://github.com/dodoflix/dodobox/issues/46)) ([e5ce0de](https://github.com/dodoflix/dodobox/commit/e5ce0de70d64d1c7f6b41d7ce2dfe4870cfff03b))
+* skip intro and recap, up next at the credits ([#43](https://github.com/dodoflix/dodobox/issues/43)) ([1efa6fa](https://github.com/dodoflix/dodobox/commit/1efa6fadce7c354d240bf1c01e44cd4e3d61f2db))
+* watch party shows how many people are in and the limit ([#45](https://github.com/dodoflix/dodobox/issues/45)) ([0d5b23d](https://github.com/dodoflix/dodobox/commit/0d5b23d907a7a2cd7e0baaef4898026cc841eed4))
+
+
+### Bug fixes
+
+* settings columns share the whole page width ([#44](https://github.com/dodoflix/dodobox/issues/44)) ([1fc5799](https://github.com/dodoflix/dodobox/commit/1fc5799c91c9330e1b293386f7728266ca16c1e3))
+* squarer controls matching text inputs, centred switch knob, dropdown and detail layout fixes ([#39](https://github.com/dodoflix/dodobox/issues/39)) ([a9091c2](https://github.com/dodoflix/dodobox/commit/a9091c2f7216630f1d75ee0f950cdb6c1d35b15e))
+
+
+### Documentation
+
+* refresh README banner screenshots ([#47](https://github.com/dodoflix/dodobox/issues/47)) ([d30a463](https://github.com/dodoflix/dodobox/commit/d30a463600935e27a8cb32882438d9a3e9f75ea4))
+
 ## [0.7.0](https://github.com/dodoflix/dodobox/compare/v0.6.0...v0.7.0) (2026-10-16)
 
 
