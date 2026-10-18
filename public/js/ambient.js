@@ -41,7 +41,7 @@ export async function glow (url) {
   document.documentElement.style.setProperty('--glow', rgb)
   const layers = [...document.querySelectorAll('#ambient i')]
   const next = layers[flip ^= 1]
-  next.style.setProperty('--g', rgb.replace(/ /g, ' '))
+  next.style.setProperty('--g', rgb)
   layers.forEach((l, i) => l.classList.toggle('on', i === flip))
 }
 export const calm = () => glow(null)

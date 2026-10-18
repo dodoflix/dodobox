@@ -7,7 +7,7 @@ import { upgradeSelects } from './dropdown.js'
 
 const TYPES = { movie: 'Movies', series: 'Series', anime: 'Anime' }
 export async function browse (root, type = 'movie', q) {
-  if (!TYPES[type]) type = 'movie'
+  if (!Object.hasOwn(TYPES, type)) type = 'movie'
   calm()
   const genre = q.get('genre') || ''
   const sort = SORTS.some(x => x[0] === q.get('sort')) ? q.get('sort') : 'popular'
@@ -21,8 +21,8 @@ export async function browse (root, type = 'movie', q) {
     <div class="typeseg" role="tablist" aria-label="Type">${Object.entries(TYPES).map(([t, n]) => `<a role="tab" aria-selected="${t === type}" class="${t === type ? 'on' : ''}" href="#/browse/${t}?all=1${sort !== 'popular' ? '&sort=' + sort : ''}">${n}</a>`).join('')}</div>
     <div class="sortrow"><label for="sort">Sort by</label><select class="field" id="sort">${SORTS.map(([v, n]) => `<option value="${v}" ${v === sort ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
     <div class="genres" id="genres" aria-label="Genres">
-      ${genre ? `<a class="g on" href="${here(genre)}" aria-current="true">${esc(genre)}</a><a class="g all" href="${here('')}">All</a>` : `<a class="g all on" href="${here('')}" aria-current="true">All</a>`}
-      ${genres.filter(g => g !== genre).map(g => `<a class="g" href="${here(g)}">${esc(g)}</a>`).join('')}
+      ${genre ? `<a class="g on" href="${esc(here(genre))}" aria-current="true">${esc(genre)}</a><a class="g all" href="${esc(here(''))}">All</a>` : `<a class="g all on" href="${esc(here(''))}" aria-current="true">All</a>`}
+      ${genres.filter(g => g !== genre).map(g => `<a class="g" href="${esc(here(g))}">${esc(g)}</a>`).join('')}
     </div>
     <div class="grid" id="grid">${skeletons(18)}</div><div class="sentinel" id="more"></div></div>`
   dragScroll($('#genres'))

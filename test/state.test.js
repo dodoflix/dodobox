@@ -82,3 +82,51 @@ test('download priority: idle streams pause, manual downloads give way only whil
   assert.equal(pauseReason(manual(undefined), now, true), 'watching') // gives way to what is on screen
   assert.equal(pauseReason(manual(now - 2e3), now, true), null) // unless it is the one being watched
 })
+
+test('a profile id of "__proto__" finds nothing and cannot change Object.prototype', () => {
+  assert.equal(state.profile('__proto__'), undefined)
+  assert.equal(state.updateProfile('__proto__', { name: 'pwned', color: 'red' }), null)
+  assert.equal(state.saveProgress('constructor', { type: 'movie', id: 'x', pos: 1, dur: 10 }), false)
+  assert.equal({}.name, undefined)
+  const p = state.createProfile('Cy')
+  state.updateProfile(p.id, { settings: { constructor: 1, lang: 'tr' } })
+  assert.equal(Object.hasOwn(state.profile(p.id).settings, 'constructor'), false)
+})
+
+test('what a client sends is checked: wrong shapes are cut, colours and pictures cannot carry CSS', () => {
+  const p = state.createProfile('Dee', 'red;background:url(//evil.example)')
+  assert.match(p.color, /^#[0-9a-f]{6}$/i, 'a free-form colour is replaced')
+  state.updateProfile(p.id, { color: 'red;x:y', settings: { lang: '<b>', sublang: 'tur', autoNext: 'yes', interests: ['movie', '<i>'], quality: 'auto' } })
+  assert.match(state.profile(p.id).color, /^#/)
+  assert.deepEqual([state.profile(p.id).settings.lang, state.profile(p.id).settings.sublang, state.profile(p.id).settings.autoNext], ['en', 'tur', true])
+  const item = { type: 'movie', id: 'tt1', name: 'N'.repeat(500), poster: "/img?u=x');background:red;--x:('", year: '<svg>', rating: '9' }
+  const [it] = state.setList(p.id, item, true)
+  assert.deepEqual([it.name.length, it.poster, it.year, it.rating], [200, '', undefined, undefined])
+  assert.equal(state.setList(p.id, { ...item, poster: '/img?u=https%3A%2F%2Fx.test%2Fa.jpg', year: '2008-2013', rating: 8.5 }, true)[0].rating, 8.5)
+  assert.throws(() => state.setList(p.id, { type: 'game', id: 'x' }, true), /Bad title/)
+  assert.throws(() => state.setList(p.id, { type: 'movie', id: '"><img>' }, true), /Bad title/)
+  assert.equal(state.saveProgress(p.id, { type: 'movie', id: 'tt1', pos: 'x', dur: 10 }), false)
+  assert.equal(state.saveProgress(p.id, { type: 'series', id: 'tt2', season: '1', episode: 2, pos: 5, dur: 100, poster: 'javascript:alert(1)' }), true)
+  assert.equal(state.profile(p.id).history['series:tt2'].poster, '')
+  assert.equal(state.profile(p.id).history['series:tt2'].season, null)
+})
+
+test('data saved before values were checked is cleaned when the server starts', async () => {
+  const { execFileSync } = await import('node:child_process')
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-scrub-'))
+  const bad = { type: 'movie', id: 'tt1', name: 'x', poster: "/img?u=x');background:red", rating: '9<b>', year: '<svg>' }
+  fs.writeFileSync(path.join(dir, 'state.json'), JSON.stringify({ profiles: { a1: { id: 'a1', name: 'A', color: 'red;x:y', progress: {}, recent: { 'movie:tt1': bad }, history: {}, ratings: { x: { type: 'game', id: 'z' } }, list: [bad, { type: 'bogus' }, null], settings: { lang: '<b>', legacy: 'keep' } } }, settings: {} }))
+  const out = execFileSync(process.execPath, ['--input-type=module', '-e', "const s = await import('./src/state.js'); process.stdout.write('\\nRESULT' + JSON.stringify(s.profile('a1')))"], { env: { ...process.env, DATA_DIR: dir, NO_DHT: '1' }, encoding: 'utf8' })
+  const p = JSON.parse(out.slice(out.indexOf('RESULT') + 6))
+  assert.match(p.color, /^#/)
+  assert.equal(p.list.length, 1)
+  assert.deepEqual([p.list[0].poster, p.list[0].rating, p.list[0].year], ['', undefined, undefined])
+  assert.deepEqual(Object.keys(p.ratings), [])
+  assert.equal(p.settings.lang, 'en')
+  assert.equal(p.settings.legacy, 'keep')
+})
+
+test('profiles are capped so the API cannot grow the data file without limit', () => {
+  while (state.profiles().length < 32) state.createProfile('P' + state.profiles().length)
+  assert.throws(() => state.createProfile('One too many'), /Too many profiles/)
+})

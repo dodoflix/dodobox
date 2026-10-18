@@ -13,6 +13,7 @@ process.env.NO_SPEEDTEST = '1'
 process.env.NO_UPDATE_CHECK = '1'
 process.env.NO_DHT = '1'
 process.env.NO_MDNS = '1'
+process.env.ALLOWED_HOSTS = 'nas.example.com'
 process.env.HOME = tmp
 
 let seeder, srv, engine, base, hash, packHash, packMagnet
@@ -151,4 +152,22 @@ test('deleting from the library removes files', async () => {
   assert.ok(fs.readdirSync(dl).length > 0)
   assert.deepEqual(await (await get(`/api/library/${hash}`, { method: 'DELETE' })).json(), { ok: true })
   assert.deepEqual(fs.readdirSync(dl, { recursive: true }), [])
+})
+
+test('requests from another site, and from a made-up hostname, are refused', async () => {
+  const { request } = await import('node:http')
+  const hit = (method, path, headers) => new Promise((resolve, reject) => {
+    const r = request({ host: '127.0.0.1', port: new URL(base).port, method, path, headers }, res => { res.resume(); resolve(res.statusCode) })
+    r.on('error', reject); r.end(method === 'POST' ? '{}' : undefined)
+  })
+  assert.equal(await hit('POST', '/api/party/leave', { 'sec-fetch-site': 'cross-site' }), 403)
+  assert.equal(await hit('POST', '/api/party/leave', { origin: 'https://evil.example' }), 403)
+  assert.equal(await hit('POST', '/api/party/leave', { 'sec-fetch-site': 'same-origin' }), 200)
+  assert.equal(await hit('POST', '/api/party/leave', { origin: base }), 200)
+  assert.equal(await hit('POST', '/api/party/leave', {}), 200, 'no browser headers: a script or a TV app')
+  assert.equal(await hit('GET', '/api/party', { host: 'evil.example' }), 421)
+  assert.equal(await hit('GET', '/api/party', { host: 'localhost:3000' }), 200)
+  assert.equal(await hit('GET', '/api/party', { host: 'evil.example', 'x-forwarded-for': '1.2.3.4', 'x-forwarded-host': 'localhost' }), 421, 'a page can set forwarded headers itself')
+  for (const host of ['dodobox.local', 'nas', 'tv.lan', '192.168.1.5:3000', '[::1]:3000', 'NAS.EXAMPLE.COM']) assert.equal(await hit('GET', '/api/party', { host }), 200, host)
+  for (const host of ['attacker.com', 'x.nip.io', 'dodobox.local.evil.com', 'tv.lan.evil.com']) assert.equal(await hit('GET', '/api/party', { host }), 421, host)
 })

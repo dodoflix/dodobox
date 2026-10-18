@@ -6,6 +6,19 @@ import { emojify, PICKER, REACTIONS, onlyEmoji, parseLink, LINK, trimLink } from
 
 const LAG = 0.25 // seconds a command is old by the time it arrives
 const DRIFT = 1.5 // seconds apart before a heartbeat moves the video
+// Hidden as it is typed, with a button to show it (a wrong password cannot be told apart from an empty party, so a typo has to be easy to see).
+// A text field that is drawn as dots, not type=password: this is not a login, and browsers and password managers offer saved logins for anything typed password.
+// Where the dots are not supported (Firefox) it falls back to type=password.
+// It is also read-only until it gets focus, because browsers skip autofill on read-only fields and ignore autocomplete=off on the rest.
+const MASK = CSS.supports('-webkit-text-security', 'disc')
+// A paste button where the browser allows reading the clipboard (not on a plain http address other than localhost); otherwise Ctrl+V or a long press still works.
+const CAN_PASTE = !!navigator.clipboard?.readText
+const pasteBtn = CAN_PASTE ? `<button type="button" class="icon-btn" data-a="paste" aria-label="Paste">${icon('paste')}</button>` : ''
+const passField = `<div class="pp-pass" style="--n:${CAN_PASTE ? 2 : 1}"><input class="field${MASK ? ' masked' : ''}" name="partykey" type="${MASK ? 'text' : 'password'}" placeholder="Password (optional)" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="64" enterkeyhint="go" readonly aria-label="Password (optional)" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"><span class="pp-act">${pasteBtn}<button type="button" class="icon-btn" data-a="peek" aria-label="Show password" aria-pressed="false">${icon('eye')}</button></span></div>`
+const codeField = `<div class="pp-pass" style="--n:${CAN_PASTE ? 1 : 0}"><input id="pp-code" class="field" name="code" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24"><span class="pp-act">${pasteBtn}</span></div>`
+// A code pasted inside a sentence ("join my party: ABCD-...") is picked out of it: codes are shown with dashes, so that form wins; anything else is left as pasted.
+const fill = (f, text) => { const t = text.trim(); f.value = (f.name === 'code' ? codeIn(t) : t).slice(0, f.maxLength) }
+const codeIn = text => text.match(/\b[0-9A-Za-z]{4}(?:-[0-9A-Za-z]{4}){3}\b/)?.[0] ?? text
 const href = i => `#/watch/${i.type}/${enc(i.id)}` + (i.season != null ? `/${i.season}/${i.episode}` : '')
 const same = (a, b) => !!a && !!b && a.type === b.type && a.id === b.id && (a.season ?? null) === (b.season ?? null) && (a.episode ?? null) === (b.episode ?? null)
 
@@ -61,6 +74,9 @@ document.addEventListener('input', e => {
   if (f.selectionStart === f.value.length) { const v = emojify(f.value); if (v !== f.value) f.value = v }
   draft = f.value
 })
+// Ctrl+V or a long press in the code field gets the same treatment as the paste button: a code inside a copied message is picked out of it.
+document.addEventListener('paste', e => { if (e.target.matches?.('.pp-pass input[name=code]')) { e.preventDefault(); fill(e.target, e.clipboardData?.getData('text') || '') } })
+document.addEventListener('focusin', e => { if (e.target.matches?.('.pp-pass input[readonly]')) e.target.removeAttribute('readonly') })
 // Escape closes the emoji picker before it closes the panel.
 document.addEventListener('keydown', e => {
   if (!e.target.closest?.('.party-pop')) return
@@ -214,10 +230,13 @@ function html (ctx) {
   let body
   if (!s.active) {
     body = `<p class="pp-lead">Get a code to share, then watch anything together, episode after episode.</p>
-      <button class="btn btn-ink" data-a="start" data-autofocus>Start a party</button>
+      <form class="pp-start">${passField}
+        <button class="btn btn-ink" data-autofocus>Start a party</button></form>
       <p class="pp-note">Friends need Dodobox too. Share the code with them.</p>
       <div class="pp-or"><span>or</span></div>
-      <form class="pp-join"><label for="pp-code">Join with a code</label><div class="pp-row"><input id="pp-code" class="field" name="code" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24"><button class="btn btn-ghost">Join</button></div></form>`
+      <form class="pp-join"><label for="pp-code">Join with a code</label>${codeField}
+        ${passField}
+        <button class="btn btn-ghost">Join</button></form>`
   } else {
     const n = s.now?.item
     const poster = n ? posterOf(n) : ''
@@ -227,7 +246,7 @@ function html (ctx) {
           <div class="pp-cap"><b translate="no">${esc(n.title || '')}</b>${n.season != null ? `<span>S${n.season} E${n.episode}</span>` : ''}</div></div>
           ${here ? '' : '<button class="btn btn-ink sm" data-a="go" data-autofocus>Watch together</button>'}</section>`
       : '<p class="pp-note">Pick anything to watch and everyone follows.</p>'
-    body = `<section class="pp-code"><span class="pp-label">Party code</span><div class="pp-codeline"><b translate="no">${esc(s.code)}</b><button class="icon-btn" data-a="copy" aria-label="Copy code">${icon('copy')}</button></div></section>
+    body = `<section class="pp-code"><span class="pp-label">Party code</span><div class="pp-codeline"><b translate="no">${esc(s.code)}</b><button class="icon-btn" data-a="copy" aria-label="Copy code">${icon('copy')}</button></div>${s.locked ? '<p class="pp-note">Friends also need the password.</p>' : ''}</section>
       <ul class="pp-members${s.members.length > 4 ? ' crowd' : ''}">${s.members.map(m => (s.members.length > 4
         ? `<li><button type="button" class="avatar${m.you ? ' you' : ''}" data-a="who" data-name="${esc(m.you ? 'You' : m.name)}" style="--c:${esc(m.color)}" aria-label="${esc(m.name)}${m.you ? ' (You)' : ''}">${esc((m.name || '?')[0].toUpperCase())}</button></li>`
         : `<li><span class="avatar" style="--c:${esc(m.color)}">${esc((m.name || '?')[0].toUpperCase())}</span><span class="pp-name" translate="no">${esc(m.name)}</span>${m.you ? '<small>You</small>' : ''}</li>`)).join('')}</ul>
@@ -260,7 +279,15 @@ function behaviour (ctx, host) {
         try { await api('/api/party/send', { method: 'POST', body: { k: 'ch', text } }) } catch (err) { draft = text; e.target.chat.value = text; toast(err.message) }
         return
       }
-      try { take(await api('/api/party/join', { method: 'POST', body: { code: e.target.querySelector('input').value } })); seen = new Set(status.members.map(m => m.id)); listen(); paintChip(); host.redraw() } catch (err) { toast(err.message) }
+      if (e.target.classList.contains('pp-start')) {
+        // From the player it starts on what is playing; from anywhere else it is an empty room.
+        try {
+          take(await api('/api/party/start', { method: 'POST', body: { password: e.target.partykey.value, ...ctx && { item: ctx.item, hash: ctx.hash(), pos: ctx.v.currentTime, paused: ctx.v.paused } } }))
+          seen = new Set(status.members.map(m => m.id)); listen(); paintChip(); host.redraw()
+        } catch (err) { toast(err.message) }
+        return
+      }
+      try { take(await api('/api/party/join', { method: 'POST', body: { code: e.target.code.value, password: e.target.partykey.value } })); seen = new Set(status.members.map(m => m.id)); listen(); paintChip(); host.redraw() } catch (err) { toast(err.message) }
     },
     async click (e) {
       const bubble = e.target.closest('.pp-log p')
@@ -280,12 +307,18 @@ function behaviour (ctx, host) {
           if (near) glide(log)
         }
         if (a === 'close') host.close()
-        if (a === 'start') {
-          // From the player it starts on what is playing; from anywhere else it is an empty room.
-          take(await api('/api/party/start', { method: 'POST', body: ctx ? { item: ctx.item, hash: ctx.hash(), pos: ctx.v.currentTime, paused: ctx.v.paused } : {} }))
-          seen = new Set(status.members.map(m => m.id)); listen(); paintChip(); host.redraw()
-        }
         if (a === 'leave') { await api('/api/party/leave', { method: 'POST' }); take({ active: false, members: [], now: null }); seen = null; es?.close(); es = null; paintChip(); host.redraw() }
+        if (a === 'paste') {
+          const f = btn.closest('.pp-pass').querySelector('input')
+          f.removeAttribute('readonly'); f.focus()
+          // The browser may ask first (once in Chrome, every time in Firefox and Safari); a refusal leaves the field focused so it can be pasted into by hand.
+          try { fill(f, await navigator.clipboard.readText()) } catch { toast('The browser blocked pasting. Paste into the field yourself.') }
+        }
+        if (a === 'peek') {
+          const f = btn.closest('.pp-pass').querySelector('input'); const show = MASK ? f.classList.contains('masked') : f.type === 'password'
+          if (MASK) f.classList.toggle('masked', !show); else f.type = show ? 'text' : 'password'
+          btn.setAttribute('aria-pressed', show); btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); btn.innerHTML = icon(show ? 'eye-off' : 'eye')
+        }
         if (a === 'who') toast(btn.dataset.name)
         if (a === 'go') { host.close(); location.hash = href(status.now.item) }
         if (a === 'copy') { await navigator.clipboard?.writeText(status.code); toast('Code copied') }

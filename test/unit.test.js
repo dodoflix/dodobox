@@ -277,3 +277,11 @@ test('same-titled shows are told apart by year and by length', () => {
   assert.ok(!lengthFits(782, 48) && !lengthFits(14400, 48))
   assert.ok(lengthFits(0, 48) && lengthFits(782, 0))
 })
+
+test('a playlist named like a video is refused before ffmpeg can follow it', async () => {
+  const { createServer } = await import('node:http')
+  const { probe } = await import('../src/transcode.js')
+  const srv = createServer((req, res) => res.writeHead(206, { 'content-range': 'bytes 0-30/31' }).end('#EXTM3U\nhttp://10.0.0.1/a.ts\n'))
+  await new Promise(r => srv.listen(0, '127.0.0.1', r))
+  try { await assert.rejects(probe(`http://127.0.0.1:${srv.address().port}/x.mkv`, 'playlist-test'), /not a video file/) } finally { srv.close() }
+})

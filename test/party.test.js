@@ -124,3 +124,52 @@ test('joining with a bad code, or twice, is refused', async () => {
   assert.throws(() => p.send('ch', { text: 'hi' }), /Not connected yet/, 'nobody to talk to yet')
   p.leave()
 })
+
+test('one member cannot flood the party, and a hostile colour is replaced', async () => {
+  const p = mk(); await p.join(newCode(), { name: 'Me' })
+  const send = (q, extra) => p.receive(seal(p.key, { f: 'spam', q, ts: Date.now(), k: 'hi', name: 'S', ...extra }), null)
+  send(1, { color: 'red;position:fixed' })
+  assert.equal(p.members.get('spam').color, '#888')
+  for (let q = 2; q < 200; q++) p.receive(seal(p.key, { f: 'spam', q, ts: Date.now(), k: 'ch', text: 'x' }), null)
+  assert.ok(p.chat.filter(m => !m.sys).length <= 31, 'a sender gets a small burst, then waits')
+  p.leave()
+})
+
+test('a password makes another swarm and key, and the same code without it stays as before', async () => {
+  const code = '0000-1111-2222-3333'
+  const plain = await derive(code); const locked = await derive(code, 'tea')
+  assert.notEqual(locked.infoHash, plain.infoHash)
+  assert.notEqual(locked.key.toString('hex'), plain.key.toString('hex'))
+  assert.notEqual((await derive(code, 'Tea')).infoHash, locked.infoHash, 'case matters')
+  const p = mk(); await p.join(code, { name: 'A' }, null, '  tea ')
+  assert.equal(p.status().locked, true)
+  assert.equal(p.key.toString('hex'), locked.key.toString('hex'), 'spaces around it are ignored')
+  p.leave()
+  const q = mk(); await q.join(code, { name: 'B' })
+  assert.equal(q.status().locked, false)
+  q.leave()
+})
+
+test('bidi override characters are removed from names and chat', async () => {
+  const p = mk(); await p.join(newCode(), { name: 'Me' })
+  p.receive(seal(p.key, { f: 'eve001', q: 1, ts: Date.now(), k: 'hi', name: 'Eve‮ exe.jpg' }), null)
+  assert.equal(p.members.get('eve001').name, 'Eve exe.jpg')
+  p.receive(seal(p.key, { f: 'eve001', q: 2, ts: Date.now(), k: 'ch', text: 'a‮b⁦c' }), null)
+  assert.equal(p.chat.filter(m => !m.sys).at(-1).text, 'abc')
+  p.leave()
+})
+
+test('joining at the same moment opens one party, and leaving mid-join cancels it', async () => {
+  const code = newCode()
+  const p = mk()
+  const results = await Promise.allSettled([p.join(code), p.join(code), p.join(code)])
+  assert.equal(results.filter(r => r.status === 'fulfilled').length, 1, 'only one request gets in')
+  assert.ok(results.filter(r => r.status === 'rejected').every(r => /Already in a party/.test(r.reason.message)))
+  p.leave()
+  const q = mk()
+  const pending = q.join(code)
+  q.leave()
+  await assert.rejects(pending, /Left the party/)
+  assert.equal(q.phase, 'idle')
+  assert.equal(q.client, null, 'no torrent client was left behind')
+})

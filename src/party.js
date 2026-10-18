@@ -10,7 +10,7 @@ import { EventEmitter } from 'node:events'
 const scrypt = promisify(crypto.scrypt)
 const EXT = 'dodobox_party'
 export const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥']
-export const LIMITS = { members: 12, message: 4096, chat: 100, text: 500, hiEvery: 20e3, ttl: 70e3, seen: 500, skew: 10 * 60e3 }
+export const LIMITS = { members: 12, message: 4096, chat: 100, text: 500, hiEvery: 20e3, ttl: 70e3, seen: 500, skew: 10 * 60e3, burst: 30, rate: 5 }
 // WebRTC trackers let two homes behind different routers connect (they exchange the offer, a STUN server does the rest); the others find plain TCP peers.
 export const TRACKERS = ['wss://tracker.openwebtorrent.com', 'wss://tracker.webtorrent.dev', 'wss://tracker.btorrent.xyz', 'wss://tracker.files.fm:7073/announce',
   'udp://tracker.opentrackr.org:1337/announce', 'udp://open.stealth.si:80/announce']
@@ -31,8 +31,9 @@ export function cleanCode (text) {
   return /^[0-9A-HJKMNP-TV-Z]{16}$/.test(c) ? c.match(/.{4}/g).join('-') : null
 }
 // Slow on purpose: the torrent id is visible to the network, and this keeps guessing the code from it out of reach.
-export async function derive (code) {
-  const k = await scrypt(code, 'dodobox-party-v1', 64, { N: 16384, r: 8, p: 1 })
+// An optional password is part of what is hashed, so a party with one is a different swarm with a different key: without it there is nothing to find or read.
+export async function derive (code, password = '') {
+  const k = await scrypt(password ? `${code}\n${password}` : code, 'dodobox-party-v1', 64, { N: 16384, r: 8, p: 1 })
   return { infoHash: k.subarray(0, 20).toString('hex'), key: k.subarray(32) }
 }
 
@@ -52,7 +53,9 @@ export function open (key, buf) {
   } catch { return null }
 }
 
-const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '')
+const color = v => (typeof v === 'string' && /^#[\da-f]{3,8}$/i.test(v) ? v : '#888')
+// Bidi override characters can make a name or link read backwards ("gpj.exe" shown as "exe.jpg"), so they are dropped.
+const str = (v, n) => (typeof v === 'string' ? v.replace(/[\u202a-\u202e\u2066-\u2069]/g, '').slice(0, n) : '')
 const int = v => (Number.isInteger(v) && v >= 0 && v < 1e5 ? v : null)
 const secs = v => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v < 1e6 ? v : null)
 // What another member says is being watched. Anything that does not fit is dropped, because it goes to the page and to the player.
@@ -73,7 +76,8 @@ export class Party extends EventEmitter {
   }
 
   reset () {
-    this.code = null; this.key = null; this.client = null; this.torrent = null
+    this.gen = (this.gen || 0) + 1 // a join still waiting on its await sees this change and gives up
+    this.code = null; this.locked = false; this.key = null; this.client = null; this.torrent = null
     this.phase = 'idle' // idle, connecting (nobody else yet), live
     this.self = { id: crypto.randomBytes(4).toString('hex'), name: '', color: '' }
     this.chat = []; this.lastNote = null
@@ -84,15 +88,24 @@ export class Party extends EventEmitter {
 
   get port () { return this.client?.torrentPort }
 
-  async join (code, { name = 'Guest', color = '#888' } = {}, state = null) {
+  async join (code, { name = 'Guest', color: tint = '#888' } = {}, state = null, password = '') {
     if (this.phase !== 'idle') throw Object.assign(new Error('Already in a party'), { code: 409 })
     const clean = cleanCode(code)
     if (!clean) throw Object.assign(new Error('That is not a party code'), { code: 400 })
-    const { infoHash, key } = await derive(clean)
-    this.code = clean; this.key = key; this.phase = 'connecting'
-    this.self.name = String(name).slice(0, 24); this.self.color = String(color).slice(0, 16)
+    // Claimed before the first await: two requests at once must not both get past the check above, each would open its own torrent client.
+    this.phase = 'connecting'; this.code = clean
+    const gen = this.gen
+    const pass = String(password || '').trim().slice(0, 64)
+    let infoHash; let WebTorrent
+    try {
+      const k = await derive(clean, pass)
+      infoHash = k.infoHash; this.key = k.key
+      ;({ default: WebTorrent } = await import('webtorrent'))
+      if (this.gen !== gen) throw Object.assign(new Error('Left the party'), { code: 409 })
+    } catch (e) { if (this.gen === gen) this.reset(); throw e }
+    this.locked = !!pass
+    this.self.name = String(name).slice(0, 24); this.self.color = color(tint)
     this.state = state
-    const { default: WebTorrent } = await import('webtorrent')
     this.client = new WebTorrent({ dht: this.options.dht ?? true, lsd: false, utp: false })
     this.client.on('error', e => console.error('[party]', e.message))
     const trackers = this.options.trackers ?? TRACKERS
@@ -147,14 +160,19 @@ export class Party extends EventEmitter {
     if (this.seen.has(id) || Math.abs(Date.now() - (+m.ts || 0)) > LIMITS.skew) return
     this.seen.add(id)
     if (this.seen.size > LIMITS.seen) this.seen.delete(this.seen.values().next().value)
-    // Members that cannot reach each other directly are bridged by whoever can reach both.
-    this.fan(buf, [...this.wires].filter(w => w !== from))
     const known = this.members.has(m.f)
     if (!known && this.members.size >= LIMITS.members) return
     const who = this.members.get(m.f) || { id: m.f, name: '', color: '' }
+    // One member cannot flood the others: each sender has a small budget that refills over time.
+    const t = Date.now()
+    who.tokens = Math.min(LIMITS.burst, (who.tokens ?? LIMITS.burst) + (t - (who.last ?? t)) / 1000 * LIMITS.rate); who.last = t
+    if (who.tokens < 1) return
+    who.tokens--
+    // Members that cannot reach each other directly are bridged by whoever can reach both.
+    this.fan(buf, [...this.wires].filter(w => w !== from))
     who.at = Date.now()
     const first = m.k === 'hi' && !who.named
-    if (m.k === 'hi') { who.name = str(m.name, 24) || 'Guest'; who.color = str(m.color, 16); who.named = true }
+    if (m.k === 'hi') { who.name = str(m.name, 24) || 'Guest'; who.color = color(m.color); who.named = true }
     this.members.set(m.f, who)
     if (first) this.note(`join:${m.f}:${m.q}`, who, `${who.name} joined the party`)
     if (!known) { this.say('hi'); const now = this.status().now; if (now) this.say('st', now) }
@@ -249,7 +267,7 @@ export class Party extends EventEmitter {
   status () {
     const s = this.state
     return {
-      active: this.phase !== 'idle', phase: this.phase, code: this.code, self: this.self.id,
+      active: this.phase !== 'idle', phase: this.phase, code: this.code, locked: this.locked, self: this.self.id,
       members: [...this.members.values()].map(({ id, name, color }) => ({ id, name, color, you: id === this.self.id })),
       // Where the show is now, counting the time since it was reported.
       now: s && { item: s.item, source: s.source, pos: s.pos + (s.paused ? 0 : (Date.now() - s.at) / 1000), paused: s.paused }

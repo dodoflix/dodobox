@@ -41,6 +41,10 @@ export const rows = [
 /*more*/ 'Dapatkan kode untuk dibagikan, lalu tonton apa saja bersama, episode demi episode.', 'atau', 'Gabung dengan kode', 'Pilih tontonan dan semua ikut.', 'Kirim pesan ke pesta', 'Pesan', 'Kirim', 'Tampilkan gambar', 'Emoji', 'Obrolan disembunyikan di layar penuh iPhone',
 /*more*/ 'Status Discord', 'Menampilkan tontonanmu di Discord jika Discord berjalan di komputer ini.',
 /*more*/ 'Menjelajah', 'Mencari tontonan', 'Sedang nonton bareng', 'Memilih tontonan', 'Dapatkan Dodobox', 'Rilis',
+/*more*/ 'Kata sandi (opsional)', 'Teman-temanmu juga membutuhkan kata sandi.',
+/*more*/ 'Tampilkan kata sandi', 'Sembunyikan kata sandi',
+/*more*/ 'Tempel',
+/*more*/ 'Peramban memblokir tempel. Tempel sendiri ke kolom.',
 ]
 export const patterns = [
   'Hai $1, buat jadi milikmu', 'Musim $1', 'Musim $1 · Episode $2', 'Lanjutkan S$1 E$2', 'S$1 E$2$3', 'Tayang $1', '$1 j $2 mnt', '$1 mnt', '$1sisa $2 j $3 mnt', '$1sisa $2 mnt',

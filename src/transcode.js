@@ -41,9 +41,18 @@ export function parseProbe (text) {
 
 const probes = new Map()
 const probeKids = new Map()
+// A text file named like a video (a playlist or script naming other addresses) is refused: ffmpeg would follow whatever it names.
+const PLAYLIST = /#EXTM3U|ffconcat|<MPD|<\?xml|^\s*v=0/i
+async function refusePlaylist (url) {
+  if (!url.startsWith('http')) return
+  const r = await fetch(url, { headers: { range: 'bytes=0-1023' } }).catch(() => null)
+  if (!r) return
+  if (r.status !== 206) return void r.body?.cancel()
+  if (PLAYLIST.test(Buffer.from(await r.arrayBuffer()).toString('latin1'))) throw new Error('This is not a video file')
+}
 export function probe (url, key, name = '') {
   if (!probes.has(key)) {
-    const p = new Promise((resolve, reject) => {
+    const p = refusePlaylist(url).then(() => new Promise((resolve, reject) => {
       // With no output file ffmpeg prints what it found and exits with an error, which is expected here.
       const kid = execFile(FFMPEG, ['-hide_banner', '-nostdin', '-probesize', '5000000', '-analyzeduration', '5000000', '-i', url], { maxBuffer: 1e7, timeout: 120000 }, (err, out, text) => {
         if (!/^Input #0/m.test(text || '')) return reject(err || new Error('ffmpeg could not read the file'))
@@ -66,7 +75,7 @@ export function probe (url, key, name = '') {
         })
       })
       probeKids.set(key, kid)
-    })
+    }))
     p.catch(() => probes.delete(key)).finally(() => probeKids.delete(key))
     probes.set(key, p)
   }
@@ -147,4 +156,4 @@ export function warm (url, key, n, last, audio, maxH) {
 // `to` (seconds) limits how much of the file is read, so subtitles can be pulled from a download still in progress.
 export const embeddedSub = async (url, n, to = 0) => srtToVtt((await run([...(to ? ['-t', String(to)] : []), '-i', url, '-map', `0:s:${n}`, '-f', 'webvtt', 'pipe:1'])).toString('utf8'))
 
-export const anyToVtt = async buf => (await run(['-i', 'pipe:0', '-f', 'webvtt', 'pipe:1'], buf)).toString('utf8')
+export const anyToVtt = async buf => (await run(['-protocol_whitelist', 'pipe', '-i', 'pipe:0', '-f', 'webvtt', 'pipe:1'], buf)).toString('utf8')

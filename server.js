@@ -8,7 +8,7 @@ import qr from 'qrcode-generator'
 import { Bonjour } from 'bonjour-service'
 import { fileURLToPath } from 'node:url'
 import { catalog, meta, animeImdb } from './src/meta.js'
-import { findSources, measured, score, refreshTrackers, magnetFor, lengthFits } from './src/sources.js'
+import { findSources, measured, score, refreshTrackers, lengthFits } from './src/sources.js'
 import { titleVerdict } from './src/release.js'
 import { episodeNumbers, warm as warmIds } from './src/ids.js'
 import { party, newCode, cleanItem, LIMITS } from './src/party.js'
@@ -109,8 +109,8 @@ async function play (b) {
   const aired = flat ? null : m.videos?.find(v => v.season === item.season && v.episode === item.episode)
   if (m.unplayable || notAired(aired?.released)) throw Object.assign(new Error(m.unplayable || 'This episode has not aired yet'), { code: 409 })
   const list = (await findSources(item, ctxOf(b))).filter(s => !exclude.includes(s.infoHash) && !wrong.has(`${b.type}:${b.id}:${s.infoHash}`))
-  // The version a watch party is on is accepted even when this server's own search does not list it (the page asked for it after the user said yes).
-  const first = b.infoHash ? list.find(s => s.infoHash === b.infoHash) || (party.status().now?.source?.infoHash === b.infoHash ? { infoHash: b.infoHash, magnet: magnetFor(b.infoHash), seeders: 1, size: 0, quality: 0 } : undefined) : list[0]
+  // A version this server did not find itself (a watch party member can name any) is never fetched; the best listed one plays instead.
+  const first = (b.infoHash && list.find(s => s.infoHash === b.infoHash)) || list[0]
   if (!first) throw Object.assign(new Error('Nothing playable found for this title right now'), { code: 404 })
   // A download that failed earlier (no playable file, bad torrent) is dropped so the version gets a fresh try instead of failing again at once.
   for (const r of [first, ...list.slice(0, 3)]) if (engine.status(r.infoHash, true)?.phase === 'error') await engine.remove(r.infoHash).catch(() => {})
@@ -274,6 +274,7 @@ async function subtitleProbe (h, i, src, { at, ratio, expected }) {
     probe: await syncInWorker({ url: r.file, duration: r.available, cues: await cuesOf(src), at, ratio, expected }, 90000)
   }))))
 }
+let converting = 0
 const routes = [
   ['GET', /^\/api\/health$/, (req, res) => json(req, res, { app: 'dodobox', version: VERSION })],
   ['GET', /^\/api\/server$/, async (req, res) => json(req, res, {
@@ -360,9 +361,9 @@ const routes = [
     const b = await jbody(req); const item = b.item ? cleanItem(b.item) : null
     if (b.item && !item) return fail(req, res, 400, 'Bad title')
     const hash = /^[0-9a-f]{40}$/.test(b.hash || '') && engine.status(b.hash, true) ? b.hash : null
-    json(req, res, await party.join(newCode(), partyWho(req), item && { item, source: hash ? { infoHash: hash } : null, pos: Math.max(0, +b.pos || 0), paused: !!b.paused, at: Date.now() }))
+    json(req, res, await party.join(newCode(), partyWho(req), item && { item, source: hash ? { infoHash: hash } : null, pos: Math.max(0, +b.pos || 0), paused: !!b.paused, at: Date.now() }, b.password))
   }],
-  ['POST', /^\/api\/party\/join$/, async (req, res) => { const b = await jbody(req); json(req, res, await party.join(b.code, partyWho(req))) }],
+  ['POST', /^\/api\/party\/join$/, async (req, res) => { const b = await jbody(req); json(req, res, await party.join(b.code, partyWho(req), null, b.password)) }],
   ['POST', /^\/api\/party\/leave$/, (req, res) => { party.leave(); json(req, res, { ok: true }) }],
   ['POST', /^\/api\/party\/send$/, async (req, res) => { const b = await jbody(req); party.send(b.k, b); json(req, res, { ok: true }) }],
   ['POST', /^\/api\/play$/, async (req, res) => { const b = await jbody(req); b.mode ||= modeOf(req); b.audio ||= audioOf(req); b.sublang ||= sublangOf(req); json(req, res, await play(b)) }],
@@ -434,6 +435,7 @@ const routes = [
   }],
   ['GET', /^\/hls\/(\w+)\/(\d+)\/seg(\d+)\.ts$/, async (req, res, [, h, i, n], q) => {
     const audio = +q.get('a') || 0; const maxH = Math.min(2160, Math.max(240, +q.get('h') || 1080))
+    await probe(rawUrl(h, i), `${h}:${i}`) // refuses a file that is not a video before ffmpeg reads it
     const data = await segment(rawUrl(h, i), `${h}:${i}`, +n, audio, maxH)
     probe(rawUrl(h, i), `${h}:${i}`).then(info => warm(rawUrl(h, i), `${h}:${i}`, +n, Math.ceil(info.duration / SEG) - 1, audio, maxH)).catch(() => {})
     res.writeHead(200, { 'content-type': 'video/mp2t', 'content-length': data.length, 'cache-control': 'max-age=3600' }).end(data)
@@ -519,8 +521,11 @@ const routes = [
   ['POST', /^\/api\/sub\/convert$/, async (req, res) => {
     const buf = await body(req)
     const text = decode(buf)
-    const vtt = /^\s*(WEBVTT|\d+\s*\n\s*\d{2}:\d{2}:\d{2}[,.])/.test(text) ? srtToVtt(text) : await anyToVtt(buf)
-    send(req, res, 200, 'text/vtt; charset=utf-8', vtt)
+    if (/^\s*(WEBVTT|\d+\s*\n\s*\d{2}:\d{2}:\d{2}[,.])/.test(text)) return send(req, res, 200, 'text/vtt; charset=utf-8', srtToVtt(text))
+    // Anything else goes through ffmpeg: a couple at a time, so a flood of uploads cannot start hundreds of processes.
+    if (converting >= 2) return fail(req, res, 429, 'Busy converting, try again in a moment')
+    converting++
+    try { send(req, res, 200, 'text/vtt; charset=utf-8', await anyToVtt(buf)) } finally { converting-- }
   }],
 
   ['POST', /^\/api\/download$/, async (req, res) => { const b = await jbody(req); b.mode ||= modeOf(req); b.audio ||= audioOf(req); b.sublang ||= sublangOf(req); json(req, res, await downloads.enqueue(b)) }],
@@ -551,9 +556,27 @@ function serveStatic (req, res, pathname) {
   else res.writeHead(200, headers).end(hit.raw)
 }
 
+// A web page open in the user's browser must not be able to drive this server: writes from another site are refused, and so is a
+// made-up hostname that points at this server (DNS rebinding). Addresses, localhost, single-word and .local/.lan names are the ways
+// people reach it; any other name (a reverse proxy, a tunnel) goes in ALLOWED_HOSTS. A forwarded-for header proves nothing, a page can set it.
+const LOCAL_HOST = /^(localhost|\[[\da-f:]+\]|\d+\.\d+\.\d+\.\d+|[\w-]+(\.(local|lan|home|internal|localdomain|home\.arpa))?)\.?$/i
+const ALLOWED_HOSTS = (process.env.ALLOWED_HOSTS || '').toLowerCase().split(',').map(h => h.trim()).filter(Boolean)
+const crossSite = req => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return false
+  const site = req.headers['sec-fetch-site']
+  if (site) return site !== 'same-origin' && site !== 'none'
+  const origin = req.headers.origin
+  if (!origin) return false
+  try { return new URL(origin).host !== req.headers.host } catch { return true }
+}
+const rebound = req => { const host = (req.headers.host || '').replace(/:\d+$/, ''); return !!host && !LOCAL_HOST.test(host) && !ALLOWED_HOSTS.includes(host.toLowerCase()) }
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x')
   res.setHeader('x-content-type-options', 'nosniff')
+  res.setHeader('x-frame-options', 'SAMEORIGIN')
+  if (rebound(req)) return fail(req, res, 421, 'unknown host (add it to ALLOWED_HOSTS)')
+  if (crossSite(req)) return fail(req, res, 403, 'cross-site request refused')
   // Cast receivers and other origins fetch media directly.
   if (/^\/(hls|raw)\//.test(url.pathname)) {
     res.setHeader('access-control-allow-origin', '*')
