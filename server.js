@@ -274,6 +274,7 @@ async function subtitleProbe (h, i, src, { at, ratio, expected }) {
     probe: await syncInWorker({ url: r.file, duration: r.available, cues: await cuesOf(src), at, ratio, expected }, 90000)
   }))))
 }
+let converting = 0
 const routes = [
   ['GET', /^\/api\/health$/, (req, res) => json(req, res, { app: 'dodobox', version: VERSION })],
   ['GET', /^\/api\/server$/, async (req, res) => json(req, res, {
@@ -520,8 +521,11 @@ const routes = [
   ['POST', /^\/api\/sub\/convert$/, async (req, res) => {
     const buf = await body(req)
     const text = decode(buf)
-    const vtt = /^\s*(WEBVTT|\d+\s*\n\s*\d{2}:\d{2}:\d{2}[,.])/.test(text) ? srtToVtt(text) : await anyToVtt(buf)
-    send(req, res, 200, 'text/vtt; charset=utf-8', vtt)
+    if (/^\s*(WEBVTT|\d+\s*\n\s*\d{2}:\d{2}:\d{2}[,.])/.test(text)) return send(req, res, 200, 'text/vtt; charset=utf-8', srtToVtt(text))
+    // Anything else goes through ffmpeg: a couple at a time, so a flood of uploads cannot start hundreds of processes.
+    if (converting >= 2) return fail(req, res, 429, 'Busy converting, try again in a moment')
+    converting++
+    try { send(req, res, 200, 'text/vtt; charset=utf-8', await anyToVtt(buf)) } finally { converting-- }
   }],
 
   ['POST', /^\/api\/download$/, async (req, res) => { const b = await jbody(req); b.mode ||= modeOf(req); b.audio ||= audioOf(req); b.sublang ||= sublangOf(req); json(req, res, await downloads.enqueue(b)) }],
@@ -553,9 +557,10 @@ function serveStatic (req, res, pathname) {
 }
 
 // A web page open in the user's browser must not be able to drive this server: writes from another site are refused, and so is a
-// made-up hostname that points at this computer (DNS rebinding). Proxies (x-forwarded-*) and LAN clients are left alone.
-const LOOPBACK = /^(::1|::ffff:127\.0\.0\.1|127\.0\.0\.1)$/
-const LOCAL_HOST = /^(localhost|\[[\da-f:]+\]|\d+\.\d+\.\d+\.\d+|[\w-]+\.local)$/i
+// made-up hostname that points at this server (DNS rebinding). Addresses, localhost, single-word and .local/.lan names are the ways
+// people reach it; any other name (a reverse proxy, a tunnel) goes in ALLOWED_HOSTS. A forwarded-for header proves nothing, a page can set it.
+const LOCAL_HOST = /^(localhost|\[[\da-f:]+\]|\d+\.\d+\.\d+\.\d+|[\w-]+(\.(local|lan|home|internal|localdomain|home\.arpa))?)\.?$/i
+const ALLOWED_HOSTS = (process.env.ALLOWED_HOSTS || '').toLowerCase().split(',').map(h => h.trim()).filter(Boolean)
 const crossSite = req => {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return false
   const site = req.headers['sec-fetch-site']
@@ -564,13 +569,13 @@ const crossSite = req => {
   if (!origin) return false
   try { return new URL(origin).host !== req.headers.host } catch { return true }
 }
-const rebound = req => LOOPBACK.test(req.socket.remoteAddress || '') && !req.headers['x-forwarded-for'] && !req.headers['x-forwarded-host'] && !LOCAL_HOST.test((req.headers.host || '').replace(/:\d+$/, ''))
+const rebound = req => { const host = (req.headers.host || '').replace(/:\d+$/, ''); return !!host && !LOCAL_HOST.test(host) && !ALLOWED_HOSTS.includes(host.toLowerCase()) }
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x')
   res.setHeader('x-content-type-options', 'nosniff')
   res.setHeader('x-frame-options', 'SAMEORIGIN')
-  if (rebound(req)) return fail(req, res, 421, 'unknown host')
+  if (rebound(req)) return fail(req, res, 421, 'unknown host (add it to ALLOWED_HOSTS)')
   if (crossSite(req)) return fail(req, res, 403, 'cross-site request refused')
   // Cast receivers and other origins fetch media directly.
   if (/^\/(hls|raw)\//.test(url.pathname)) {

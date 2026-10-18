@@ -54,7 +54,8 @@ export function open (key, buf) {
 }
 
 const color = v => (typeof v === 'string' && /^#[\da-f]{3,8}$/i.test(v) ? v : '#888')
-const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '')
+// Bidi override characters can make a name or link read backwards ("gpj.exe" shown as "exe.jpg"), so they are dropped.
+const str = (v, n) => (typeof v === 'string' ? v.replace(/[\u202a-\u202e\u2066-\u2069]/g, '').slice(0, n) : '')
 const int = v => (Number.isInteger(v) && v >= 0 && v < 1e5 ? v : null)
 const secs = v => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v < 1e6 ? v : null)
 // What another member says is being watched. Anything that does not fit is dropped, because it goes to the page and to the player.
@@ -75,6 +76,7 @@ export class Party extends EventEmitter {
   }
 
   reset () {
+    this.gen = (this.gen || 0) + 1 // a join still waiting on its await sees this change and gives up
     this.code = null; this.locked = false; this.key = null; this.client = null; this.torrent = null
     this.phase = 'idle' // idle, connecting (nobody else yet), live
     this.self = { id: crypto.randomBytes(4).toString('hex'), name: '', color: '' }
@@ -90,12 +92,20 @@ export class Party extends EventEmitter {
     if (this.phase !== 'idle') throw Object.assign(new Error('Already in a party'), { code: 409 })
     const clean = cleanCode(code)
     if (!clean) throw Object.assign(new Error('That is not a party code'), { code: 400 })
+    // Claimed before the first await: two requests at once must not both get past the check above, each would open its own torrent client.
+    this.phase = 'connecting'; this.code = clean
+    const gen = this.gen
     const pass = String(password || '').trim().slice(0, 64)
-    const { infoHash, key } = await derive(clean, pass)
-    this.code = clean; this.locked = !!pass; this.key = key; this.phase = 'connecting'
+    let infoHash; let WebTorrent
+    try {
+      const k = await derive(clean, pass)
+      infoHash = k.infoHash; this.key = k.key
+      ;({ default: WebTorrent } = await import('webtorrent'))
+      if (this.gen !== gen) throw Object.assign(new Error('Left the party'), { code: 409 })
+    } catch (e) { if (this.gen === gen) this.reset(); throw e }
+    this.locked = !!pass
     this.self.name = String(name).slice(0, 24); this.self.color = color(tint)
     this.state = state
-    const { default: WebTorrent } = await import('webtorrent')
     this.client = new WebTorrent({ dht: this.options.dht ?? true, lsd: false, utp: false })
     this.client.on('error', e => console.error('[party]', e.message))
     const trackers = this.options.trackers ?? TRACKERS

@@ -102,6 +102,7 @@ Dodobox looks in your Videos and Movies folders (and `MEDIA_DIR`) and matches fi
 | `NO_DHT` | unset | Turn off DHT and local peer discovery |
 | `DISCORD_CLIENT_ID` | built-in | Discord application used for Rich Presence (browsing, playing or paused, when Discord runs on the same computer as the server) |
 | `NO_DISCORD` | unset | Do not show what is playing in Discord |
+| `ALLOWED_HOSTS` | unset | Comma-separated extra hostnames the server answers to (a reverse proxy or tunnel name). Addresses, `localhost`, single-word names and `.local`, `.lan` names always work; other names are refused to stop DNS rebinding |
 | `NO_MDNS` | unset | Do not announce `dodobox.local` on the network |
 | `NO_SPEEDTEST` | unset | Skip measuring the server's internet speed at start |
 | `NO_UPDATE_CHECK` | unset | Do not look for a newer release |

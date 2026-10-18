@@ -149,3 +149,27 @@ test('a password makes another swarm and key, and the same code without it stays
   assert.equal(q.status().locked, false)
   q.leave()
 })
+
+test('bidi override characters are removed from names and chat', async () => {
+  const p = mk(); await p.join(newCode(), { name: 'Me' })
+  p.receive(seal(p.key, { f: 'eve001', q: 1, ts: Date.now(), k: 'hi', name: 'Eve‮ exe.jpg' }), null)
+  assert.equal(p.members.get('eve001').name, 'Eve exe.jpg')
+  p.receive(seal(p.key, { f: 'eve001', q: 2, ts: Date.now(), k: 'ch', text: 'a‮b⁦c' }), null)
+  assert.equal(p.chat.filter(m => !m.sys).at(-1).text, 'abc')
+  p.leave()
+})
+
+test('joining at the same moment opens one party, and leaving mid-join cancels it', async () => {
+  const code = newCode()
+  const p = mk()
+  const results = await Promise.allSettled([p.join(code), p.join(code), p.join(code)])
+  assert.equal(results.filter(r => r.status === 'fulfilled').length, 1, 'only one request gets in')
+  assert.ok(results.filter(r => r.status === 'rejected').every(r => /Already in a party/.test(r.reason.message)))
+  p.leave()
+  const q = mk()
+  const pending = q.join(code)
+  q.leave()
+  await assert.rejects(pending, /Left the party/)
+  assert.equal(q.phase, 'idle')
+  assert.equal(q.client, null, 'no torrent client was left behind')
+})
