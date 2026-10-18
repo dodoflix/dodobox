@@ -1,15 +1,19 @@
 import { api } from './api.js'
 import { S, setSetting } from './session.js'
-import { $, esc, icon, bytes, store, isTV } from './util.js'
+import { $, esc, icon, bytes, store, isTV, toast } from './util.js'
 import { calm } from './ambient.js'
 import { showPicker } from './profiles.js'
 import { LANGUAGES, langOf, SOURCE_MODES } from './onboarding.js'
 import { upgradeSelects, syncSelect } from './dropdown.js'
 import { uiLangFor } from './i18n.js'
 import { pingPresence } from './presence.js'
+import { changePin } from './pin.js'
 
 const SUBS = [['off', 'Off'], ...LANGUAGES.map(([, c, n]) => [c, n]), ['pob', 'Português (Brasil)']]
 const CAPS = [20, 40, 100, 250, 500, 1000]
+// The PIN row: what is protected and the buttons for the state the profile is in.
+const pinRow = me => `<div class="l"><b>PIN code</b><span>${me.hasPin ? 'On. Anyone opening this profile is asked for it.' : 'Off. Set one to keep your list, history and settings private.'} Downloads stay open to everyone.</span></div>
+  <div class="pin-actions">${me.hasPin ? '<button class="btn btn-ghost sm" data-pin="change">Change</button><button class="btn btn-ghost sm" data-pin="remove">Remove</button>' : '<button class="btn btn-ghost sm" data-pin="set">Set a PIN</button>'}</div>`
 const seg = (name, opts, cur) => `<div class="seg" data-seg="${name}">${opts.map(([v, l]) => `<button data-v="${v}" class="${String(v) === String(cur) ? 'on' : ''}">${l}</button>`).join('')}</div>`
 
 let stopPolling = () => {}
@@ -38,6 +42,10 @@ export async function settings (root) {
         <button class="switch" role="switch" data-k="adultFilter" aria-checked="${!!me.settings.adultFilter}" aria-label="Adult content filter"></button></div>
       <div class="set"><div class="l"><b>Best translation quality</b><span>Auto-translated subtitles use a larger translator. It downloads about 2 GB the first time, and each subtitle improves gradually while you watch.</span><span id="hqstat" class="dim"></span></div>
         <button class="switch" role="switch" data-k="bestTranslation" aria-checked="${!!me.settings.bestTranslation}" aria-label="Best translation quality"></button></div>
+    </div>
+
+    <div class="group"><h3>Profile lock</h3>
+      <div class="set" id="pinrow">${pinRow(me)}</div>
     </div>
 
     <div class="group"><h3>Discord</h3>
@@ -107,6 +115,8 @@ export async function settings (root) {
     if (it) { it.classList.toggle('on'); setSetting('interests', [...root.querySelectorAll('#interests .on')].map(b => b.dataset.t)); return }
     const sg = e.target.closest('[data-seg] button')
     if (sg) { const k = sg.parentElement.dataset.seg; setSetting(k, sg.dataset.v); sg.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === sg)) }
+    const pb = e.target.closest('[data-pin]')
+    if (pb) { if (await changePin(me, { remove: pb.dataset.pin === 'remove' })) { $('#pinrow').innerHTML = pinRow(me); toast(me.hasPin ? 'PIN saved' : 'PIN removed') } }
     if (e.target.closest('#switch')) { await showPicker({ dismissable: true }); location.hash = '#/'; location.reload() }
     if (e.target.closest('#rescan')) { const b = e.target.closest('#rescan'); b.disabled = true; b.textContent = 'Scanning...'; const r = await api('/api/local/rescan', { method: 'POST' }); b.textContent = `${r.count} titles found` }
   }

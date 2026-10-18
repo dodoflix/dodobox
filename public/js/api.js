@@ -1,8 +1,18 @@
 import { store, slowLink } from './util.js'
 
 let profile = store.get('profile', '')
-export const setProfile = id => { profile = id; store.set('profile', id) }
+// A profile with a PIN is opened with a session token the server issued after the PIN was entered; it is kept per profile in this browser.
+export const getToken = id => store.get('tok:' + id, '')
+let token = getToken(profile)
+export const setToken = (id, t) => {
+  if (t) store.set('tok:' + id, t); else try { localStorage.removeItem('tok:' + id) } catch {}
+  if (id === profile) token = t || ''
+}
+export const setProfile = id => { profile = id; token = getToken(id); store.set('profile', id) }
 export const getProfile = () => profile
+// Once the page is up, a locked answer means the session ended (the server restarted): start over, which asks for the PIN.
+let armed = false
+export const armLock = () => { armed = true }
 let lang = 'en'
 export const setLang = l => { lang = l || 'en' }
 // Whether the viewer asked to hide adult-marked titles; sent with every request so cached answers never mix the two.
@@ -44,7 +54,7 @@ const slot = ref => new Promise((resolve, reject) => {
 })
 
 // ref: opts a GET into the priority lane (cget always does); long-running and player calls go straight out.
-export async function api (path, { method = 'GET', body, raw, ref } = {}) {
+export async function api (path, { method = 'GET', body, raw, ref, headers } = {}) {
   if (ref && ref.signal === undefined) ref.signal = page.signal
   const tries = method === 'GET' ? 4 : 1
   let lastErr
@@ -54,10 +64,11 @@ export async function api (path, { method = 'GET', body, raw, ref } = {}) {
     const id = ref && method === 'GET' ? String(++rid) : ''
     if (id) live.add(id)
     try {
-      const r = await fetch(path, { signal: ref?.signal, method, headers: { ...(id && { 'x-rid': id }), 'x-profile': profile, 'x-lang': lang, 'x-adult-filter': safe ? '1' : '0', ...(body && !raw && { 'content-type': 'application/json' }) }, body: body && !raw ? JSON.stringify(body) : body, keepalive: method !== 'GET' && !raw })
+      const r = await fetch(path, { signal: ref?.signal, method, headers: { ...(id && { 'x-rid': id }), 'x-profile': profile, ...(token && { 'x-token': token }), 'x-lang': lang, 'x-adult-filter': safe ? '1' : '0', ...(body && !raw && { 'content-type': 'application/json' }), ...headers }, body: body && !raw ? JSON.stringify(body) : body, keepalive: method !== 'GET' && !raw })
       const j = await r.json().catch(() => ({}))
       if (r.ok) return j
       lastErr = Object.assign(new Error(j.error || r.statusText), { status: r.status })
+      if (r.status === 401 && j.error === 'Locked' && armed) { setToken(profile, ''); location.reload(); throw lastErr }
       if (r.status !== 429 && r.status < 500) break
       const ra = Number(r.headers.get('retry-after')); if (ra) wait = Math.min(8000, ra * 1000)
     } catch (e) { if (ref?.signal?.aborted) throw cancelled(); lastErr = e } finally { live.delete(id); release() }

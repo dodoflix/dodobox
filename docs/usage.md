@@ -2,7 +2,7 @@
 
 ## First run
 
-Start the server and open its address (the start scripts open it for you; with `npm start` open the printed address yourself). Create a profile and pick your language, subtitles and what you like. Each person keeps their own Continue Watching, My List and preferences.
+Start the server and open its address (the start scripts open it for you; with `npm start` open the printed address yourself). Create a profile and go through three short pages: language and subtitles, what you like, and privacy. Each person keeps their own Continue Watching, My List and preferences.
 
 ## Desktop app
 
@@ -68,6 +68,10 @@ Subtitles are searched in your language and English and ranked by how closely ea
 **Auto-translated** appears in the subtitle menu for every interface language: the English subtitle translated by the server with an open-source engine (about 20 MB per language, downloaded the first time, then stored in `data/translate`). Quality suits everyday dialogue and is rougher for slang and names. The entry shows "Preparing the language... 40%" while the model downloads, then "Translating... 60%".
 
 Settings has **Best translation quality** (off by default). It installs a larger translator the first time (about 2 GB in `data/translate/hq`), then improves the subtitle in the background from where you are watching. It uses the graphics card if there is a working one, otherwise the processor, which is much slower.
+
+## Profile PIN
+
+Optional, per profile: set it on the privacy page of the first-run setup or later in Settings, Profile lock (4 to 8 digits; changing or removing it asks for the current one). A profile with a PIN asks for it when someone picks it, and the server refuses its list, history, progress, ratings and settings to anyone without it, so another device on the network cannot read them either. What is not tied to a profile stays open to everyone: downloads, the files on the server and playing a title. Switching profile ends the session, a PIN session lasts 30 days in the browser it was entered in, and after five wrong PINs in a row the profile refuses every try for 30 seconds, longer each time. The PIN is stored hashed (scrypt). A forgotten PIN is reset by whoever runs the server: stop it and delete the `pin` entry of that profile in `data/state.json`.
 
 ## Adult content filter
 

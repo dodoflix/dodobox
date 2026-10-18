@@ -16,6 +16,7 @@ import { listSubtitles, allowedSubUrl, fetchSubtitle, srtToVtt, decode, toVtt, l
 import * as engine from './src/engine.js'
 import * as local from './src/local.js'
 import * as downloads from './src/downloads.js'
+import * as lock from './src/lock.js'
 import { skipsFor } from './src/skips.js'
 import { chartItems } from './src/charts.js'
 import * as state from './src/state.js'
@@ -65,7 +66,9 @@ const jbody = async req => { try { return JSON.parse(await body(req)) } catch { 
 let port
 const rawUrl = (hash, idx) => `http://127.0.0.1:${port}/raw/${hash}/${idx}`
 const statusOf = (h, silent, file) => local.isLocal(h) ? local.status(h) : engine.status(h, silent, file)
-const pid = req => req.headers['x-profile'] || ''
+// A profile with a PIN is only itself for a request that carries a session token issued after the PIN was entered; otherwise it is nobody.
+const unlocked = (id, req) => !state.hasPin(id) || lock.valid(id, req.headers['x-token'])
+const pid = req => { const id = req.headers['x-profile'] || ''; return unlocked(id, req) ? id : '' }
 const partyWho = req => { const p = state.profile(pid(req)); return { name: p?.name || 'Guest', color: p?.color || '#888' } }
 // Older versions saved translated titles; put the original back once, quietly, so every language shows the right one.
 const repaired = new Set()
@@ -80,7 +83,19 @@ async function repairNames (id) {
   }
   state.markNamesFixed(id)
 }
-const needProfile = req => { const p = state.profile(pid(req)); if (!p) throw Object.assign(new Error('Choose a profile first'), { code: 401 }); return p }
+const needProfile = req => {
+  const p = state.profile(pid(req))
+  if (!p) throw Object.assign(new Error(state.hasPin(req.headers['x-profile'] || '') ? 'Locked' : 'Choose a profile first'), { code: 401 })
+  return p
+}
+// A wrong PIN counts against the profile; too many in a row and every attempt is refused for a while, the right one included.
+async function checkPin (id, pin) {
+  const wait = lock.throttled(id)
+  if (wait) throw Object.assign(new Error(`Too many tries. Wait ${wait < 90 ? wait + ' seconds' : Math.ceil(wait / 60) + ' minutes'}.`), { code: 429 })
+  if (!(await lock.matches(state.pinOf(id), String(pin ?? '')))) { lock.failed(id); throw Object.assign(new Error('Wrong PIN'), { code: 403 }) }
+  lock.succeeded(id)
+}
+const needUnlocked = (id, req) => { if (!unlocked(id, req)) throw Object.assign(new Error('Locked'), { code: 401 }) }
 
 // Adult releases are searched only for adult-marked titles, and only when the viewer has not turned the adult filter on.
 const isAdult = (m, safe) => !safe && isAdultItem(m)
@@ -321,8 +336,27 @@ const routes = [
 
   ['GET', /^\/api\/profiles$/, (req, res) => json(req, res, state.profiles())],
   ['POST', /^\/api\/profiles$/, async (req, res) => { const b = await jbody(req); json(req, res, state.createProfile(b.name, b.color), 201) }],
-  ['PATCH', /^\/api\/profiles\/(\w+)$/, async (req, res, [, id]) => json(req, res, state.updateProfile(id, await jbody(req)) || {})],
-  ['DELETE', /^\/api\/profiles\/(\w+)$/, (req, res, [, id]) => json(req, res, { ok: state.deleteProfile(id) })],
+  ['PATCH', /^\/api\/profiles\/(\w+)$/, async (req, res, [, id]) => { needUnlocked(id, req); const p = state.updateProfile(id, await jbody(req)); json(req, res, p ? { id: p.id, name: p.name, color: p.color } : {}) }],
+  ['DELETE', /^\/api\/profiles\/(\w+)$/, (req, res, [, id]) => { needUnlocked(id, req); lock.revokeAll(id); json(req, res, { ok: state.deleteProfile(id) }) }],
+  // The PIN is checked here and a session token comes back; the page sends it with every request.
+  ['POST', /^\/api\/profiles\/(\w+)\/unlock$/, async (req, res, [, id]) => {
+    const rec = state.pinOf(id)
+    if (!state.profile(id)) return fail(req, res, 404, 'No such profile')
+    if (!rec) return json(req, res, { token: '' })
+    await checkPin(id, (await jbody(req)).pin)
+    json(req, res, { token: lock.issue(id) })
+  }],
+  ['POST', /^\/api\/profiles\/(\w+)\/lock$/, (req, res) => { lock.revoke(req.headers['x-token']); json(req, res, { ok: true }) }],
+  // Sets, changes (with the current PIN) or removes (pin empty) the PIN of the profile in use. The old sessions end and a new token comes back.
+  ['PUT', /^\/api\/me\/pin$/, async (req, res) => {
+    const me = needProfile(req); const b = await jbody(req)
+    if (me.pin) await checkPin(me.id, b.current)
+    const pin = b.pin ? String(b.pin) : ''
+    if (pin && !lock.PIN_FORMAT.test(pin)) return fail(req, res, 400, 'A PIN is 4 to 8 digits')
+    state.setPin(me.id, pin ? await lock.hashPin(pin) : null)
+    lock.revokeAll(me.id)
+    json(req, res, { token: pin ? lock.issue(me.id) : '' })
+  }],
   ['GET', /^\/api\/me$/, async (req, res) => {
     needProfile(req)
     repairNames(pid(req))

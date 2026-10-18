@@ -12,6 +12,7 @@ browser / TV / phone (public/)  <->  server.js  <->  src/meta.js       catalog a
                                                 <->  src/subs.js       subtitle providers
                                                 <->  src/skips.js      intro, recap and ending markers
                                                 <->  src/state.js      profiles, progress, My List, settings
+                                                <->  src/lock.js       profile PINs: hashing, session tokens, throttling
                                                 <->  src/images.js     poster proxy with disk cache
 ```
 
