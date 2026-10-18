@@ -389,6 +389,8 @@ select.field { padding-right: .5rem; }
 .pl-load .actions { justify-content: center; }
 .pl-back { position: absolute; z-index: 10; top: calc(var(--safe-t) + 1rem); left: max(var(--pad), env(safe-area-inset-left)); }
 .pl-next { position: absolute; z-index: 6; right: max(var(--pad), env(safe-area-inset-right)); bottom: calc(var(--safe-b) + 7.5rem); width: min(23rem, calc(100vw - 2rem)); display: grid; gap: .6rem; padding: 1.1rem; animation: rise .5s var(--ease) both; }
+.pl-skip { position: absolute; z-index: 6; right: max(var(--pad), env(safe-area-inset-right)); bottom: calc(var(--safe-b) + 7.5rem); animation: rise .4s var(--ease) both; box-shadow: var(--shadow-float); }
+.pl-skip[hidden] { display: none; }
 .pl-next b { font: 800 1.5rem/1 var(--display); text-transform: uppercase; letter-spacing: .03em; }
 .pl-next .hair { height: 3px; background: rgb(255 255 255 / .16); border-radius: var(--r); overflow: hidden; }
 .pl-next .hair i { display: block; height: 100%; width: 100%; background: rgb(var(--glow)); transform-origin: left; animation: countdown var(--t, 8s) linear forwards; }
@@ -448,7 +450,7 @@ select.field { padding-right: .5rem; }
 @media (min-width: 701px) and (max-width: 1000px) { #nav a { padding: .5rem .6rem; } }
 /* Reduced motion drops movement (slides, rises, pulses, scale) and keeps state changes: progress, countdown, spinner, colour. */
 @media (prefers-reduced-motion: reduce) {
-  .view, .hero-body, .picker, .toast, .peek, .pl-menu, .pl-next, .dd-pop, .pmenu, .party-pop, .pp-pings p, .pp-log li.in, .pp-tray, .pp-emoji, .pl-slow, .slow-link { animation: none; }
+  .view, .hero-body, .picker, .toast, .peek, .pl-menu, .pl-next, .pl-skip, .dd-pop, .pmenu, .party-pop, .pp-pings p, .pp-log li.in, .pp-tray, .pp-emoji, .pl-slow, .slow-link { animation: none; }
   .sk { animation: none; opacity: .7; }
   .hero .bg .track, .hero .bg, .trailer-layer { transition: none; }
   .btn, .cbtn, .rate button, .choice, .pf .circle, .poster .art { transition-property: color, background-color, border-color, box-shadow, opacity; }

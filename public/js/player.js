@@ -79,6 +79,7 @@ export async function watch (type, id, season, episode) {
     <button class="pl-slow" id="slow" hidden>Slow connection. Try another version</button>
     <div class="pl-stats" id="stats" hidden></div>
     <div class="pl-menu" id="menu" hidden></div>
+    <button class="btn btn-ink pl-skip" id="skip" hidden></button>
     <div class="pl-next" id="up" hidden></div>
     <div class="pl-cast" id="casting" hidden></div>
     <div class="pl-load" id="load"><div class="bg" style="background-image:url('${esc(lowres(m.poster) || m.poster || '')}')"></div>
@@ -90,6 +91,7 @@ export async function watch (type, id, season, episode) {
   const root = $('.pl', layer); const v = $('video', root)
   const subsEl = $('.pl-subs', root); const menu = $('#menu', root)
   let dead = false; let hash; let st; let info; let mode = 'direct'; let hls
+  let marks = {}; let skipTo = null // intro, recap and ending of the episode, and where the skip button leads
   const titleKey = `title:${getProfile()}:${type}:${id}`
   const P = store.get(titleKey, {})
   const keep = (k, val) => { P[k] = val; store.set(titleKey, P) }
@@ -173,7 +175,7 @@ export async function watch (type, id, season, episode) {
     $('#time', root).textContent = d ? `${clock(t)} / ${clock(d)}` : clock(t)
     scrub.setAttribute('aria-valuenow', Math.floor(t)); scrub.setAttribute('aria-valuemax', Math.floor(d)); scrub.setAttribute('aria-valuetext', clock(t))
   }
-  v.addEventListener('timeupdate', () => { paintTime(); upNextCheck() })
+  v.addEventListener('timeupdate', () => { paintTime(); upNextCheck(); paintSkip() })
   v.addEventListener('progress', paintTime); v.addEventListener('durationchange', paintTime)
   const at2 = e => { const r = scrub.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * (v.duration || 0) }
   const tip = e => { const t = at2(e); const el = $('.tip', scrub); el.textContent = clock(t); el.style.left = t / (v.duration || 1) * 100 + '%'; return t }
@@ -249,6 +251,7 @@ export async function watch (type, id, season, episode) {
       ['Buffer', `${buffered().toFixed(1)} s ahead`],
       ['Position', `${clock(v.currentTime)} of ${clock(v.duration || info?.duration || 0)}${v.playbackRate !== 1 ? ` at ${v.playbackRate}x` : ''}`],
       ['Element', `ready ${v.readyState}, network ${v.networkState}${v.error ? `, error ${v.error.code}` : ''}`],
+      ['Skip markers', Object.keys(marks).length ? Object.entries(marks).map(([k, x]) => `${k} ${clock(x.start)}-${clock(x.end)} (${x.from})`).join(', ') : 'none'],
       ['Source rate', mbps],
       ['Your link', `${bandwidth() || '?'} Mbps measured${hls?.bandwidthEstimate ? `, ${(hls.bandwidthEstimate / 1e6).toFixed(1)} Mbps seen` : ''}`],
       ['Release', st?.ctx?.release || '-'],
@@ -731,7 +734,7 @@ export async function watch (type, id, season, episode) {
     if (dead) return
     const my = ++runId
     try {
-      hls?.destroy(); v.removeAttribute('src'); v.load(); info = null; subSel = null; subs = []
+      hls?.destroy(); v.removeAttribute('src'); v.load(); info = null; subSel = null; subs = []; marks = {}; paintSkip()
       setLoad({ title: m.name, line: 'Finding the best version...', pct: null, actions: '' })
       const began = Date.now()
       for (let attempt = 0; attempt < 5 && !dead; attempt++) {
@@ -756,6 +759,7 @@ export async function watch (type, id, season, episode) {
       setLoad({ line: 'Getting ready...', pct: null })
       attach()
       loadSubs()
+      if (!flat) loadSkips(my)
     } catch (e) {
       if (!dead && !e.abort && my === runId) fail('We couldn\'t start this', e.status === 404 ? 'Nothing is available for this title right now. Try again later.' : e.message)
     }
@@ -798,23 +802,45 @@ export async function watch (type, id, season, episode) {
   timers.push(setInterval(drawStats, 1000))
   drawStats()
   let prefetched = false; let upShown = false; let upT
+  // The credits start where the ending is marked; without a marker, 28 seconds before the end.
+  const upAt = () => (marks.outro ? marks.outro.start : v.duration - 28)
   function upNextCheck () {
     if (!next || !v.duration) return
     if (!prefetched && v.currentTime / v.duration > 0.5) { prefetched = true; api('/api/play', { method: 'POST', body: { type, id, season: next.season, episode: next.episode } }).catch(() => {}) }
-    if (!upShown && v.duration - v.currentTime < 28 && v.currentTime > 60) showUp()
+    if (!upShown && v.currentTime >= upAt() && v.currentTime > 60) showUp()
   }
   function showUp () {
     upShown = true
     const box = $('#up', root); box.hidden = false
-    const auto = S.me.settings.autoNext !== false
+    const secs = Math.max(4, Math.min(8, v.duration - v.currentTime))
     box.innerHTML = `<b>Up next</b><div>${esc(next.title)}<div class="dim small">Season ${next.season} · Episode ${next.episode}</div></div>
-      ${auto ? '<div class="hair"><i style="--t:' + Math.max(4, Math.min(8, v.duration - v.currentTime)) + 's"></i></div>' : ''}
+      <div class="hair"><i style="--t:${secs}s"></i></div>
       <div class="actions flush"><button class="btn btn-ink sm" id="upgo" data-autofocus>${icon('play')}Play now</button><button class="btn btn-quiet sm" id="upx">Not now</button></div>`
     $('#upgo', root).onclick = () => go(next); $('#upx', root).onclick = () => { box.hidden = true; clearTimeout(upT); upShown = 'dismissed' }
-    if (auto) upT = setTimeout(() => { if (!dead && !$('#up', root).hidden) go(next) }, Math.max(4, Math.min(8, v.duration - v.currentTime)) * 1000)
+    upT = setTimeout(() => { if (!dead && !$('#up', root).hidden) go(next) }, secs * 1000)
   }
-  v.addEventListener('ended', () => { save(); if (next && upShown !== 'dismissed' && S.me.settings.autoNext !== false) go(next); else if (next) { if (!upShown) showUp() } else leave() })
-  v.addEventListener('seeking', () => { if (upShown === true && v.duration - v.currentTime > 40) { $('#up', root).hidden = true; clearTimeout(upT); upShown = false } })
+  v.addEventListener('ended', () => { save(); if (next && upShown !== 'dismissed') go(next); else if (!next) leave() })
+  v.addEventListener('seeking', () => { if (upShown === true && v.currentTime < upAt() - 2) { $('#up', root).hidden = true; clearTimeout(upT); upShown = false } })
+
+  // Skip intro / recap: a button for as long as the marked part plays.
+  function paintSkip () {
+    const t = v.currentTime
+    const m = ['recap', 'intro'].map(k => marks[k] && { k, ...marks[k] }).find(x => x && t >= x.start - 0.5 && t < x.end - 1.5)
+    const b = $('#skip', root)
+    skipTo = m ? m.end : null
+    if (b.hidden === !m) { if (m) b.dataset.k = m.k; return }
+    b.hidden = !m
+    if (m) { b.dataset.k = m.k; b.innerHTML = `${icon('next')}${m.k === 'recap' ? 'Skip recap' : 'Skip intro'}` }
+  }
+  const skip = () => { if (skipTo != null) { v.currentTime = skipTo; paintSkip(); wake() } }
+  $('#skip', root).onclick = skip
+  async function loadSkips (my) {
+    try {
+      const r = await api(`/api/skips/${hash}?file=${st.fileIdx}`)
+      if (dead || my !== runId) return
+      marks = r; paintSkip(); upNextCheck()
+    } catch {}
+  }
 
   const onKey = e => {
     if (e.target.matches?.('input[type=text], input:not([type])') || e.ctrlKey || e.metaKey || e.altKey) return
@@ -832,7 +858,8 @@ export async function watch (type, id, season, episode) {
       v.muted = false; v.volume = Math.max(0, Math.min(1, v.volume + (k === 'ArrowUp' ? 0.05 : -0.05))); wake(); return
     }
     if (k === ' ' || k === 'k') { if (e.target.matches?.('button, a, [role=slider]') && k === ' ' && ui && e.target.id !== 'scrub') return; e.preventDefault(); toggle(); wake() }
-    else if (k === 'Enter' && isTV && !ui) { e.preventDefault(); toggle(); wake() }
+    else if (k === 'Enter' && isTV && !ui) { e.preventDefault(); if (skipTo != null) skip(); else toggle(); wake() }
+    else if (k === 's' && skipTo != null) skip()
     else if (k === 'j') seekBy(-10)
     else if (k === 'l') seekBy(10)
     else if (k === 'f') toggleFS()
