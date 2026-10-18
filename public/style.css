@@ -341,7 +341,7 @@ select.field { padding-right: .5rem; }
 .time { font-variant-numeric: tabular-nums; color: var(--ink2); font-weight: 650; font-size: var(--fs-m); margin: 0 .75rem; white-space: nowrap; }
 .vol { display: flex; align-items: center; }
 .vs { max-width: 0; height: 2.4rem; padding: 0; display: flex; align-items: center; overflow: hidden; opacity: 0; cursor: pointer; touch-action: none; border-radius: var(--r-tag); transition: max-width .32s var(--ease), padding .32s var(--ease), opacity .22s ease; }
-.vol:hover .vs, .vol:focus-within .vs, .vol.drag .vs { max-width: 6.8rem; padding: 0 .7rem 0 .2rem; opacity: 1; }
+.vol:hover .vs, .vol:focus-within .vs, .vol.drag .vs { max-width: 6.8rem; padding: 0 .7rem 0 .6rem; opacity: 1; }
 .vs > .vt { min-width: 5.2rem; }
 .vt { position: relative; flex: 1; height: .3rem; border-radius: var(--r); background: rgb(255 255 255 / .26); }
 .vf { position: absolute; inset: 0; border-radius: var(--r); background: var(--ink); transform-origin: left; transform: scaleX(var(--v, 1)); }
@@ -355,6 +355,12 @@ select.field { padding-right: .5rem; }
 .tp-cover::after { content: ""; position: absolute; inset: 0; background: rgb(0 0 0 / .62); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
 #tp.veil .tp-cover { opacity: 1; }
 .pl-menu { position: absolute; z-index: 8; right: max(var(--pad), env(safe-area-inset-right)); bottom: calc(var(--safe-b) + 6.2rem); width: min(21rem, calc(100vw - 2rem)); max-height: 62vh; overflow: auto; padding: 0; border: .5rem solid transparent; animation: rise .3s var(--ease) both; }
+.pl-stats { position: absolute; z-index: 7; top: calc(var(--safe-t) + 5rem); left: max(var(--pad), env(safe-area-inset-left)); width: min(24rem, calc(100vw - 2rem)); padding: .35rem .8rem .8rem; border-radius: var(--r-panel); background: var(--panel); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); font-size: var(--fs-s); font-variant-numeric: tabular-nums; }
+.pl-stats .st-h { display: flex; align-items: center; gap: .1rem; }
+.pl-stats .st-h h4 { flex: 1; margin: 0; padding: .4rem 0; font-size: var(--fs-xs); letter-spacing: .1em; text-transform: uppercase; color: var(--ink3); font-weight: 750; }
+.pl-stats dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .25rem .9rem; margin: 0; }
+.pl-stats dt { color: var(--ink3); font-weight: 650; white-space: nowrap; }
+.pl-stats dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
 .pl-menu h4 { margin: 0; padding: .6rem .8rem .35rem; font-size: var(--fs-xs); letter-spacing: .1em; text-transform: uppercase; color: var(--ink3); font-weight: 750; }
 .pl-menu button { display: flex; align-items: center; justify-content: space-between; gap: 1rem; width: 100%; padding: .72rem .8rem; border: 0; border-radius: var(--r-field); background: none; color: var(--ink); font-weight: 650; text-align: left; }
 .pl-menu button:hover:not(:disabled), .pl-menu button:focus-visible { background: rgb(255 255 255 / .09); }

@@ -1,6 +1,6 @@
 import { cget, api, NOW, LATER } from './api.js'
 import { S, progress, inList, toggleList, ratingOf, rate, removeHistory } from './session.js'
-import { $, esc, icon, enc, mins, showSize, sized, fullWidth, hue, lowres, thumbW, known, canTrailer, slowLink, toast } from './util.js'
+import { $, EP_PAGE, esc, icon, enc, mins, showSize, sized, fullWidth, hue, lowres, thumbW, known, canTrailer, slowLink, toast } from './util.js'
 import { dragScroll } from './drag.js'
 import { glow } from './ambient.js'
 
@@ -24,7 +24,7 @@ export async function title (root, type, id) {
   const mine = local.some(e => e.type === type && e.mid === id)
   let season = rec?.season ?? seasons[0]
   // A long season (an anime can pass a thousand episodes) shows one range at a time; the range with the episode to continue opens first.
-  const PAGE = 24
+  const PAGE = EP_PAGE
   const startPage = () => { const i = rec && rec.season === season ? videos.filter(v => v.season === season).findIndex(v => v.episode === rec.episode) : -1; return i > 0 ? Math.floor(i / PAGE) : 0 }
   let page = startPage()
   const inL = () => inList(type, id)

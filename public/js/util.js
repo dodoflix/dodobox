@@ -2,6 +2,8 @@ export const $ = (s, r = document) => r.querySelector(s)
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)]
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
 export const enc = encodeURIComponent
+// A long season is listed one range of this many episodes at a time.
+export const EP_PAGE = 24
 // html has scrollbar-gutter: both-edges, which shifts position: fixed by the gutter width; measure and cancel it.
 export const placeLeft = (el, left) => { el.style.left = left + 'px'; el.style.left = 2 * left - el.getBoundingClientRect().left + 'px' }
 export const sleep = ms => new Promise(r => setTimeout(r, ms))
