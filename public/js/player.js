@@ -5,6 +5,7 @@ import { mapTime, offsetAt, classify } from './syncmap.js'
 import { $, EP_PAGE, esc, icon, enc, clock, bytes, store, sleep, toast, isTV, isSafari, lowres, sized, thumbW, hue } from './util.js'
 import { glow } from './ambient.js'
 import { onBack } from './nav.js'
+import { dragScroll } from './drag.js'
 import { loadCast, castTo } from './cast.js'
 import { LANGUAGES, langOf } from './onboarding.js'
 import { volumeHTML, bindVolume } from './volume.js'
@@ -250,6 +251,13 @@ export async function watch (type, id, season, episode) {
       ['Element', `ready ${v.readyState}, network ${v.networkState}${v.error ? `, error ${v.error.code}` : ''}`],
       ['Source rate', mbps],
       ['Your link', `${bandwidth() || '?'} Mbps measured${hls?.bandwidthEstimate ? `, ${(hls.bandwidthEstimate / 1e6).toFixed(1)} Mbps seen` : ''}`],
+      ['Release', st?.ctx?.release || '-'],
+      ['Found on', st?.ctx?.provider ? `${st.ctx.provider}, ${st.ctx.seeders ?? '?'} seeders when found` : '-'],
+      ...st?.torrent?.name && st.torrent.name !== st.ctx?.release ? [['Torrent', st.torrent.name]] : [],
+      ['Info hash', hash || '-'],
+      ['Contents', st?.torrent ? `${st.torrent.files} file${st.torrent.files === 1 ? '' : 's'}, ${bytes(st.torrent.size)}, file ${st.fileIdx ?? '?'}, pieces of ${bytes(st.torrent.pieceLength || 0)}` : '-'],
+      ['Swarm', st ? `${st.peers ?? 0} peers, ${bytes(st.torrent?.uploadSpeed || 0)}/s up` : '-'],
+      ['Shared', st?.torrent ? `${bytes(st.torrent.uploaded || 0)} up, ratio ${(st.torrent.ratio || 0).toFixed(2)}` : '-'],
       ['Download', st ? `${st.phase}${st.pausedReason ? ` (${st.pausedReason})` : ''}, ${Math.round((st.progress || 0) * 100)}%, ${bytes(st.speed || 0)}/s, ${st.peers ?? 0} peers` : '-'],
       ['Received', st ? `${bytes(st.downloaded || 0)} of ${bytes(st.length || 0)}` : '-']
     ]
@@ -275,7 +283,7 @@ export async function watch (type, id, season, episode) {
     if (menuKind === 'speed') h = '<h4>Speed</h4>' + SPEEDS.map(s => row(s === 1 ? 'Normal' : s + '×', { on: v.playbackRate === s, data: `data-speed="${s}"` })).join('')
     if (menuKind === 'quality') h = '<h4>Quality</h4>' + QUALITIES.filter(([q]) => q === 'auto' || +q <= (info?.tier || 2160) || q === quality).map(([q, n]) => row(n, { on: quality === q, data: `data-q="${q}"`, extra: q === 'auto' && autoH ? `<small>${autoH}p for your connection</small>` : '' })).join('') +
       '<hr><h4>Speed</h4>' + SPEEDS.map(sp => row(sp === 1 ? 'Normal' : sp + '×', { on: v.playbackRate === sp, data: `data-speed="${sp}"` })).join('') +
-      '<hr>' + row('Playback stats', { on: statsOn, data: 'data-stats' })
+      '<hr>' + row('Try another version', { data: 'data-another' }) + row('Playback stats', { on: statsOn, data: 'data-stats' })
     // On a phone the audio, subtitles, quality, speed and party buttons are one Settings button that lists them.
     if (menuKind === 'settings') {
       const q = QUALITIES.find(x => x[0] === quality)
@@ -284,7 +292,7 @@ export async function watch (type, id, season, episode) {
         info?.audio?.length > 1 ? ['audio', 'Audio', LANG(info.audio.find(a => a.i === audio)?.lang || 'und')] : null,
         ['quality', 'Quality and speed', `${q ? q[1] : quality}${v.playbackRate !== 1 ? ` · ${v.playbackRate}×` : ''}`],
         partyPanel ? ['party', 'Watch party', ''] : null
-      ].filter(Boolean).map(([k, n, x]) => row(n, { data: `data-menu="${k}"`, extra: `${x ? `<small>${esc(x)}</small>` : ''}${icon('right')}` })).join('') + row('Playback stats', { on: statsOn, data: 'data-stats' })
+      ].filter(Boolean).map(([k, n, x]) => row(n, { data: `data-menu="${k}"`, extra: `${x ? `<small>${esc(x)}</small>` : ''}${icon('right')}` })).join('') + row('Try another version', { data: 'data-another' }) + row('Playback stats', { on: statsOn, data: 'data-stats' })
     }
     if (menuKind === 'audio') h = '<h4>Audio</h4>' + info.audio.map(a => row(esc(LANG(a.lang || 'und')) + (a.title ? ` · ${esc(a.title)}` : '') + (a.i === bestAudio() ? '<small class="hint">Default</small>' : ''), { on: a.i === audio, data: `data-a="${a.i}"`, extra: `<small>${esc(a.codec)}</small>` })).join('')
     if (menuKind === 'subs') return drawSubsMenu()
@@ -315,6 +323,12 @@ export async function watch (type, id, season, episode) {
           <span><span class="t" translate="no">${esc(x.title)}</span><br><span class="d">${cur ? 'Playing now' : d}</span></span></a>`
       }).join('')}</div>`
     menu.scrollTop = keep
+    // The strips scroll like the others: dragged with a mouse, with arrows, and opened on the chip in use.
+    for (const t of menu.querySelectorAll('.tabs')) {
+      dragScroll(t)
+      const on = t.querySelector('.on')
+      if (on) t.scrollLeft += on.getBoundingClientRect().left - t.getBoundingClientRect().left - (t.clientWidth - on.offsetWidth) / 2
+    }
   }
   function drawSubsMenu () {
     const sgn = x => { const r = Math.round(x * 10) / 10; return r === 0 ? '0.0' : (r > 0 ? '+' : '') + r.toFixed(1) }
@@ -362,6 +376,7 @@ export async function watch (type, id, season, episode) {
     const d = b.dataset
     if (d.menu) return open(d.menu)
     if (d.stats != null) return toggleStats()
+    if (d.another != null) { closeMenu(); if (!hash) return; toast('Looking for another version...'); tried.add(hash); startAt = v.currentTime; return start() }
     if (d.speed) { v.defaultPlaybackRate = v.playbackRate = +d.speed; keep('speed', +d.speed); closeMenu() }
     if (d.q) { quality = d.q; keep('quality', quality); closeMenu(); startAt = v.currentTime; if (info) { chooseMode(); attach() } }
     if (d.a) { audio = +d.a; const t = info.audio.find(x => x.i === audio); keep('audio', { lang: t?.lang || null, title: t?.title || '' }); closeMenu(); startAt = v.currentTime; chooseMode(); attach() }

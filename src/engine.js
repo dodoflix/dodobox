@@ -184,6 +184,7 @@ export function status (hash, silent, file) {
     phase: row.error || e.error ? 'error' : !t?.ready ? 'metadata' : f?.done ? 'done' : paused.has(rowKey(e, row)) ? 'paused' : 'downloading',
     pausedReason: paused.get(rowKey(e, row)) || null,
     peers: t?.numPeers ?? 0,
+    torrent: t && { name: t.name, size: t.length, files: t.files.length, pieceLength: t.pieceLength, uploaded: t.uploaded, uploadSpeed: t.uploadSpeed, ratio: t.ratio },
     speed: paused.has(rowKey(e, row)) ? 0 : t?.downloadSpeed ?? 0,
     fileIdx: row.fileIdx,
     name: f?.name || row.name || null,

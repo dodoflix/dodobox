@@ -355,7 +355,7 @@ select.field { padding-right: .5rem; }
 .tp-cover::after { content: ""; position: absolute; inset: 0; background: rgb(0 0 0 / .62); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
 #tp.veil .tp-cover { opacity: 1; }
 .pl-menu { position: absolute; z-index: 8; right: max(var(--pad), env(safe-area-inset-right)); bottom: calc(var(--safe-b) + 6.2rem); width: min(21rem, calc(100vw - 2rem)); max-height: 62vh; overflow: auto; padding: 0; border: .5rem solid transparent; animation: rise .3s var(--ease) both; }
-.pl-stats { position: absolute; z-index: 7; top: calc(var(--safe-t) + 5rem); left: max(var(--pad), env(safe-area-inset-left)); width: min(24rem, calc(100vw - 2rem)); padding: .35rem .8rem .8rem; border-radius: var(--r-panel); background: var(--panel); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); font-size: var(--fs-s); font-variant-numeric: tabular-nums; }
+.pl-stats { position: absolute; z-index: 7; top: calc(var(--safe-t) + 5rem); left: max(var(--pad), env(safe-area-inset-left)); width: min(24rem, calc(100vw - 2rem)); padding: .35rem .8rem .8rem; border-radius: var(--r-panel); background: var(--panel); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); max-height: calc(100% - 9rem); overflow-y: auto; font-size: var(--fs-s); font-variant-numeric: tabular-nums; }
 .pl-stats .st-h { display: flex; align-items: center; gap: .1rem; }
 .pl-stats .st-h h4 { flex: 1; margin: 0; padding: .4rem 0; font-size: var(--fs-xs); letter-spacing: .1em; text-transform: uppercase; color: var(--ink3); font-weight: 750; }
 .pl-stats dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .25rem .9rem; margin: 0; }
