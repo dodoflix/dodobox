@@ -81,6 +81,8 @@ async function repairNames (id) {
 }
 const needProfile = req => { const p = state.profile(pid(req)); if (!p) throw Object.assign(new Error('Choose a profile first'), { code: 401 }); return p }
 
+// Adult releases are searched only for adult-marked titles, and only when the viewer has not turned the adult filter on.
+const isAdult = (m, safe) => !safe && !!m.genres?.includes('Hentai')
 const runtimeOf = m => parseInt(String(m.runtime || '').match(/\d+/)?.[0], 10) || 0
 const MODES = ['balanced', 'compact', 'lossless']
 const ctxOf = b => ({ sublang: b.sublang, audio: b.audio, mbps: speed.downMbps(), prefer: b.prefer || 'auto', display: +b.display || 0, mode: MODES.includes(b.mode) ? b.mode : 'balanced' })
@@ -93,7 +95,7 @@ const notAired = date => !!date && new Date(date) > new Date()
 async function play (b) {
   const m = await meta(b.type, b.id)
   const flat = b.type === 'movie' || m.movie
-  const item = { type: b.type, id: b.id, title: m.name, altTitles: m.altTitles, year: m.year, movie: m.movie, runtimeMin: runtimeOf(m), season: flat ? null : +b.season, episode: flat ? null : +b.episode }
+  const item = { type: b.type, id: b.id, title: m.name, altTitles: m.altTitles, year: m.year, movie: m.movie, runtimeMin: runtimeOf(m), adult: isAdult(m, b.safe), season: flat ? null : +b.season, episode: flat ? null : +b.episode }
   const exclude = b.exclude || []
   for (const h of exclude) if (engine.status(h, true)?.phase !== 'done') await engine.remove(h)
   if (!b.infoHash) {
@@ -343,7 +345,7 @@ const routes = [
   ['GET', /^\/api\/meta\/(\w+)\/([^/]+)$/, async (req, res, [, type, id]) => jsonCached(req, res, await localizeMeta(await meta(type, decodeURIComponent(id)), req.headers['x-lang']), 300)],
   ['GET', /^\/api\/sources$/, async (req, res, _, q) => {
     const type = q.get('type'); const m = await meta(type, q.get('id'))
-    const list = await findSources({ type, id: m.id, title: m.name, altTitles: m.altTitles, year: m.year, movie: m.movie, runtimeMin: runtimeOf(m), season: +q.get('season'), episode: +q.get('episode') }, ctxOf({ prefer: q.get('prefer'), display: q.get('display'), mode: q.get('mode'), audio: q.get('audio') }))
+    const list = await findSources({ type, id: m.id, title: m.name, altTitles: m.altTitles, year: m.year, movie: m.movie, runtimeMin: runtimeOf(m), adult: isAdult(m, safeOf(req)), season: +q.get('season'), episode: +q.get('episode') }, ctxOf({ prefer: q.get('prefer'), display: q.get('display'), mode: q.get('mode'), audio: q.get('audio') }))
     json(req, res, list.map(({ magnet, ...s }) => ({ ...s, measuredBps: measured.get(s.infoHash)?.bps })))
   }],
   // Watch party: the page asks, this server talks to the other members (src/party.js) and tells the page what they do.
@@ -366,7 +368,7 @@ const routes = [
   ['POST', /^\/api\/party\/join$/, async (req, res) => { const b = await jbody(req); json(req, res, await party.join(b.code, partyWho(req), null, b.password)) }],
   ['POST', /^\/api\/party\/leave$/, (req, res) => { party.leave(); json(req, res, { ok: true }) }],
   ['POST', /^\/api\/party\/send$/, async (req, res) => { const b = await jbody(req); party.send(b.k, b); json(req, res, { ok: true }) }],
-  ['POST', /^\/api\/play$/, async (req, res) => { const b = await jbody(req); b.mode ||= modeOf(req); b.audio ||= audioOf(req); b.sublang ||= sublangOf(req); json(req, res, await play(b)) }],
+  ['POST', /^\/api\/play$/, async (req, res) => { const b = await jbody(req); b.mode ||= modeOf(req); b.audio ||= audioOf(req); b.sublang ||= sublangOf(req); b.safe = safeOf(req); json(req, res, await play(b)) }],
   ['GET', /^\/api\/status\/(\w+)$/, (req, res, [, h], q) => { const s = statusOf(h, false, q.get('file')); if (s) speed.observe(s.speed); s ? json(req, res, s) : fail(req, res, 404, 'unknown source') }],
   // The player was left: stop converting for it.
   ['POST', /^\/api\/release\/(\w+)\/(\d+)$/, (req, res, [, h, i]) => { cancel(`${h}:${i}`); json(req, res, { ok: true }) }],
@@ -528,7 +530,7 @@ const routes = [
     try { send(req, res, 200, 'text/vtt; charset=utf-8', await anyToVtt(buf)) } finally { converting-- }
   }],
 
-  ['POST', /^\/api\/download$/, async (req, res) => { const b = await jbody(req); b.mode ||= modeOf(req); b.audio ||= audioOf(req); b.sublang ||= sublangOf(req); json(req, res, await downloads.enqueue(b)) }],
+  ['POST', /^\/api\/download$/, async (req, res) => { const b = await jbody(req); b.mode ||= modeOf(req); b.audio ||= audioOf(req); b.sublang ||= sublangOf(req); b.safe = safeOf(req); json(req, res, await downloads.enqueue(b)) }],
   ['GET', /^\/api\/downloads$/, (req, res) => json(req, res, downloads.state())],
   ['DELETE', /^\/api\/downloads\/(.+)$/, (req, res, [, k]) => { downloads.cancel(decodeURIComponent(k)); json(req, res, { ok: true }) }],
   ['GET', /^\/api\/library$/, (req, res) => json(req, res, engine.library())],
