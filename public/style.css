@@ -685,8 +685,10 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 .pp-start .btn-ink { width: 100%; }
 .pp-pass { position: relative; }
 .pp-pass .field { width: 100%; padding-right: calc(var(--n, 1) * 2.2rem + .6rem); }
-.pp-row .pp-pass { flex: 1; min-width: 0; }
-.pp-row .pp-pass .field { width: 100%; height: 100%; flex: none; }
+.pp-join .btn { width: 100%; }
+.pp-join input[name=code] { text-transform: uppercase; letter-spacing: .08em; }
+@container (max-width: 17rem) { .pp-join input[name=code] { font-size: .9rem; letter-spacing: .02em; } }
+@container (max-width: 15rem) { .pp-join input[name=code] { font-size: .75rem; letter-spacing: 0; padding-left: .75rem; } }
 .pp-pass .field.masked { -webkit-text-security: disc; }
 .pp-pass .pp-act { position: absolute; inset-block: 0; right: .2rem; display: flex; align-items: center; }
 .pp-pass .icon-btn { width: 2.2rem; height: 2.2rem; }
@@ -694,9 +696,6 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 .pp-or::before, .pp-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .pp-join { display: grid; grid-template-columns: minmax(0, 1fr); gap: .6rem; }
 .pp-join label, .pp-label { color: var(--ink3); font-size: var(--fs-m); font-weight: 650; }
-.pp-row { display: flex; gap: .5rem; }
-.pp-row .field { flex: 1; width: 0; min-width: 0; text-transform: uppercase; letter-spacing: .08em; }
-.pp-row .btn { flex: none; }
 .pp-code { display: grid; gap: .25rem; }
 .pp-codeline { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
 .pp-codeline b { min-width: 0; font: 800 clamp(.8rem, 5.4cqi, 1.2rem)/1.25 var(--text); letter-spacing: .08em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }

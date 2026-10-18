@@ -234,8 +234,9 @@ function html (ctx) {
         <button class="btn btn-ink" data-autofocus>Start a party</button></form>
       <p class="pp-note">Friends need Dodobox too. Share the code with them.</p>
       <div class="pp-or"><span>or</span></div>
-      <form class="pp-join"><label for="pp-code">Join with a code</label><div class="pp-row">${codeField}<button class="btn btn-ghost">Join</button></div>
-        ${passField}</form>`
+      <form class="pp-join"><label for="pp-code">Join with a code</label>${codeField}
+        ${passField}
+        <button class="btn btn-ghost">Join</button></form>`
   } else {
     const n = s.now?.item
     const poster = n ? posterOf(n) : ''
