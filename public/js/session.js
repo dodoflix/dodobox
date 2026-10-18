@@ -39,6 +39,8 @@ export async function setSetting (k, v) {
   if (k === 'lang') setLang(v)
   if (k === 'adultFilter') setSafe(v)
   await api('/api/me', { method: 'PATCH', body: { settings: { [k]: v } } }).catch(() => {})
+  // The lists are filtered by the server, so they are asked for again under the new setting.
+  if (k === 'adultFilter') Object.assign(S.me, await api('/api/me').then(({ list, recent, history, ratings }) => ({ list, recent, history, ratings }), () => ({})))
 }
 
 export const ratingOf = (t, id) => S.me.ratings?.[`${t}:${id}`]?.v || 0

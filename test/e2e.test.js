@@ -154,6 +154,20 @@ test('deleting from the library removes files', async () => {
   assert.deepEqual(fs.readdirSync(dl, { recursive: true }), [])
 })
 
+test('the adult filter hides adult-marked titles from the viewer\'s lists', async () => {
+  const { cached } = await import('../src/meta.js')
+  await cached('meta6:anime:al:900001', 1e6, async () => ({ id: 'al:900001', genres: ['Comedy', 'Hentai'] }))
+  await cached('meta6:anime:al:900002', 1e6, async () => ({ id: 'al:900002', genres: ['Comedy'] }))
+  await cached('meta6:movie:tt9000001', 1e6, async () => ({ id: 'tt9000001', genres: ['Adult', 'Comedy'] }))
+  await cached('meta6:series:tt9000002', 1e6, async () => ({ id: 'tt9000002', genres: ['Drama'] }))
+  const { id } = await (await get('/api/profiles', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Adult filter' }) })).json()
+  for (const [type, tid] of [['anime', 'al:900001'], ['anime', 'al:900002'], ['movie', 'tt9000001'], ['series', 'tt9000002']]) await get('/api/list', { method: 'PUT', headers: { 'content-type': 'application/json', 'x-profile': id }, body: JSON.stringify({ item: { type, id: tid, name: tid }, on: true }) })
+  const ids = async () => (await (await get('/api/me', { headers: { 'x-profile': id } })).json()).list.map(x => x.id).sort()
+  assert.deepEqual(await ids(), ['al:900001', 'al:900002', 'tt9000001', 'tt9000002'])
+  await get('/api/me', { method: 'PATCH', headers: { 'content-type': 'application/json', 'x-profile': id }, body: JSON.stringify({ settings: { adultFilter: true } }) })
+  assert.deepEqual(await ids(), ['al:900002', 'tt9000002'], 'the profile setting decides, even before the page has sent its header')
+})
+
 test('requests from another site, and from a made-up hostname, are refused', async () => {
   const { request } = await import('node:http')
   const hit = (method, path, headers) => new Promise((resolve, reject) => {
