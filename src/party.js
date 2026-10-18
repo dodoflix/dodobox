@@ -267,7 +267,7 @@ export class Party extends EventEmitter {
   status () {
     const s = this.state
     return {
-      active: this.phase !== 'idle', phase: this.phase, code: this.code, locked: this.locked, self: this.self.id,
+      active: this.phase !== 'idle', phase: this.phase, code: this.code, locked: this.locked, self: this.self.id, max: LIMITS.members,
       members: [...this.members.values()].map(({ id, name, color }) => ({ id, name, color, you: id === this.self.id })),
       // Where the show is now, counting the time since it was reported.
       now: s && { item: s.item, source: s.source, pos: s.pos + (s.paused ? 0 : (Date.now() - s.at) / 1000), paused: s.paused }

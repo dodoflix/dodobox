@@ -93,6 +93,7 @@ function paintChip () {
   if (!chip) return
   chip.hidden = !status.active
   chip.innerHTML = `${icon('party')}<span>${status.members.length}</span>`
+  chip.title = chip.ariaLabel = `${status.members.length} of ${status.max || 12} in the party`
   chip.classList.toggle('live', status.members.length > 1)
   chip.classList.toggle('unread', unread > 0)
 }
@@ -232,7 +233,7 @@ function html (ctx) {
     body = `<p class="pp-lead">Get a code to share, then watch anything together, episode after episode.</p>
       <form class="pp-start">${passField}
         <button class="btn btn-ink" data-autofocus>Start a party</button></form>
-      <p class="pp-note">Friends need Dodobox too. Share the code with them.</p>
+      <p class="pp-note">Friends need Dodobox too. Share the code with them. Up to ${s.max || 12} people can be in a party.</p>
       <div class="pp-or"><span>or</span></div>
       <form class="pp-join"><label for="pp-code">Join with a code</label>${codeField}
         ${passField}
@@ -247,6 +248,7 @@ function html (ctx) {
           ${here ? '' : '<button class="btn btn-ink sm" data-a="go" data-autofocus>Watch together</button>'}</section>`
       : '<p class="pp-note">Pick anything to watch and everyone follows.</p>'
     body = `<section class="pp-code"><span class="pp-label">Party code</span><div class="pp-codeline"><b translate="no">${esc(s.code)}</b><button class="icon-btn" data-a="copy" aria-label="Copy code">${icon('copy')}</button></div>${s.locked ? '<p class="pp-note">Friends also need the password.</p>' : ''}</section>
+      <p class="pp-count${s.members.length >= (s.max || 12) ? ' full' : ''}">${s.members.length} of ${s.max || 12} in the party${s.members.length >= (s.max || 12) ? ', full' : ''}</p>
       <ul class="pp-members${s.members.length > 4 ? ' crowd' : ''}">${s.members.map(m => (s.members.length > 4
         ? `<li><button type="button" class="avatar${m.you ? ' you' : ''}" data-a="who" data-name="${esc(m.you ? 'You' : m.name)}" style="--c:${esc(m.color)}" aria-label="${esc(m.name)}${m.you ? ' (You)' : ''}">${esc((m.name || '?')[0].toUpperCase())}</button></li>`
         : `<li><span class="avatar" style="--c:${esc(m.color)}">${esc((m.name || '?')[0].toUpperCase())}</span><span class="pp-name" translate="no">${esc(m.name)}</span>${m.you ? '<small>You</small>' : ''}</li>`)).join('')}</ul>
