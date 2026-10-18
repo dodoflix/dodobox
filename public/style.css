@@ -706,7 +706,6 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 .party-pop.in-page { position: fixed; z-index: var(--z-popover); top: 4.4rem; right: max(var(--pad), 1rem); max-height: calc(100vh - 4.4rem - 1rem); max-height: calc(100svh - 4.4rem - 1rem); }
 .party-pop.in-player { position: absolute; z-index: 8; right: max(var(--pad), env(safe-area-inset-right)); bottom: calc(var(--safe-b) + 6.2rem); max-height: calc(100% - var(--safe-b) - 6.2rem - var(--safe-t) - 1rem); }
 .party-pop > * { margin: 0; }
-.party-pop { scrollbar-width: thin; scrollbar-gutter: stable both-edges; scrollbar-color: rgb(255 255 255 / .25) transparent; }
 .pp-h { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .pp-h h3 { margin: 0; min-width: 0; overflow-wrap: anywhere; font: 800 1.6rem/1.1 var(--display); letter-spacing: .04em; text-transform: uppercase; }
 .party-pop .icon-btn .i { width: 1.2rem; height: 1.2rem; }
@@ -750,7 +749,7 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 @media (max-width: 700px), (max-height: 760px) { .party-pop:has(.pp-chat) > .pp-leave { margin-top: .25rem; min-height: 2.6rem; } }
 .cbtn.on#m-party { color: rgb(var(--glow)); }
 .pp-chat { display: grid; gap: .6rem; padding-top: 1rem; border-top: 1px solid var(--line); }
-.pp-log { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); overflow-x: hidden; gap: .3rem; max-height: clamp(7rem, 26vh, 14rem); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-gutter: stable both-edges; scrollbar-color: rgb(255 255 255 / .25) transparent; }
+.pp-log { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); overflow-x: hidden; gap: .3rem; max-height: clamp(7rem, 26vh, 14rem); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .pp-log:empty { display: none; }
 .pp-log li { display: grid; justify-items: start; gap: .1rem; min-width: 0; }
 .pp-log li.me { justify-items: end; }
