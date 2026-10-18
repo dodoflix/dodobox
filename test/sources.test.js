@@ -51,6 +51,15 @@ test('series: text searches for the episode, the season and the whole series run
   } finally { net.restore() }
 })
 
+test('anime: sukebei is searched only for adult-marked items', async () => {
+  const hosts = async adult => {
+    const net = stub([])
+    try { await findSources({ type: 'anime', id: `al:9000${+adult}`, title: 'Stub Show', episode: 1, adult }); return new Set(net.calls) } finally { net.restore() }
+  }
+  assert.ok((await hosts(true)).has('sukebei.nyaa.si'))
+  assert.ok(!(await hosts(false)).has('sukebei.nyaa.si'))
+})
+
 const row = (n, seeders = 30) => ({ title: `Stub.Show.S01E01.${n}`, release: `Stub.Show.S01E01.${n}`, infoHash: HASH(n), seeders, size: 1e9, quality: 1080 })
 const later = (ms, rows) => new Promise(resolve => setTimeout(() => resolve(rows), ms))
 const laterFail = ms => new Promise((_, reject) => setTimeout(() => reject(new Error('429')), ms))

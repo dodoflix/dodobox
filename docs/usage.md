@@ -68,7 +68,7 @@ Settings has **Best translation quality** (off by default). It installs a larger
 
 ## Adult content filter
 
-Off by default, in Settings and first-run setup. When on, titles marked as adult are left out of browse lists, shelves and search. A title you open directly is never blocked.
+Off by default, in Settings and first-run setup. When on, titles marked as adult (Hentai anime, "Adult" movies and series) are left out of browse lists, shelves, search, your list, continue watching, history, downloads and the library. A title you open directly is never blocked. When off, adult-marked anime is also searched on sukebei for sources.
 
 ## Download size
 

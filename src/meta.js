@@ -167,6 +167,14 @@ export function fuse (first, second) {
   return [...score].sort((a, b) => b[1] - a[1]).map(([id]) => items.get(id))
 }
 
+// AniList tags adult anime "Hentai"; IMDb tags adult films and series "Adult", but only on a title's own record, not in the catalog lists.
+export const isAdultItem = m => !!m?.genres?.some(g => g === 'Hentai' || g === 'Adult')
+const sfw = async (items, safe) => {
+  if (!safe) return items
+  const adult = await Promise.all(items.map(i => meta(i.type, i.id).then(isAdultItem, () => false)))
+  return items.filter((_, k) => !adult[k])
+}
+
 export const catalog = ({ type, q, genre, page = 1, sort = 'popular', safe = false }) => {
   checkType(type)
   if (!ANIME_SORT[sort]) sort = 'popular'
@@ -201,9 +209,10 @@ export const catalog = ({ type, q, genre, page = 1, sort = 'popular', safe = fal
       const items = fuse(suggested.value || [], searched.value || [])
       // A search that failed is not an answer: caching "no results" would hide the title for hours.
       if (!items.length && (suggested.reason || searched.reason)) throw suggested.reason || searched.reason
-      return suggested.reason || searched.reason ? markPartial(items) : items
+      const shown = await sfw(items, safe)
+      return suggested.reason || searched.reason ? markPartial(shown) : shown
     }
-    return fromCatalog()
+    return sfw(await fromCatalog(), safe)
   })
 }
 

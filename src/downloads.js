@@ -19,7 +19,7 @@ export function cancel (k) {
   const f = failed.findIndex(j => j.key === k); if (f >= 0) failed.splice(f, 1)
 }
 
-export async function enqueue ({ type, id, season, episode, all, mode, audio, sublang }) {
+export async function enqueue ({ type, id, season, episode, all, mode, audio, sublang, safe }) {
   const m = await meta(type, id)
   const flat = type === 'movie' || m.movie
   const now = new Date()
@@ -28,7 +28,7 @@ export async function enqueue ({ type, id, season, episode, all, mode, audio, su
       : [{ season: +season, episode: +episode }]
   let added = 0
   for (const t of targets) {
-    const job = { type, id, title: m.name, poster: m.poster, mode, audio, sublang, ...t }
+    const job = { type, id, title: m.name, poster: m.poster, mode, audio, sublang, safe, ...t }
     job.key = key(job)
     if (queue.some(q => q.key === job.key) || local.find({ type, id, season: t.season, episode: t.episode })) continue
     const have = engine.findEntry({ type, id, season: t.season, episode: t.episode })
@@ -46,7 +46,7 @@ async function pump () {
   try {
     while (queue.length && active() < MAX_ACTIVE) {
       const job = queue.shift()
-      try { await play({ type: job.type, id: job.id, season: job.season, episode: job.episode, mode: job.mode, audio: job.audio, sublang: job.sublang, pin: true }) } catch (e) {
+      try { await play({ type: job.type, id: job.id, season: job.season, episode: job.episode, mode: job.mode, audio: job.audio, sublang: job.sublang, safe: job.safe, pin: true }) } catch (e) {
         failed.unshift({ key: job.key, type: job.type, id: job.id, title: job.title, poster: job.poster, season: job.season, episode: job.episode, error: e.message, at: Date.now() })
         failed.length = Math.min(failed.length, 20)
       }

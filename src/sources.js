@@ -162,8 +162,11 @@ async function yts (imdb) {
 const xml = (s, tag) => (s.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`)) || [])[1] || ''
 const unescapeXml = s => s.replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n)).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&')
 
-async function nyaa (query, filter) {
-  const text = await getText(`https://nyaa.si/?page=rss&c=1_2&s=seeders&o=desc&q=${encodeURIComponent(query)}`, { timeout: 9000 })
+// Adult releases are listed on sukebei, a separate site with the same feed.
+const NYAA = { host: 'nyaa.si', cat: '1_2' }
+const SUKEBEI = { host: 'sukebei.nyaa.si', cat: '1_1' }
+async function nyaa (query, filter, { host, cat } = NYAA) {
+  const text = await getText(`https://${host}/?page=rss&c=${cat}&s=seeders&o=desc&q=${encodeURIComponent(query)}`, { timeout: 9000 })
   return [...text.matchAll(/<item>([\s\S]*?)<\/item>/g)].map(m => {
     const it = m[1]
     const title = unescapeXml(xml(it, 'title'))
@@ -176,7 +179,7 @@ async function nyaa (query, filter) {
       seeders: +xml(it, 'nyaa:seeders') || 0,
       size: size ? toBytes(size[1], size[2]) : 0,
       quality: parseQuality(title),
-      provider: 'Nyaa'
+      provider: host === NYAA.host ? 'Nyaa' : 'Sukebei'
     }
   }).filter(r => r.infoHash && filter(r.title))
 }
@@ -240,13 +243,13 @@ async function animeTiers (item) {
   const fallback = () => {
     const jobs = []
     if (ids?.anidb && !item.movie) jobs.push(vouched(tosho(`aid=${ids.anidb}`), target))
-    for (const t of titles) {
+    for (const t of titles) for (const site of item.adult ? [NYAA, SUKEBEI] : [NYAA]) {
       const tw = t.replace(/[^\p{L}\p{N} ]+/gu, ' ')
       // The search is fuzzy: a title plus the episode number also finds other shows whose names start with it.
       const own = n => item.movie || titleVerdict(n, titles) !== 'other'
       const numbering = { kind: 'anime', episode: item.episode, ...nums }
-      jobs.push(nyaa(item.movie ? tw : `${tw} ${p2(item.episode)}`, n => own(n) && (item.movie || matchRelease({ name: n }, numbering, { noTitle: true }))))
-      if (!item.movie) jobs.push(nyaa(`${tw} batch`, n => own(n) && isPack(n) && matchRelease({ name: n }, numbering, { noTitle: true })))
+      jobs.push(nyaa(item.movie ? tw : `${tw} ${p2(item.episode)}`, n => own(n) && (item.movie || matchRelease({ name: n }, numbering, { noTitle: true })), site))
+      if (!item.movie) jobs.push(nyaa(`${tw} batch`, n => own(n) && isPack(n) && matchRelease({ name: n }, numbering, { noTitle: true }), site))
     }
     return jobs
   }
@@ -300,9 +303,9 @@ const LIST_TTL = 90 * 60e3
 const PARTIAL_TTL = 60e3 // what was found while a source failed is used, but asked for again soon
 const NOTHING_TTL = 5 * 60e3
 const cache = new Map()
-export const findSources = (item, ctx = {}) => once('src:' + JSON.stringify([item.type, item.id, item.season, item.episode]), () => find(item, ctx))
+export const findSources = (item, ctx = {}) => once('src:' + JSON.stringify([item.type, item.id, item.season, item.episode, !!item.adult]), () => find(item, ctx))
 async function find (item, ctx) {
-  const key = JSON.stringify([item.type, item.id, item.season, item.episode])
+  const key = JSON.stringify([item.type, item.id, item.season, item.episode, !!item.adult])
   const hit = cache.get(key)
   const sctx = { ...ctx, runtimeMin: item.runtimeMin || RUNTIME[item.type], year: item.year, kind: item.type }
   if (hit && Date.now() - hit.at < hit.ttl) return rankLive(hit.list, sctx)

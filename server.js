@@ -7,7 +7,7 @@ import zlib from 'node:zlib'
 import qr from 'qrcode-generator'
 import { Bonjour } from 'bonjour-service'
 import { fileURLToPath } from 'node:url'
-import { catalog, meta, animeImdb } from './src/meta.js'
+import { catalog, meta, animeImdb, isAdultItem } from './src/meta.js'
 import { findSources, measured, score, refreshTrackers, lengthFits } from './src/sources.js'
 import { titleVerdict } from './src/release.js'
 import { episodeNumbers, warm as warmIds } from './src/ids.js'
@@ -81,6 +81,14 @@ async function repairNames (id) {
 }
 const needProfile = req => { const p = state.profile(pid(req)); if (!p) throw Object.assign(new Error('Choose a profile first'), { code: 401 }); return p }
 
+// Adult releases are searched only for adult-marked titles, and only when the viewer has not turned the adult filter on.
+const isAdult = (m, safe) => !safe && isAdultItem(m)
+// With the adult filter on, drops entries whose title is adult-marked. `of` reads the { type, id } of an entry; an unknown title stays.
+const hideAdult = async (items, safe, of = x => x) => {
+  if (!safe) return items
+  const adult = await Promise.all(items.map(x => { const { type, id } = of(x); return id ? meta(type, id).then(isAdultItem, () => false) : false }))
+  return items.filter((_, i) => !adult[i])
+}
 const runtimeOf = m => parseInt(String(m.runtime || '').match(/\d+/)?.[0], 10) || 0
 const MODES = ['balanced', 'compact', 'lossless']
 const ctxOf = b => ({ sublang: b.sublang, audio: b.audio, mbps: speed.downMbps(), prefer: b.prefer || 'auto', display: +b.display || 0, mode: MODES.includes(b.mode) ? b.mode : 'balanced' })
@@ -93,7 +101,7 @@ const notAired = date => !!date && new Date(date) > new Date()
 async function play (b) {
   const m = await meta(b.type, b.id)
   const flat = b.type === 'movie' || m.movie
-  const item = { type: b.type, id: b.id, title: m.name, altTitles: m.altTitles, year: m.year, movie: m.movie, runtimeMin: runtimeOf(m), season: flat ? null : +b.season, episode: flat ? null : +b.episode }
+  const item = { type: b.type, id: b.id, title: m.name, altTitles: m.altTitles, year: m.year, movie: m.movie, runtimeMin: runtimeOf(m), adult: isAdult(m, b.safe), season: flat ? null : +b.season, episode: flat ? null : +b.episode }
   const exclude = b.exclude || []
   for (const h of exclude) if (engine.status(h, true)?.phase !== 'done') await engine.remove(h)
   if (!b.infoHash) {
@@ -317,8 +325,9 @@ const routes = [
   ['GET', /^\/api\/me$/, async (req, res) => {
     needProfile(req)
     repairNames(pid(req))
-    const me = state.me(pid(req)); const lang = req.headers['x-lang']
-    json(req, res, { ...me, list: await localizeItems(me.list, lang), recent: await localizeItems(me.recent, lang), history: await localizeItems(me.history, lang), ratings: Object.fromEntries((await localizeItems(Object.values(me.ratings), lang)).map(r => [`${r.type}:${r.id}`, r])) })
+    const me = state.me(pid(req)); const lang = req.headers['x-lang']; const safe = !!me.settings.adultFilter // the page asks before it has read its own setting, so the header is not trusted here
+    const shown = async items => localizeItems(await hideAdult(items, safe), lang)
+    json(req, res, { ...me, list: await shown(me.list), recent: await shown(me.recent), history: await shown(me.history), ratings: Object.fromEntries((await shown(Object.values(me.ratings))).map(r => [`${r.type}:${r.id}`, r])) })
   }],
   ['PATCH', /^\/api\/me$/, async (req, res) => { needProfile(req); state.updateProfile(pid(req), await jbody(req)); json(req, res, state.me(pid(req))) }],
   ['PUT', /^\/api\/progress$/, async (req, res) => { needProfile(req); json(req, res, { ok: state.saveProgress(pid(req), await jbody(req)) }) }],
@@ -336,14 +345,14 @@ const routes = [
     json(req, res, s)
   }],
   ['GET', /^\/api\/storage$/, (req, res) => json(req, res, { ...engine.storage(), cap: state.settings().maxStorageGB * 1e9 })],
-  ['GET', /^\/api\/local$/, (req, res) => json(req, res, local.all().map(({ path: _p, ...e }) => e))],
+  ['GET', /^\/api\/local$/, async (req, res) => json(req, res, (await hideAdult(local.all(), safeOf(req), e => ({ type: e.type, id: e.mid }))).map(({ path: _p, ...e }) => e))],
   ['POST', /^\/api\/local\/rescan$/, async (req, res) => json(req, res, { count: await local.rescan() })],
 
   ['GET', /^\/api\/catalog$/, async (req, res, _, q) => jsonCached(req, res, await localizeItems((await catalog({ type: q.get('type'), q: q.get('q'), genre: q.get('genre'), page: +q.get('page') || 1, sort: q.get('sort') || 'popular', safe: safeOf(req) })).slice(0, Math.min(50, +q.get('limit') || 50)), req.headers['x-lang']))],
   ['GET', /^\/api\/meta\/(\w+)\/([^/]+)$/, async (req, res, [, type, id]) => jsonCached(req, res, await localizeMeta(await meta(type, decodeURIComponent(id)), req.headers['x-lang']), 300)],
   ['GET', /^\/api\/sources$/, async (req, res, _, q) => {
     const type = q.get('type'); const m = await meta(type, q.get('id'))
-    const list = await findSources({ type, id: m.id, title: m.name, altTitles: m.altTitles, year: m.year, movie: m.movie, runtimeMin: runtimeOf(m), season: +q.get('season'), episode: +q.get('episode') }, ctxOf({ prefer: q.get('prefer'), display: q.get('display'), mode: q.get('mode'), audio: q.get('audio') }))
+    const list = await findSources({ type, id: m.id, title: m.name, altTitles: m.altTitles, year: m.year, movie: m.movie, runtimeMin: runtimeOf(m), adult: isAdult(m, safeOf(req)), season: +q.get('season'), episode: +q.get('episode') }, ctxOf({ prefer: q.get('prefer'), display: q.get('display'), mode: q.get('mode'), audio: q.get('audio') }))
     json(req, res, list.map(({ magnet, ...s }) => ({ ...s, measuredBps: measured.get(s.infoHash)?.bps })))
   }],
   // Watch party: the page asks, this server talks to the other members (src/party.js) and tells the page what they do.
@@ -366,7 +375,7 @@ const routes = [
   ['POST', /^\/api\/party\/join$/, async (req, res) => { const b = await jbody(req); json(req, res, await party.join(b.code, partyWho(req), null, b.password)) }],
   ['POST', /^\/api\/party\/leave$/, (req, res) => { party.leave(); json(req, res, { ok: true }) }],
   ['POST', /^\/api\/party\/send$/, async (req, res) => { const b = await jbody(req); party.send(b.k, b); json(req, res, { ok: true }) }],
-  ['POST', /^\/api\/play$/, async (req, res) => { const b = await jbody(req); b.mode ||= modeOf(req); b.audio ||= audioOf(req); b.sublang ||= sublangOf(req); json(req, res, await play(b)) }],
+  ['POST', /^\/api\/play$/, async (req, res) => { const b = await jbody(req); b.mode ||= modeOf(req); b.audio ||= audioOf(req); b.sublang ||= sublangOf(req); b.safe = safeOf(req); json(req, res, await play(b)) }],
   ['GET', /^\/api\/status\/(\w+)$/, (req, res, [, h], q) => { const s = statusOf(h, false, q.get('file')); if (s) speed.observe(s.speed); s ? json(req, res, s) : fail(req, res, 404, 'unknown source') }],
   // The player was left: stop converting for it.
   ['POST', /^\/api\/release\/(\w+)\/(\d+)$/, (req, res, [, h, i]) => { cancel(`${h}:${i}`); json(req, res, { ok: true }) }],
@@ -528,10 +537,10 @@ const routes = [
     try { send(req, res, 200, 'text/vtt; charset=utf-8', await anyToVtt(buf)) } finally { converting-- }
   }],
 
-  ['POST', /^\/api\/download$/, async (req, res) => { const b = await jbody(req); b.mode ||= modeOf(req); b.audio ||= audioOf(req); b.sublang ||= sublangOf(req); json(req, res, await downloads.enqueue(b)) }],
-  ['GET', /^\/api\/downloads$/, (req, res) => json(req, res, downloads.state())],
+  ['POST', /^\/api\/download$/, async (req, res) => { const b = await jbody(req); b.mode ||= modeOf(req); b.audio ||= audioOf(req); b.sublang ||= sublangOf(req); b.safe = safeOf(req); json(req, res, await downloads.enqueue(b)) }],
+  ['GET', /^\/api\/downloads$/, async (req, res) => { const d = downloads.state(); json(req, res, { queue: await hideAdult(d.queue, safeOf(req)), failed: await hideAdult(d.failed, safeOf(req)) }) }],
   ['DELETE', /^\/api\/downloads\/(.+)$/, (req, res, [, k]) => { downloads.cancel(decodeURIComponent(k)); json(req, res, { ok: true }) }],
-  ['GET', /^\/api\/library$/, (req, res) => json(req, res, engine.library())],
+  ['GET', /^\/api\/library$/, async (req, res) => json(req, res, await hideAdult(engine.library(), safeOf(req), e => e.ctx || {}))],
   ['DELETE', /^\/api\/library\/(\w+)(?::(\d+))?$/, async (req, res, [, h, f]) => json(req, res, { ok: await engine.remove(h, f) })]
 ]
 
