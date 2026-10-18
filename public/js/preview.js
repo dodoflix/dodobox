@@ -8,6 +8,18 @@ const fine = matchMedia('(hover: hover) and (pointer: fine)')
 const played = new Map()
 let card = null; let trailer = null; let showT; let hideT; let trailerT; let current = null
 
+const aired = v => !(v.released && new Date(v.released) > new Date())
+// A show's size: its seasons when it has several, otherwise its episodes. Only meta (not a catalog card) lists episodes.
+const size = m => {
+  const v = (m.videos || []).filter(aired); const seasons = new Set(v.map(x => x.season)).size
+  return seasons > 1 ? `${seasons} seasons` : v.length ? `${v.length} episode${v.length > 1 ? 's' : ''}` : ''
+}
+const facts = m => {
+  const flat = m.type === 'movie' || m.movie
+  return [m.year, flat && m.runtime && esc(m.runtime), m.rating && `${icon('star')}${m.rating.toFixed(1)}`, !flat && size(m)].filter(Boolean).map(x => `<span>${x}</span>`).join('')
+}
+const cats = m => (m.genres || []).slice(0, 3).map(esc).join(' · ')
+
 const parse = a => { const m = (a.getAttribute('href') || '').match(/^#\/(?:title|watch)\/(\w+)\/([^/]+)/); return m && { type: m[1], id: decodeURIComponent(m[2]) } }
 
 function close () {
@@ -26,14 +38,17 @@ async function open (poster) {
   const w = 352
   const left = Math.max(10, Math.min(innerWidth - w - 10, r.left + r.width / 2 - w / 2))
   const top = Math.max(76, Math.min(innerHeight - 330, r.top - 30))
-  card = document.createElement('div')
+  const mine = card = document.createElement('div')
   card.className = 'peek'; card.style.cssText = `left:${left}px;top:${top}px`
   card.innerHTML = `<div class="pv" style="--h:${hue(m.name)}"><i class="lq" style="background-image:url('${esc(lowres(sized(m.background || m.poster, 0)))}')"></i><img alt="" src="${esc(sized(m.background || m.poster, peekW()))}" onload="this.classList.add('in')"></div>
     <div class="pb"><b translate="no">${esc(m.name)}</b>
-    <div class="meta">${m.year ? `<span>${m.year}</span>` : ''}${m.runtime ? `<span>${esc(m.runtime)}</span>` : ''}${m.rating ? `<span>${icon('star')}${m.rating.toFixed(1)}</span>` : ''}</div>
+    <div class="meta">${facts(m)}</div>
+    <div class="cats">${cats(m)}</div>
     <p translate="no">${esc(m.description || '')}</p>
     <div class="acts"><a class="btn btn-ink sm" href="#/title/${m.type}/${enc(m.id)}">${icon('play')}Play</a><button class="btn btn-ghost sm" data-list>${inList(m.type, m.id) ? icon('check') + 'In list' : icon('plus') + 'My List'}</button></div></div>`
   document.body.append(card)
+  // Episodes and seasons come with the full entry, which a catalog card does not carry.
+  if (m.type !== 'movie' && !m.videos) cget(`/api/meta/${m.type}/${enc(m.id)}`).then(f => { if (card === mine) { m = f; mine.querySelector('.meta').innerHTML = facts(f); mine.querySelector('.cats').innerHTML = cats(f) } }).catch(() => {})
   card.addEventListener('pointerenter', () => clearTimeout(hideT))
   card.addEventListener('pointerleave', () => { hideT = setTimeout(close, 200) })
   card.addEventListener('click', e => {
@@ -44,7 +59,6 @@ async function open (poster) {
   // A trailer is a new player page and a video stream every time, so it starts only when the pointer really rests, only on a good link,
   // at a small size, and not again for the same title within a minute (the card still shows the picture).
   if (m.trailer && canTrailer() && Date.now() - (played.get(m.trailer) || 0) > 60e3) {
-    const mine = card
     trailerT = setTimeout(() => { if (card === mine) { played.set(m.trailer, Date.now()); trailer = mountTrailer(mine.querySelector('.pv'), m.trailer, { width: 640, onFail: () => { trailer = null } }) } }, 1500)
   }
 }

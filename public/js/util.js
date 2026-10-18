@@ -95,7 +95,7 @@ const initial = n => (String(n || '?').match(/[\p{L}\p{N}]/u) || ['?'])[0].toUpp
 export const known = new Map()
 function remember (i) {
   if (!i.description && !i.background) return
-  known.set(`${i.type}:${i.id}`, { type: i.type, id: i.id, name: i.name, year: i.year, rating: i.rating, runtime: i.runtime, description: (i.description || '').slice(0, 420), background: i.background, poster: i.poster, trailer: i.trailer })
+  known.set(`${i.type}:${i.id}`, { type: i.type, id: i.id, name: i.name, year: i.year, rating: i.rating, runtime: i.runtime, genres: i.genres, description: (i.description || '').slice(0, 420), background: i.background, poster: i.poster, trailer: i.trailer })
   if (known.size > 800) known.delete(known.keys().next().value)
 }
 
