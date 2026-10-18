@@ -147,7 +147,7 @@ h1.title { font: 900 clamp(3rem, min(8.2vw, 11vh), 6.5rem)/1 var(--display); tex
 .rail::-webkit-scrollbar { display: none; }
 .rail.wide { grid-auto-columns: calc(var(--pw) * 1.9); }
 .poster { display: block; position: relative; min-width: 0; }
-.poster .art { position: relative; aspect-ratio: 2 / 3; border-radius: var(--r); background: var(--s2) center / cover no-repeat; overflow: hidden; box-shadow: 0 0 0 1px rgb(255 255 255 / .08) inset; transition: filter .3s, box-shadow .3s; }
+.poster .art { position: relative; aspect-ratio: 2 / 3; border-radius: var(--r-field); background: var(--s2) center / cover no-repeat; overflow: hidden; box-shadow: 0 0 0 1px rgb(255 255 255 / .08) inset; transition: filter .3s, box-shadow .3s; }
 .poster .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .4s; }
 .poster .art img.in { opacity: 1; }
 .poster .art .ph { position: absolute; inset: 0; display: grid; align-content: end; padding: .85rem; overflow: hidden; background: radial-gradient(120% 75% at 25% 0%, hsl(var(--h, 30) 34% 24%), hsl(var(--h, 30) 28% 8%)); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .06); }
@@ -168,7 +168,7 @@ html.tv .poster:focus-visible .art { outline-width: 4px; transform: scale(1.06);
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--pw), 1fr)); gap: 1.6rem var(--gap); padding: 1rem var(--pad); }
 /* The padding on tiles and rows keeps focus rings and the TV zoom from being clipped by the paint containment content-visibility adds. */
 .grid .poster { content-visibility: auto; contain-intrinsic-block-size: auto calc(var(--pw) * 1.5 + 4.5rem); padding: 12px; margin: -12px; }
-.sk { position: relative; overflow: hidden; background: var(--s2); border-radius: var(--r); animation: breathe 2.2s ease-in-out infinite; }
+.sk { position: relative; overflow: hidden; background: var(--s2); border-radius: var(--r-field); animation: breathe 2.2s ease-in-out infinite; }
 @keyframes breathe { 0%, 100% { opacity: .55; } 50% { opacity: .9; } }
 .sk.art { aspect-ratio: 2 / 3; }
 .sk.line { height: .8rem; margin-top: .65rem; border-radius: var(--r-tag); width: 88%; }
@@ -230,7 +230,7 @@ html.tv .poster:focus-visible .art { outline-width: 4px; transform: scale(1.06);
 .list { padding: 0 var(--pad); max-width: 62rem; display: grid; gap: .25rem; }
 .item { display: grid; grid-template-columns: 3.4rem minmax(0, 1fr) auto; gap: 1rem; align-items: center; padding: .7rem .5rem; border-radius: var(--r-row); }
 .item:hover { background: rgb(255 255 255 / .05); }
-.item .th { position: relative; overflow: hidden; aspect-ratio: 2 / 3; border-radius: var(--r-tag); background-image: var(--art, none), radial-gradient(120% 75% at 25% 0%, hsl(var(--h, 30) 34% 24%), hsl(var(--h, 30) 28% 9%)); background-size: cover; background-position: center; }
+.item .th { position: relative; overflow: hidden; aspect-ratio: 2 / 3; border-radius: var(--r-thumb); background-image: var(--art, none), radial-gradient(120% 75% at 25% 0%, hsl(var(--h, 30) 34% 24%), hsl(var(--h, 30) 28% 9%)); background-size: cover; background-position: center; }
 .item .th .num { right: .3rem; bottom: -.3rem; font-size: 3rem; }
 .item .t { font-weight: 700; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .item .d { color: var(--ink3); font-size: var(--fs-s); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -461,6 +461,11 @@ html.lock, html.lock body { overflow: hidden; }
 .trailer-layer { position: absolute; inset: 0; overflow: hidden; container-type: size; opacity: 0; transition: opacity 1.2s ease; pointer-events: none; -webkit-mask-image: linear-gradient(#000 38%, transparent 100%); mask-image: linear-gradient(#000 38%, transparent 100%); }
 .hero.has-trailer .trailer-layer, .d-hero.has-trailer .trailer-layer { opacity: 1; }
 .trailer-frame { position: absolute; top: 50%; left: 50%; width: max(100cqw, 177.78cqh); height: max(100cqh, 56.25cqw); transform: translate(-50%, -47%) scale(1.32); border: 0; pointer-events: none; }
+.strip-arrow { position: absolute; z-index: 3; top: 0; left: 0; width: 2.6rem; height: 2.6rem; display: none; place-items: center; border: 0; border-radius: var(--r-field); background: rgb(var(--ground-rgb) / .72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); color: var(--ink); opacity: 0; transition: opacity .2s, background .2s; }
+.strip-arrow.sm { width: 2.2rem; height: 2.2rem; }
+.strip-arrow:hover { background: rgb(var(--ground-rgb) / .92); }
+.strip-arrow:focus-visible { opacity: 1; }
+@media (hover: hover) and (pointer: fine) { html:not(.tv) .strip-arrow:not([hidden]) { display: grid; } .strip-host:hover > .strip-arrow { opacity: 1; } }
 .hero-arrow { position: absolute; z-index: 3; top: 38%; width: 2.6rem; height: 2.6rem; display: none; place-items: center; border: 0; border-radius: var(--r-field); background: rgb(var(--ground-rgb) / .55); color: var(--ink); opacity: 0; transition: opacity .25s, background .2s; }
 .hero-arrow.l { left: .5rem; } .hero-arrow.r { right: .5rem; }
 .hero-arrow:hover { background: rgb(var(--ground-rgb) / .8); }
@@ -494,6 +499,8 @@ html.lock, html.lock body { overflow: hidden; }
 .peek .pv .trailer-frame.on { opacity: 1; }
 .peek .pb { padding: .9rem 1rem 1rem; display: grid; gap: .5rem; }
 .peek .pb b { font: 800 1.5rem/1 var(--display); text-transform: uppercase; letter-spacing: .02em; }
+.peek .cats { color: var(--ink3); font-size: var(--fs-s); font-weight: 650; }
+.peek .cats:empty { display: none; }
 .peek .pb p { margin: 0; color: var(--ink2); font-size: var(--fs-s); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .peek .acts { display: flex; gap: .5rem; margin-top: .2rem; }
 
@@ -713,7 +720,7 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 .pp-members small { color: var(--ink3); font-weight: 550; }
 .pp-now { display: grid; gap: .75rem; padding-top: 1rem; border-top: 1px solid var(--line); }
 .pp-show { display: flex; align-items: center; gap: .9rem; min-width: 0; }
-.pp-poster { position: relative; flex: none; display: block; width: 3.2rem; aspect-ratio: 2 / 3; overflow: hidden; border-radius: 2px; background: radial-gradient(120% 90% at 25% 0%, hsl(var(--h, 30) 34% 24%), hsl(var(--h, 30) 28% 9%)); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); }
+.pp-poster { position: relative; flex: none; display: block; width: 3.2rem; aspect-ratio: 2 / 3; overflow: hidden; border-radius: var(--r-thumb); background: radial-gradient(120% 90% at 25% 0%, hsl(var(--h, 30) 34% 24%), hsl(var(--h, 30) 28% 9%)); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); }
 .pp-poster img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .pp-cap { display: grid; gap: .15rem; min-width: 0; }
 .pp-cap b { font-weight: 650; line-height: 1.25; overflow-wrap: anywhere; }
@@ -827,7 +834,7 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 .qs-res .recent { padding: 0 .4rem .4rem; }
 .qs-row { display: flex; align-items: center; gap: .9rem; padding: .45rem .5rem; border-radius: var(--r-field); }
 .qs-row:hover, .qs-row:focus-visible { background: rgb(255 255 255 / .09); outline: none; }
-.qs-th { flex: none; width: 2.4rem; aspect-ratio: 2 / 3; border-radius: var(--r); background: var(--s2) center / cover no-repeat; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); }
+.qs-th { flex: none; width: 2.4rem; aspect-ratio: 2 / 3; border-radius: var(--r-thumb); background: var(--s2) center / cover no-repeat; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); }
 .qs-t { min-width: 0; display: grid; font-weight: 650; }
 .qs-t > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .qs-t small { color: var(--ink3); font-weight: 550; font-size: var(--fs-s); }

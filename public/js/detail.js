@@ -1,6 +1,6 @@
 import { cget, api, NOW, LATER } from './api.js'
 import { S, progress, inList, toggleList, ratingOf, rate } from './session.js'
-import { $, esc, icon, enc, mins, sized, fullWidth, hue, lowres, thumbW, known, canTrailer, slowLink, toast } from './util.js'
+import { $, esc, icon, enc, mins, showSize, sized, fullWidth, hue, lowres, thumbW, known, canTrailer, slowLink, toast } from './util.js'
 import { dragScroll } from './drag.js'
 import { glow } from './ambient.js'
 
@@ -35,7 +35,7 @@ export async function title (root, type, id) {
       <div class="bg ${m.background ? '' : 'blur'}" style="--h:${hue(m.name)}"><i class="lq" style="background-image:url('${esc(lowres(sized(m.background || m.poster || '', 0)))}')"></i><img alt="" src="${esc(sized(m.background || m.poster || '', fullWidth()))}" onload="this.classList.add('in')"></div><div class="trailer-layer" id="dtr" aria-hidden="true"></div>
       <div class="d-body">
         <h1 class="title" translate="no">${esc(m.name)}</h1>
-        <div class="meta"><span class="tag">${TYPE_LABEL[type]}</span>${m.year ? `<span>${m.year}</span>` : ''}${m.runtime ? `<span>${esc(m.runtime)}</span>` : ''}${m.rating ? `<span>${icon('star')}${m.rating.toFixed(1)}</span>` : ''}${m.status && m.status !== 'FINISHED' ? `<span>${esc(m.status.replace(/_/g, ' ').toLowerCase())}</span>` : ''}${mine ? '<span>On your server</span>' : ''}</div>
+        <div class="meta"><span class="tag">${TYPE_LABEL[type]}</span>${m.year ? `<span>${m.year}</span>` : ''}${m.runtime && flat ? `<span>${esc(m.runtime)}</span>` : ''}${m.rating ? `<span>${icon('star')}${m.rating.toFixed(1)}</span>` : ''}${!flat && showSize(m) ? `<span>${showSize(m)}</span>` : ''}${m.status && m.status !== 'FINISHED' ? `<span>${esc(m.status.replace(/_/g, ' ').toLowerCase())}</span>` : ''}${mine ? '<span>On your server</span>' : ''}</div>
         <p class="lede" translate="no" id="lede" role="button" tabindex="0" aria-expanded="false" data-click>${esc(m.description || '')}</p>
         <div class="actions">
           ${m.unplayable ? `<span class="btn btn-ink" id="play" aria-disabled="true">${esc(m.unplayable)}</span>` : `<a class="btn btn-ink" id="play" data-autofocus href="${target ? watchHref(type, id, target.season, target.episode) : '#'}">${icon('play')}${playLabel}</a>`}
@@ -48,7 +48,7 @@ export async function title (root, type, id) {
         </div>
         </div>
         <div class="facts">
-          ${(m.genres || []).length ? `<div><b>Genres</b> ${m.genres.map(g => `<span>${esc(g)}</span>`).join(', ')}</div>` : ''}
+          ${(m.genres || []).length ? `<div><b>Genres</b> ${m.genres.map(g => `<a href="#/browse/${type}?genre=${enc(g)}">${esc(g)}</a>`).join(', ')}</div>` : ''}
           ${(m.cast || []).length ? `<div><b>Starring</b> ${m.cast.slice(0, 5).map(esc).join(', ')}</div>` : ''}
         </div>
       </div>
@@ -134,12 +134,14 @@ export async function title (root, type, id) {
     $('#eps').innerHTML = list.slice(page * PAGE, (page + 1) * PAGE).map(v => {
       const p = progress(type, id, v.season, v.episode); const r = p ? p[0] / p[1] : 0
       const future = v.released && new Date(v.released) > new Date()
+      // The catalog gives only one typical length for the show (marked ~); the real one is known once the episode has been played.
+      const len = p ? mins(p[1]) : m.runtime && `~${m.runtime}`
       const d = v.released ? new Date(v.released).toLocaleDateString(document.documentElement.lang || undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''
       if (future) return `<div class="ep-row"><div class="ep soon" aria-disabled="true"><span class="n">${v.episode}</span><span class="th" style="--h:${hue(m.name)}"><b class="num" aria-hidden="true">${v.episode}</b></span><span><span class="t" translate="no">${esc(v.title)}</span><br><span class="d">Airs ${d}</span></span></div></div>`
       return `<div class="ep-row"><a class="ep" href="${watchHref(type, id, v.season, v.episode)}">
         <span class="n">${v.episode}</span>
         <span class="th" ${m.background || m.poster ? `data-art="url('${esc(sized(m.background || m.poster, thumbW()))}')"` : ''} style="--h:${hue(m.name)}"><b class="num" aria-hidden="true">${v.episode}</b>${v.thumbnail ? `<img alt="" data-src="${esc(sized(v.thumbnail, thumbW()))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}${r > 0.02 ? `<span class="prog"><i style="width:${Math.min(100, r * 100)}%"></i></span>` : ''}<span class="go">${icon('play')}</span>${r > 0.93 ? `<span class="ok">${icon('check')}</span>` : ''}</span>
-        <span><span class="t" translate="no">${esc(v.title)}</span><br><span class="d">${future ? 'Airs ' + d : d}${p && r < 0.95 ? `${d ? ' · ' : ''}${mins(Math.max(60, p[1] - p[0]))} left` : ''}</span></span>
+        <span><span class="t" translate="no">${esc(v.title)}</span><br><span class="d">${[future ? 'Airs ' + d : d, len, p && r < 0.95 && `${mins(Math.max(60, p[1] - p[0]))} left`].filter(Boolean).join(' · ')}</span></span>
 </a><button class="dl" data-s="${v.season}" data-e="${v.episode}" aria-label="Download">${icon('down')}</button></div>`
     }).join('') || '<p class="dim">No episodes listed yet.</p>'
   }
