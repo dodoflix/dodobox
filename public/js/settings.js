@@ -34,8 +34,6 @@ export async function settings (root) {
         <select class="field" data-k="sublang">${SUBS.map(([c, n]) => `<option value="${c}" ${c === me.settings.sublang ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
       <div class="set"><div class="l"><b>Interests</b><span>Your home screen leads with these.</span></div>
         <div class="seg" id="interests">${[['movie', 'Movies'], ['series', 'Series'], ['anime', 'Anime']].map(([t, n]) => `<button data-t="${t}" class="${(me.settings.interests || []).includes(t) ? 'on' : ''}">${n}</button>`).join('')}</div></div>
-      <div class="set"><div class="l"><b>Play next episode</b><span>Continues automatically when one ends.</span></div>
-        <button class="switch" role="switch" data-k="autoNext" aria-checked="${me.settings.autoNext}" aria-label="Play next episode"></button></div>
       <div class="set"><div class="l"><b>Video quality</b><span>Auto picks the best version your connection and screen can use${srv.internetMbps ? ` (this server's internet: about ${srv.internetMbps} Mbps)` : ''}. Choose a level to force it.</span></div>
         ${seg('quality', [['auto', 'Auto'], ['2160', '4K'], ['1080', '1080p'], ['720', '720p'], ['480', 'Data saver']], ['best'].includes(me.settings.quality) ? 'auto' : me.settings.quality)}</div>
       <div class="set"><div class="l"><b>Download size</b><span>Balanced avoids huge files. Smallest starts fastest. Best quality accepts very large files.</span></div>

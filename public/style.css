@@ -391,6 +391,8 @@ select.field { padding-right: .5rem; }
 .pl-load .actions { justify-content: center; }
 .pl-back { position: absolute; z-index: 10; top: calc(var(--safe-t) + 1rem); left: max(var(--pad), env(safe-area-inset-left)); }
 .pl-next { position: absolute; z-index: 6; right: max(var(--pad), env(safe-area-inset-right)); bottom: calc(var(--safe-b) + 7.5rem); width: min(23rem, calc(100vw - 2rem)); display: grid; gap: .6rem; padding: 1.1rem; animation: rise .5s var(--ease) both; }
+.pl-skip { position: absolute; z-index: 6; right: max(var(--pad), env(safe-area-inset-right)); bottom: calc(var(--safe-b) + 7.5rem); animation: rise .4s var(--ease) both; box-shadow: var(--shadow-float); }
+.pl-skip[hidden] { display: none; }
 .pl-next b { font: 800 1.5rem/1 var(--display); text-transform: uppercase; letter-spacing: .03em; }
 .pl-next .hair { height: 3px; background: rgb(255 255 255 / .16); border-radius: var(--r); overflow: hidden; }
 .pl-next .hair i { display: block; height: 100%; width: 100%; background: rgb(var(--glow)); transform-origin: left; animation: countdown var(--t, 8s) linear forwards; }
@@ -450,7 +452,7 @@ select.field { padding-right: .5rem; }
 @media (min-width: 701px) and (max-width: 1000px) { #nav a { padding: .5rem .6rem; } }
 /* Reduced motion drops movement (slides, rises, pulses, scale) and keeps state changes: progress, countdown, spinner, colour. */
 @media (prefers-reduced-motion: reduce) {
-  .view, .hero-body, .picker, .toast, .peek, .pl-menu, .pl-next, .dd-pop, .pmenu, .party-pop, .pp-pings p, .pp-log li.in, .pp-tray, .pp-emoji, .pl-slow, .slow-link { animation: none; }
+  .view, .hero-body, .picker, .toast, .peek, .pl-menu, .pl-next, .pl-skip, .dd-pop, .pmenu, .party-pop, .pp-pings p, .pp-log li.in, .pp-tray, .pp-emoji, .pl-slow, .slow-link { animation: none; }
   .sk { animation: none; opacity: .7; }
   .hero .bg .track, .hero .bg, .trailer-layer { transition: none; }
   .btn, .cbtn, .rate button, .choice, .pf .circle, .poster .art { transition-property: color, background-color, border-color, box-shadow, opacity; }
@@ -690,9 +692,9 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 #upd .hair { flex: 1 0 100%; height: 3px; background: rgb(255 255 255 / .16); border-radius: var(--r); overflow: hidden; }
 #upd .hair i { display: block; height: 100%; background: rgb(var(--glow)); transform: scaleX(var(--p, 0)); transform-origin: left; transition: transform .4s; }
 
-/* Settings: groups flow into as many columns as fit, so a wide screen is used and a phone gets one. */
+/* Settings: groups flow into as many columns (at most three) as fit and the columns share the whole width, so there is no empty strip at the right on a wide screen and a phone gets one. */
 #hqstat { display: block; margin-top: .25rem; }
-.cols { padding: 1.5rem var(--pad) 0; column-width: 26rem; column-gap: 4rem; max-width: 100rem; }
+.cols { padding: 1.5rem var(--pad) 0; columns: 26rem 3; column-gap: 4rem; }
 .col { display: contents; }
 .cols .group { padding: 0; max-width: none; margin: 0 0 2rem; }
 .cols .set { break-inside: avoid; }
@@ -734,7 +736,9 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 .pp-code { display: grid; gap: .25rem; }
 .pp-codeline { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
 .pp-codeline b { min-width: 0; font: 800 clamp(.8rem, 5.4cqi, 1.2rem)/1.25 var(--text); letter-spacing: .08em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.pp-members { list-style: none; padding: 1rem 0 0; display: grid; gap: .65rem; border-top: 1px solid var(--line); }
+.pp-count { margin: 0; padding-top: 1rem; border-top: 1px solid var(--line); color: var(--ink3); font-size: var(--fs-m); font-weight: 650; font-variant-numeric: tabular-nums; }
+.pp-count.full { color: rgb(var(--glow)); }
+.pp-members { list-style: none; margin: 0; padding: .75rem 0 0; display: grid; gap: .65rem; }
 .pp-members li { display: flex; align-items: center; gap: .7rem; min-width: 0; font-weight: 650; }
 .pp-members .avatar { width: 2rem; height: 2rem; font-size: 1rem; flex: none; }
 .pp-members.crowd { display: flex; flex-wrap: wrap; gap: .45rem; }

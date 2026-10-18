@@ -24,6 +24,7 @@ command produces them.
 | `scrape` | yes | Live tracker seeder counts against the numbers sources report |
 | `search` | yes | Title search relevance and latency |
 | `idmap` | yes | Anime id mapping coverage and agreement |
+| `skips` | yes | Skip markers (intro, recap, ending): AniSkip and IntroDB coverage by popularity; with `--server url`, chapter marks and file lengths of real releases through a running app (use a throwaway `DATA_DIR`) |
 
 ## Method
 
@@ -188,6 +189,36 @@ Top 300 AniList entries. Fribb anime-lists, 7.5 MB read once: IMDb 300, TVDB 287
 network at lookup time. ani.zip (60 asked): all found, 58 with IMDb, p50 100 ms, answers 429 after about 60 quick calls;
 it is the only source with per-episode AniDB, TVDB and absolute numbers. animeapi.my.id answered 30 of 60. Where two
 sources have an IMDb id they agree every time.
+
+### Skip markers (`skips`)
+
+Where an intro, a recap or the ending of an episode can be found. AniSkip (anime, by MAL id) and IntroDB (series, by IMDb
+id) are community databases of times, 40 titles from each of three popularity bands, three episodes per anime (first,
+middle, next to last) and two per series (episode 2 of the first season, episode 3 of the latest).
+
+| source and band | opening / intro | ending / outro | either | titles with any |
+|---|---|---|---|---|
+| AniSkip, popular | 94% | 89% | 98% | 100% |
+| AniSkip, middle | 81% | 79% | 93% | 100% |
+| AniSkip, long tail | 29% | 40% | 49% | 73% |
+| IntroDB, popular | 63% | 69% | 83% | 90% |
+| IntroDB, middle | 39% | 39% | 54% | 58% |
+| IntroDB, long tail | 33% | 37% | 41% | 45% |
+
+Both answer in about 50 ms (p95 66 ms and 54 ms) with no errors. An AniSkip opening lasts 88 to 91 s (median 90) and the
+ending starts at 0.89 to 0.94 of the episode. IntroDB hits mostly rest on one submission (88%), so they are less
+certain than AniSkip's. AniSkip lists recaps for 10% of popular lookups, IntroDB for 26%.
+
+The file itself (`--server`, the 30 gold series and anime episodes through the app, 27 fetched in time): 74% carry
+chapters, 59% carry chapters named like an intro, opening, ending or credits ("Opening", "OP", "ED", "Credits",
+"Intro"). Anime releases do so far more often (11 of 17) than series releases (4 of 10, mostly "Credits"). The chapters
+are in the container header, so they are known as soon as the file is probed.
+
+A time from a database is only right for a video of the length it was recorded on. Of 16 anime with an AniSkip entry, the
+recorded length was within 2 s of the file for 63%, within 10 s for 81%; two were 38 and 40 s off. Asking AniSkip at the
+file's own length still answered for 94%, so its own tolerance is much wider than what is safe to trust. Reading audio to
+find the markers ourselves would cost about 0.3 to 0.45 s of decoding per 5 minutes of audio, which is cheap, but it needs
+two episodes of the same show on disk to compare and was not built.
 
 ### The app itself (`app --set edge`)
 

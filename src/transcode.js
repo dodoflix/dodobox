@@ -36,7 +36,9 @@ export function parseProbe (text) {
     }
     streams.push(s)
   }
-  return { format, duration, streams }
+  // Chapters sit between the format header and the streams: "Chapter #0:0: start 0.000000, end 90.090000" then a title line.
+  const chapters = [...text.matchAll(/^\s+Chapter #\d+:\d+: start ([\d.]+), end ([\d.]+)\s*\r?\n\s+Metadata:\s*\r?\n\s+title\s*:\s?(.*)$/gm)].map(c => ({ start: +c[1], end: +c[2], title: c[3].trim() }))
+  return { format, duration, streams, chapters }
 }
 
 const probes = new Map()
@@ -74,6 +76,7 @@ export function probe (url, key, name = '') {
           // Resolution class by width, since widescreen films are often cropped to fewer lines (1920x800 is still 1080p).
           tier: !v ? 0 : v.width >= 3200 || v.height >= 2000 ? 2160 : v.width >= 1800 || v.height >= 1000 ? 1080 : v.width >= 1200 || v.height >= 680 ? 720 : 480,
           direct: !!(containerOk && v && DIRECT_V.has(v.codec) && v.pix_fmt === 'yuv420p' && (!audio.length || DIRECT_A.has((audio.find(a => a.default) || audio[0]).codec))),
+          chapters: f.chapters,
           audio, subs
         })
       })

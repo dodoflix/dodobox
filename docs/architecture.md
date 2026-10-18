@@ -10,6 +10,7 @@ browser / TV / phone (public/)  <->  server.js  <->  src/meta.js       catalog a
                                                 <->  src/local.js      your own media folders
                                                 <->  src/transcode.js  stream probe, on-demand HLS, hardware encoder
                                                 <->  src/subs.js       subtitle providers
+                                                <->  src/skips.js      intro, recap and ending markers
                                                 <->  src/state.js      profiles, progress, My List, settings
                                                 <->  src/lock.js       profile PINs: hashing, session tokens, throttling
                                                 <->  src/images.js     poster proxy with disk cache
@@ -21,7 +22,8 @@ browser / TV / phone (public/)  <->  server.js  <->  src/meta.js       catalog a
 2. The client polls status while `/api/info` probes the file with ffmpeg. If nothing arrives for 25 s (40 s to find the torrent), the client excludes that source and the server picks the next, up to five times. Stalled torrents with no data are removed.
    The probe first reads the file's first kilobyte and refuses playlists and session files (`#EXTM3U`, `ffconcat`, `<MPD`, XML, SDP) named like a video. The bundled ffmpeg already rejects most of them, but it accepts an SDP file as an RTP session and would open network sockets for it. ffmpeg inputs that arrive over a pipe are limited to the `pipe` protocol.
 3. `/raw/:id/:file` serves bytes with range support. MP4/WebM with H.264 and AAC plays directly; anything else goes through HLS (6 s segments encoded on request by ffmpeg, the next two warmed). The encoder is chosen at start (NVENC, VideoToolbox, VAAPI, else x264) by test-encoding a frame.
-4. Progress is saved per profile every few seconds. Halfway through an episode the next one starts downloading. The oldest unwatched downloads are removed when the storage limit is reached.
+4. Once the file is probed the player asks `/api/skips/:id` for the intro, recap and ending. Per marker the first source wins: the file's own chapters (titles like Opening, OP, Credits), then AniSkip for anime (by MAL id) and IntroDB for series (by IMDb id). AniSkip times are used only when the recorded length is within 12 s of the file's, and no marker is kept that cannot be right (an intro in the second half, an ending in the first). Results are cached for 6 hours, nothing found for 30 minutes. The player shows Skip intro or Skip recap while a marked part plays, and the Up next card at the start of the ending (28 s before the end when there is no marker).
+5. Progress is saved per profile every few seconds. Halfway through an episode the next one starts downloading. The oldest unwatched downloads are removed when the storage limit is reached.
 
 ## Choosing a source
 

@@ -14,7 +14,9 @@ const LIMITS = [
   [/kitsu\.io$/, { perSec: 2, parallel: 2 }],
   [/ani\.zip$/, { perSec: 1, parallel: 1 }],
   [/knaben\.org$/, { perSec: 3, parallel: 2 }],
-  [/animetosho\.org$/, { perSec: 1.5, parallel: 1 }]
+  [/animetosho\.org$/, { perSec: 1.5, parallel: 1 }],
+  [/aniskip\.com$/, { perSec: 4, parallel: 2 }],
+  [/introdb\.app$/, { perSec: 4, parallel: 2 }]
 ]
 
 function hostState (host) {
