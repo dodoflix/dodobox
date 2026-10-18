@@ -26,6 +26,7 @@
   --ground-rgb: 12 12 17;
   --on-ink: var(--bg);
   --panel: rgb(22 22 30 / .96);
+  --thumb: rgb(255 255 255 / .24);
   --danger-wash: rgb(229 100 110 / .16); --danger-ink: #ff9aa2;
   --shadow-float: 0 24px 70px rgb(0 0 0 / .7), 0 0 0 1px var(--line);
   --r: 2px; --r-tag: 4px; --r-thumb: 6px; --r-field: 10px; --r-row: 12px; --r-panel: 16px;
@@ -49,10 +50,10 @@ a { color: inherit; text-decoration: none; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 img { display: block; }
-* { scrollbar-width: thin; scrollbar-color: var(--s3) transparent; }
+* { scrollbar-width: thin; scrollbar-color: var(--thumb) transparent; }
 body { -webkit-user-select: none; user-select: none; }
 input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; }
-::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-thumb { background: var(--s3); border-radius: var(--r-tag); }
+::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-thumb { background: var(--thumb); border-radius: var(--r-tag); }
 :focus { outline: none; }
 :focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; border-radius: var(--r-tag); }
 html.tv :focus-visible { outline-width: 4px; box-shadow: 0 0 0 10px rgb(var(--glow) / .35); }
@@ -626,7 +627,7 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 .pl-menu.sm-menu { width: min(36rem, calc(100vw - 1.5rem)); overflow: hidden; display: flex; flex-direction: column; max-height: min(30rem, 70vh); }
 .sm-body { display: grid; grid-template-columns: minmax(9rem, 12rem) minmax(0, 1fr); gap: .4rem; min-height: 0; flex: 1 1 auto; }
 .sm-langs, .sm-files { overflow-y: auto; max-height: min(20rem, 46vh); min-height: 0; overscroll-behavior: contain; padding: .1rem; }
-.sm-langs { border-right: 1px solid var(--line); padding-right: .35rem; }
+.sm-files { border-left: 1px solid var(--line); padding-left: .5rem; }
 .sm-langs small { color: var(--ink3); font-weight: 600; font-variant-numeric: tabular-nums; }
 .sm-foot { flex: none; border-top: 1px solid var(--line); margin-top: .35rem; padding-top: .35rem; }
 .sm-foot > button { display: flex; width: 100%; padding: .6rem .8rem; border: 0; border-radius: var(--r-field); background: none; color: var(--ink); font-weight: 650; text-align: left; }
@@ -634,8 +635,8 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 .sm-foot .adj .btn { width: auto; }
 @media (max-width: 700px) {
   .sm-body { grid-template-columns: 1fr; }
-  .sm-langs { border-right: 0; border-bottom: 1px solid var(--line); padding: 0 0 .3rem; max-height: 9rem; }
-  .sm-files { max-height: 12rem; }
+  .sm-langs { border-bottom: 1px solid var(--line); padding: 0 0 .3rem; max-height: 9rem; }
+  .sm-files { border-left: 0; padding-left: .1rem; max-height: 12rem; }
 }
 
 /* Ratings and downloads on the title page */
