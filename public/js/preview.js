@@ -1,22 +1,16 @@
 // Hover preview: rest the pointer on a poster and a small card plays the trailer.
 import { cget } from './api.js'
 import { S, toggleList, inList } from './session.js'
-import { esc, icon, enc, sized, isTV, known, hue, lowres, canTrailer, peekW } from './util.js'
+import { esc, icon, enc, sized, isTV, known, hue, lowres, canTrailer, peekW, showSize } from './util.js'
 import { mountTrailer } from './trailer.js'
 
 const fine = matchMedia('(hover: hover) and (pointer: fine)')
 const played = new Map()
 let card = null; let trailer = null; let showT; let hideT; let trailerT; let current = null
 
-const aired = v => !(v.released && new Date(v.released) > new Date())
-// A show's size: its seasons when it has several, otherwise its episodes. Only meta (not a catalog card) lists episodes.
-const size = m => {
-  const v = (m.videos || []).filter(aired); const seasons = new Set(v.map(x => x.season)).size
-  return seasons > 1 ? `${seasons} seasons` : v.length ? `${v.length} episode${v.length > 1 ? 's' : ''}` : ''
-}
 const facts = m => {
   const flat = m.type === 'movie' || m.movie
-  return [m.year, flat && m.runtime && esc(m.runtime), m.rating && `${icon('star')}${m.rating.toFixed(1)}`, !flat && size(m)].filter(Boolean).map(x => `<span>${x}</span>`).join('')
+  return [m.year, flat && m.runtime && esc(m.runtime), m.rating && `${icon('star')}${m.rating.toFixed(1)}`, !flat && showSize(m)].filter(Boolean).map(x => `<span>${x}</span>`).join('')
 }
 const cats = m => (m.genres || []).slice(0, 3).map(esc).join(' · ')
 

@@ -461,6 +461,11 @@ html.lock, html.lock body { overflow: hidden; }
 .trailer-layer { position: absolute; inset: 0; overflow: hidden; container-type: size; opacity: 0; transition: opacity 1.2s ease; pointer-events: none; -webkit-mask-image: linear-gradient(#000 38%, transparent 100%); mask-image: linear-gradient(#000 38%, transparent 100%); }
 .hero.has-trailer .trailer-layer, .d-hero.has-trailer .trailer-layer { opacity: 1; }
 .trailer-frame { position: absolute; top: 50%; left: 50%; width: max(100cqw, 177.78cqh); height: max(100cqh, 56.25cqw); transform: translate(-50%, -47%) scale(1.32); border: 0; pointer-events: none; }
+.strip-arrow { position: absolute; z-index: 3; top: 0; left: 0; width: 2.6rem; height: 2.6rem; display: none; place-items: center; border: 0; border-radius: var(--r-field); background: rgb(var(--ground-rgb) / .72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); color: var(--ink); opacity: 0; transition: opacity .2s, background .2s; }
+.strip-arrow.sm { width: 2.2rem; height: 2.2rem; }
+.strip-arrow:hover { background: rgb(var(--ground-rgb) / .92); }
+.strip-arrow:focus-visible { opacity: 1; }
+@media (hover: hover) and (pointer: fine) { html:not(.tv) .strip-arrow:not([hidden]) { display: grid; } .strip-host:hover > .strip-arrow { opacity: 1; } }
 .hero-arrow { position: absolute; z-index: 3; top: 38%; width: 2.6rem; height: 2.6rem; display: none; place-items: center; border: 0; border-radius: var(--r-field); background: rgb(var(--ground-rgb) / .55); color: var(--ink); opacity: 0; transition: opacity .25s, background .2s; }
 .hero-arrow.l { left: .5rem; } .hero-arrow.r { right: .5rem; }
 .hero-arrow:hover { background: rgb(var(--ground-rgb) / .8); }

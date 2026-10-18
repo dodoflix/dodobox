@@ -1,6 +1,6 @@
 import { cget, api, NOW, LATER } from './api.js'
 import { S, progress, inList, toggleList, ratingOf, rate } from './session.js'
-import { $, esc, icon, enc, mins, sized, fullWidth, hue, lowres, thumbW, known, canTrailer, slowLink, toast } from './util.js'
+import { $, esc, icon, enc, mins, showSize, sized, fullWidth, hue, lowres, thumbW, known, canTrailer, slowLink, toast } from './util.js'
 import { dragScroll } from './drag.js'
 import { glow } from './ambient.js'
 
@@ -35,7 +35,7 @@ export async function title (root, type, id) {
       <div class="bg ${m.background ? '' : 'blur'}" style="--h:${hue(m.name)}"><i class="lq" style="background-image:url('${esc(lowres(sized(m.background || m.poster || '', 0)))}')"></i><img alt="" src="${esc(sized(m.background || m.poster || '', fullWidth()))}" onload="this.classList.add('in')"></div><div class="trailer-layer" id="dtr" aria-hidden="true"></div>
       <div class="d-body">
         <h1 class="title" translate="no">${esc(m.name)}</h1>
-        <div class="meta"><span class="tag">${TYPE_LABEL[type]}</span>${m.year ? `<span>${m.year}</span>` : ''}${m.runtime ? `<span>${esc(m.runtime)}</span>` : ''}${m.rating ? `<span>${icon('star')}${m.rating.toFixed(1)}</span>` : ''}${m.status && m.status !== 'FINISHED' ? `<span>${esc(m.status.replace(/_/g, ' ').toLowerCase())}</span>` : ''}${mine ? '<span>On your server</span>' : ''}</div>
+        <div class="meta"><span class="tag">${TYPE_LABEL[type]}</span>${m.year ? `<span>${m.year}</span>` : ''}${m.runtime && flat ? `<span>${esc(m.runtime)}</span>` : ''}${m.rating ? `<span>${icon('star')}${m.rating.toFixed(1)}</span>` : ''}${!flat && showSize(m) ? `<span>${showSize(m)}</span>` : ''}${m.status && m.status !== 'FINISHED' ? `<span>${esc(m.status.replace(/_/g, ' ').toLowerCase())}</span>` : ''}${mine ? '<span>On your server</span>' : ''}</div>
         <p class="lede" translate="no" id="lede" role="button" tabindex="0" aria-expanded="false" data-click>${esc(m.description || '')}</p>
         <div class="actions">
           ${m.unplayable ? `<span class="btn btn-ink" id="play" aria-disabled="true">${esc(m.unplayable)}</span>` : `<a class="btn btn-ink" id="play" data-autofocus href="${target ? watchHref(type, id, target.season, target.episode) : '#'}">${icon('play')}${playLabel}</a>`}

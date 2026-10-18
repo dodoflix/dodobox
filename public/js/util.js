@@ -92,6 +92,12 @@ export function toast (msg, { action, key, ms = Math.max(3600, msg.length * 55) 
 export const hue = n => { let h = 0; for (const c of String(n || '')) h = (h * 31 + c.charCodeAt(0)) % 360; return h }
 const initial = n => (String(n || '?').match(/[\p{L}\p{N}]/u) || ['?'])[0].toUpperCase()
 
+// A show's size: its seasons when it has several, otherwise its episodes. Only meta (not a catalog card) lists episodes.
+export const showSize = m => {
+  const v = (m.videos || []).filter(x => !(x.released && new Date(x.released) > new Date())); const seasons = new Set(v.map(x => x.season)).size
+  return seasons > 1 ? `${seasons} seasons` : v.length ? `${v.length} episode${v.length > 1 ? 's' : ''}` : ''
+}
+
 export const known = new Map()
 function remember (i) {
   if (!i.description && !i.background) return
