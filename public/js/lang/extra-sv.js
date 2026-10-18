@@ -43,6 +43,7 @@ export const rows = [
 /*more*/ 'Bläddrar', 'Letar efter något att titta på', 'På en tittarfest', 'Väljer vad de ska titta på', 'Hämta Dodobox', 'Versioner',
 /*more*/ 'Lösenord (valfritt)', 'Dina vänner behöver också lösenordet.',
 /*more*/ 'Visa lösenord', 'Dölj lösenord',
+/*more*/ 'Klistra in',
 ]
 export const patterns = [
   'Hej $1, gör det till ditt', 'Säsong $1', 'Säsong $1 · Avsnitt $2', 'Återuppta S$1 A$2', 'S$1 A$2$3', 'Sänds $1', '$1 h $2 min', '$1 min', '$1$2 h $3 min kvar', '$1$2 min kvar',

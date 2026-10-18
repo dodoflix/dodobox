@@ -43,6 +43,7 @@ export const rows = [
 /*more*/ 'Bladert', 'Zoekt iets om te kijken', 'In een kijkfeestje', 'Kiest wat te kijken', 'Download Dodobox', 'Releases',
 /*more*/ 'Wachtwoord (optioneel)', 'Je vrienden hebben ook het wachtwoord nodig.',
 /*more*/ 'Wachtwoord tonen', 'Wachtwoord verbergen',
+/*more*/ 'Plakken',
 ]
 export const patterns = [
   'Hoi $1, maak het van jou', 'Seizoen $1', 'Seizoen $1 · Aflevering $2', 'Hervat S$1 A$2', 'S$1 A$2$3', 'Verschijnt $1', '$1 u $2 min', '$1 min', '$1nog $2 u $3 min', '$1nog $2 min',

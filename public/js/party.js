@@ -11,7 +11,13 @@ const DRIFT = 1.5 // seconds apart before a heartbeat moves the video
 // Where the dots are not supported (Firefox) it falls back to type=password.
 // It is also read-only until it gets focus, because browsers skip autofill on read-only fields and ignore autocomplete=off on the rest.
 const MASK = CSS.supports('-webkit-text-security', 'disc')
-const passField = `<div class="pp-pass"><input class="field${MASK ? ' masked' : ''}" name="partykey" type="${MASK ? 'text' : 'password'}" placeholder="Password (optional)" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="64" enterkeyhint="go" readonly aria-label="Password (optional)" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"><button type="button" class="icon-btn" data-a="peek" aria-label="Show password" aria-pressed="false">${icon('eye')}</button></div>`
+// A paste button where the browser allows reading the clipboard (not on a plain http address other than localhost); otherwise Ctrl+V or a long press still works.
+const CAN_PASTE = !!navigator.clipboard?.readText
+const pasteBtn = CAN_PASTE ? `<button type="button" class="icon-btn" data-a="paste" aria-label="Paste">${icon('paste')}</button>` : ''
+const passField = `<div class="pp-pass" style="--n:${CAN_PASTE ? 2 : 1}"><input class="field${MASK ? ' masked' : ''}" name="partykey" type="${MASK ? 'text' : 'password'}" placeholder="Password (optional)" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="64" enterkeyhint="go" readonly aria-label="Password (optional)" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"><span class="pp-act">${pasteBtn}<button type="button" class="icon-btn" data-a="peek" aria-label="Show password" aria-pressed="false">${icon('eye')}</button></span></div>`
+const codeField = `<div class="pp-pass" style="--n:${CAN_PASTE ? 1 : 0}"><input id="pp-code" class="field" name="code" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24"><span class="pp-act">${pasteBtn}</span></div>`
+// A code pasted inside a sentence ("join my party: ABCD-...") is picked out of it: codes are shown with dashes, so that form wins; anything else is left as pasted.
+const codeIn = text => text.match(/\b[0-9A-Za-z]{4}(?:-[0-9A-Za-z]{4}){3}\b/)?.[0] ?? text
 const href = i => `#/watch/${i.type}/${enc(i.id)}` + (i.season != null ? `/${i.season}/${i.episode}` : '')
 const same = (a, b) => !!a && !!b && a.type === b.type && a.id === b.id && (a.season ?? null) === (b.season ?? null) && (a.episode ?? null) === (b.episode ?? null)
 
@@ -225,7 +231,7 @@ function html (ctx) {
         <button class="btn btn-ink" data-autofocus>Start a party</button></form>
       <p class="pp-note">Friends need Dodobox too. Share the code with them.</p>
       <div class="pp-or"><span>or</span></div>
-      <form class="pp-join"><label for="pp-code">Join with a code</label><div class="pp-row"><input id="pp-code" class="field" name="code" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24"><button class="btn btn-ghost">Join</button></div>
+      <form class="pp-join"><label for="pp-code">Join with a code</label><div class="pp-row">${codeField}<button class="btn btn-ghost">Join</button></div>
         ${passField}</form>`
   } else {
     const n = s.now?.item
@@ -298,8 +304,17 @@ function behaviour (ctx, host) {
         }
         if (a === 'close') host.close()
         if (a === 'leave') { await api('/api/party/leave', { method: 'POST' }); take({ active: false, members: [], now: null }); seen = null; es?.close(); es = null; paintChip(); host.redraw() }
+        if (a === 'paste') {
+          const f = btn.closest('.pp-pass').querySelector('input')
+          f.removeAttribute('readonly'); f.focus()
+          try {
+            let t = (await navigator.clipboard.readText()).trim()
+            if (f.name === 'code') t = codeIn(t)
+            f.value = t.slice(0, f.maxLength)
+          } catch { /* permission refused: the field is focused for Ctrl+V */ }
+        }
         if (a === 'peek') {
-          const f = btn.parentElement.querySelector('input'); const show = MASK ? f.classList.contains('masked') : f.type === 'password'
+          const f = btn.closest('.pp-pass').querySelector('input'); const show = MASK ? f.classList.contains('masked') : f.type === 'password'
           if (MASK) f.classList.toggle('masked', !show); else f.type = show ? 'text' : 'password'
           btn.setAttribute('aria-pressed', show); btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); btn.innerHTML = icon(show ? 'eye-off' : 'eye')
         }

@@ -684,9 +684,12 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 .pp-start { display: grid; grid-template-columns: minmax(0, 1fr); gap: .6rem; }
 .pp-start .btn-ink { width: 100%; }
 .pp-pass { position: relative; }
-.pp-pass .field { width: 100%; padding-right: 2.75rem; }
+.pp-pass .field { width: 100%; padding-right: calc(var(--n, 1) * 2.2rem + .6rem); }
+.pp-row .pp-pass { flex: 1; min-width: 0; }
+.pp-row .pp-pass .field { width: 100%; flex: none; }
 .pp-pass .field.masked { -webkit-text-security: disc; }
-.pp-pass .icon-btn { position: absolute; top: 50%; right: .2rem; width: 2.2rem; height: 2.2rem; transform: translateY(-50%); }
+.pp-pass .pp-act { position: absolute; inset-block: 0; right: .2rem; display: flex; align-items: center; }
+.pp-pass .icon-btn { width: 2.2rem; height: 2.2rem; }
 .pp-or { display: flex; align-items: center; gap: .8rem; color: var(--ink3); font-size: var(--fs-m); }
 .pp-or::before, .pp-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .pp-join { display: grid; grid-template-columns: minmax(0, 1fr); gap: .6rem; }

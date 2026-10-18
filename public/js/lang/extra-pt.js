@@ -43,6 +43,7 @@ export const rows = [
 /*more*/ 'Navegando', 'Procurando algo para assistir', 'Em uma sessão em grupo', 'Escolhendo o que assistir', 'Baixar o Dodobox', 'Versões',
 /*more*/ 'Senha (opcional)', 'Seus amigos também precisam da senha.',
 /*more*/ 'Mostrar senha', 'Ocultar senha',
+/*more*/ 'Colar',
 ]
 export const patterns = [
   'Olá $1, deixe com a sua cara', 'Temporada $1', 'Temporada $1 · Episódio $2', 'Continuar T$1 E$2', 'T$1 E$2$3', 'Estreia em $1', '$1 h $2 min', '$1 min', '$1faltam $2 h $3 min', '$1faltam $2 min',
