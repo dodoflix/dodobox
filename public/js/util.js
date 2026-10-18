@@ -2,6 +2,8 @@ export const $ = (s, r = document) => r.querySelector(s)
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)]
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
 export const enc = encodeURIComponent
+// html has scrollbar-gutter: both-edges, which shifts position: fixed by the gutter width; measure and cancel it.
+export const placeLeft = (el, left) => { el.style.left = left + 'px'; el.style.left = 2 * left - el.getBoundingClientRect().left + 'px' }
 export const sleep = ms => new Promise(r => setTimeout(r, ms))
 export const bytes = n => n >= 1e12 ? (n / 1e12).toFixed(2) + ' TB' : n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : n >= 1e6 ? Math.round(n / 1e6) + ' MB' : Math.round(n / 1e3) + ' kB'
 export const clock = s => {

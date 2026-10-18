@@ -59,7 +59,7 @@ export async function home (root, only = '') {
   root.innerHTML = `<div class="view">
     <section class="hero" id="hero" aria-roledescription="carousel" aria-label="Featured titles">
       <div class="bg"></div><div class="trailer-layer" id="htr" aria-hidden="true"></div>
-      <div id="hero-slot"><div class="hero-body" aria-hidden="true"><div class="sk" style="height:5.2rem;width:min(30rem,85%)"></div><div class="sk" style="height:1rem;width:min(18rem,70%);margin-top:1.2rem"></div><div class="sk" style="height:3.1rem;width:min(10.5rem,55%);border-radius:999px;margin-top:1.6rem"></div></div></div>
+      <div id="hero-slot"><div class="hero-body" aria-hidden="true"><div class="sk" style="height:5.2rem;width:min(30rem,85%)"></div><div class="sk" style="height:1rem;width:min(18rem,70%);margin-top:1.2rem"></div><div class="sk" style="height:3.1rem;width:min(10.5rem,55%);border-radius:var(--r-field);margin-top:1.6rem"></div></div></div>
       <button class="hero-arrow l" aria-label="Previous title" tabindex="-1">${icon('left')}</button>
       <button class="hero-arrow r" aria-label="Next title" tabindex="-1">${icon('right')}</button>
       <button class="hero-sound" id="hsound" aria-label="Turn trailer sound on" hidden>${icon('mute')}</button>
