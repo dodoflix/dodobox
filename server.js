@@ -103,7 +103,7 @@ async function play (b) {
   const flat = b.type === 'movie' || m.movie
   const item = { type: b.type, id: b.id, title: m.name, altTitles: m.altTitles, year: m.year, movie: m.movie, runtimeMin: runtimeOf(m), adult: isAdult(m, b.safe), season: flat ? null : +b.season, episode: flat ? null : +b.episode }
   const exclude = b.exclude || []
-  for (const h of exclude) if (engine.status(h, true)?.phase !== 'done') await engine.remove(h)
+  for (const h of exclude) { const x = engine.status(h, true); if (x && x.phase !== 'done' && !x.pinned) await engine.remove(h) }
   if (!b.infoHash) {
     const loc = local.find(item)
     if (loc) return local.status(loc.id)
@@ -124,7 +124,7 @@ async function play (b) {
   for (const r of [first, ...list.slice(0, 3)]) if (engine.status(r.infoHash, true)?.phase === 'error') await engine.remove(r.infoHash).catch(() => {})
   // A pack may number its files by TVDB season or absolutely; the engine needs those numbers to open the right file.
   const numbers = item.type === 'anime' && !item.movie ? await episodeNumbers(+String(item.id).replace('al:', ''), item.episode) : null
-  const start = pick => engine.add({ hash: pick.infoHash, magnet: pick.magnet, ctx: { type: item.type, id: item.id, title: m.name, poster: m.poster, season: item.season, episode: item.episode, release: pick.release, ...numbers && { tvdbSeason: numbers.tvdbSeason, tvdbEpisode: numbers.tvdbEpisode, abs: numbers.abs } }, fileIdx: pick.fileIdx, pinned: !!b.pin })
+  const start = pick => engine.add({ hash: pick.infoHash, magnet: pick.magnet, ctx: { type: item.type, id: item.id, title: m.name, poster: m.poster, season: item.season, episode: item.episode, release: pick.release, provider: pick.provider, seeders: pick.seeders, ...numbers && { tvdbSeason: numbers.tvdbSeason, tvdbEpisode: numbers.tvdbEpisode, abs: numbers.abs } }, fileIdx: pick.fileIdx, pinned: !!b.pin })
   // Seeder counts say little about real speed, so the best few versions race for a moment.
   const rivals = b.infoHash || b.pin ? [first] : list.filter(s => s.seeders > 0 && !s.wrongSeason && score(s, ctxOf(b)) >= score(first, ctxOf(b)) - 45).slice(0, 3)
   const pick = rivals.length > 1 ? await race(rivals, start) : first
@@ -332,6 +332,7 @@ const routes = [
   ['PATCH', /^\/api\/me$/, async (req, res) => { needProfile(req); state.updateProfile(pid(req), await jbody(req)); json(req, res, state.me(pid(req))) }],
   ['PUT', /^\/api\/progress$/, async (req, res) => { needProfile(req); json(req, res, { ok: state.saveProgress(pid(req), await jbody(req)) }) }],
   ['PUT', /^\/api\/presence$/, async (req, res) => { needProfile(req); const b = await jbody(req); presence({ ...b, art: remote(b.poster), party: party.phase === 'idle' ? null : { id: crypto.createHash('sha1').update(party.code).digest('hex').slice(0, 16), size: party.members.size, max: LIMITS.members } }); json(req, res, { ok: true }) }],
+  ['DELETE', /^\/api\/history\/(movie|series|anime)\/([^/]{1,80})$/, (req, res, [, type, id]) => { needProfile(req); json(req, res, { ok: state.removeHistory(pid(req), type, decodeURIComponent(id)) }) }],
   ['PUT', /^\/api\/rating$/, async (req, res) => { needProfile(req); const b = await jbody(req); for (const k of picksCache.keys()) if (k.startsWith(pid(req) + ':')) picksCache.delete(k); json(req, res, state.setRating(pid(req), b.item, b.value)) }],
   ['GET', /^\/api\/picks$/, async (req, res) => { needProfile(req); json(req, res, await picksFor(pid(req), req.headers['x-lang'], safeOf(req))) }],
   ['GET', /^\/api\/shelves$/, (req, res, _, q) => { const p = needProfile(req); const c = (q.get('country') || '').toUpperCase(); json(req, res, shelvesFor(p, /^[A-Z]{2}$/.test(c) ? c : '', TYPES.includes(q.get('type')) ? q.get('type') : '')) }],
@@ -539,8 +540,10 @@ const routes = [
 
   ['POST', /^\/api\/download$/, async (req, res) => { const b = await jbody(req); b.mode ||= modeOf(req); b.audio ||= audioOf(req); b.sublang ||= sublangOf(req); b.safe = safeOf(req); json(req, res, await downloads.enqueue(b)) }],
   ['GET', /^\/api\/downloads$/, async (req, res) => { const d = downloads.state(); json(req, res, { queue: await hideAdult(d.queue, safeOf(req)), failed: await hideAdult(d.failed, safeOf(req)) }) }],
+  ['POST', /^\/api\/downloads\/(.+)\/(prioritize|unprioritize)$/, (req, res, [, k, what]) => json(req, res, { ok: downloads.prioritize(decodeURIComponent(k), what === 'prioritize') })],
   ['DELETE', /^\/api\/downloads\/(.+)$/, (req, res, [, k]) => { downloads.cancel(decodeURIComponent(k)); json(req, res, { ok: true }) }],
   ['GET', /^\/api\/library$/, async (req, res) => json(req, res, await hideAdult(engine.library(), safeOf(req), e => e.ctx || {}))],
+  ['POST', /^\/api\/library\/(\w+)(?::(\d+))?\/(pause|resume|prioritize|unprioritize)$/, (req, res, [, h, f, what]) => json(req, res, { ok: what === 'pause' || what === 'resume' ? engine.hold(h.toLowerCase(), f, what === 'pause') : engine.prioritize(h.toLowerCase(), f, what === 'prioritize') })],
   ['DELETE', /^\/api\/library\/(\w+)(?::(\d+))?$/, async (req, res, [, h, f]) => json(req, res, { ok: await engine.remove(h, f) })]
 ]
 

@@ -1,6 +1,6 @@
 import { cget, api, NOW, LATER } from './api.js'
-import { S, progress, inList, toggleList, ratingOf, rate } from './session.js'
-import { $, esc, icon, enc, mins, showSize, sized, fullWidth, hue, lowres, thumbW, known, canTrailer, slowLink, toast } from './util.js'
+import { S, progress, inList, toggleList, ratingOf, rate, removeHistory } from './session.js'
+import { $, EP_PAGE, esc, icon, enc, mins, showSize, sized, fullWidth, hue, lowres, thumbW, known, canTrailer, slowLink, toast } from './util.js'
 import { dragScroll } from './drag.js'
 import { glow } from './ambient.js'
 
@@ -24,10 +24,11 @@ export async function title (root, type, id) {
   const mine = local.some(e => e.type === type && e.mid === id)
   let season = rec?.season ?? seasons[0]
   // A long season (an anime can pass a thousand episodes) shows one range at a time; the range with the episode to continue opens first.
-  const PAGE = 24
+  const PAGE = EP_PAGE
   const startPage = () => { const i = rec && rec.season === season ? videos.filter(v => v.season === season).findIndex(v => v.episode === rec.episode) : -1; return i > 0 ? Math.floor(i / PAGE) : 0 }
   let page = startPage()
   const inL = () => inList(type, id)
+  const rangeBar = '<div class="tabs ranges" id="ranges" hidden></div>'
   const playLabel = rec ? (flat ? 'Resume' : `Resume S${rec.season} E${rec.episode}`) : flat ? 'Play' : 'Start watching'
 
   root.innerHTML = `<div class="view">
@@ -49,11 +50,12 @@ export async function title (root, type, id) {
         </div>
         <div class="facts">
           ${(m.genres || []).length ? `<div><b>Genres</b> ${m.genres.map(g => `<a href="#/browse/${type}?genre=${enc(g)}">${esc(g)}</a>`).join(', ')}</div>` : ''}
+          ${S.me.history.some(h => h.type === type && h.id === id) ? '<div id="hist"><b>History</b> In your watch history <button class="link" id="unhist">Remove</button></div>' : ''}
           ${(m.cast || []).length ? `<div><b>Starring</b> ${m.cast.slice(0, 5).map(esc).join(', ')}</div>` : ''}
         </div>
       </div>
     </section>
-    ${flat ? '' : `<h2 class="sec-h">Episodes</h2><div class="eps-bar">${seasons.length > 1 ? `<div class="tabs" id="seasons">${seasons.map(s => `<button class="chip ${s === season ? 'on' : ''}" data-s="${s}">Season ${s}</button>`).join('')}</div>` : '<span></span>'}<button class="btn btn-ghost sm" id="dlseason">${icon('down')}Download season</button></div><div class="tabs ranges" id="ranges" hidden></div><div class="eps" id="eps"></div>`}
+    ${flat ? '' : `<h2 class="sec-h">Episodes</h2><div class="eps-bar">${seasons.length > 1 ? `<div class="tabs" id="seasons">${seasons.map(s => `<button class="chip ${s === season ? 'on' : ''}" data-s="${s}">Season ${s}</button>`).join('')}</div>` : rangeBar}<button class="btn btn-ghost sm" id="dlseason">${icon('down')}Download season</button></div>${seasons.length > 1 ? rangeBar : ''}<div class="eps" id="eps"></div>`}
   </div>`
 
   // Finding a source takes several searches on the server, so it is only started for a title that is looked at for a moment (Play then starts sooner).
@@ -71,6 +73,10 @@ export async function title (root, type, id) {
     await toggleList({ type, id, name: m.name, poster: m.poster, year: m.year, rating: m.rating })
     button.innerHTML = inL() ? icon('check') + 'In My List' : icon('plus') + 'My List'
   }
+  $('#unhist')?.addEventListener('click', async () => { $('#hist').remove()
+    const first = flat ? target : videos[0]; const play = $('#play')
+    if (play.href && first) { play.href = watchHref(type, id, first.season, first.episode); play.lastChild.textContent = flat ? 'Play' : 'Start watching' }
+    await removeHistory(type, id); toast('Removed from your watch history') })
   const paintRate = () => root.querySelectorAll('.rate button').forEach(b => b.classList.toggle('on', +b.dataset.r === ratingOf(type, id)))
   paintRate()
   $('.rate', root).onclick = async e => { const b = e.target.closest('[data-r]'); if (!b) return; await rate({ type, id, name: m.name, originalName: m.originalName, poster: m.poster, year: m.year, genres: m.genres }, +b.dataset.r); paintRate() }
@@ -101,12 +107,16 @@ export async function title (root, type, id) {
     })
     const sb = $('#dlseason', root)
     if (sb && !flat) {
-      const eps = videos.filter(v => v.season === season)
+      const eps = shownEps()
       const done = eps.filter(v => dl[dkey(v.season, v.episode)]?.phase === 'done').length
       const busy = eps.filter(v => ['busy', 'queued'].includes(dl[dkey(v.season, v.episode)]?.phase)).length
-      sb.innerHTML = icon(done === eps.length && eps.length ? 'check' : 'down') + (done === eps.length && eps.length ? 'Season downloaded' : busy ? `Downloading ${done}/${eps.length}` : 'Download season')
+      const noun = grouped() ? 'episodes' : 'season'
+      sb.innerHTML = icon(done === eps.length && eps.length ? 'check' : 'down') + (done === eps.length && eps.length ? (noun === 'season' ? 'Season downloaded' : 'Episodes downloaded') : busy ? `Downloading ${done}/${eps.length}` : noun === 'season' ? 'Download season' : 'Download episodes')
     }
   }
+  // A season that is shown in ranges downloads the range on screen, not hundreds of episodes at once.
+  const grouped = () => videos.filter(v => v.season === season).length > PAGE
+  const shownEps = () => { const list = videos.filter(v => v.season === season); return grouped() ? list.slice(page * PAGE, (page + 1) * PAGE) : list }
   async function download (body) {
     try {
       const r = await api('/api/download', { method: 'POST', body })
@@ -117,7 +127,7 @@ export async function title (root, type, id) {
   const onClick = e => {
     const b = e.target.closest('[data-e]')
     if (b) { e.preventDefault(); if (b.dataset.state === 'done' || b.dataset.state === 'busy' || b.dataset.state === 'queued') return location.hash = '#/library'; return download({ type, id, season: b.dataset.s, episode: b.dataset.e }) }
-    if (e.target.closest('#dlseason')) download({ type, id, season, all: true })
+    if (e.target.closest('#dlseason')) { const eps = shownEps(); download({ type, id, season, all: true, ...(grouped() && eps.length && { from: eps[0].episode, to: eps.at(-1).episode }) }) }
   }
   root.addEventListener('click', onClick)
   refreshDl()

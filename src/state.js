@@ -106,6 +106,14 @@ export function saveProgress (id, b) {
   return true
 }
 
+export function removeHistory (id, type, tid) {
+  const p = own(id); if (!p) return false
+  delete p.recent[`${type}:${tid}`] // continue watching comes from the same record
+  const ok = delete p.history[`${type}:${tid}`]
+  persist()
+  return ok
+}
+
 export function setList (id, item, on) {
   const p = own(id)
   if (!p) return null

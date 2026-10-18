@@ -41,7 +41,9 @@ Phones and laptops use plain HTTP on the local network, so "install as app" give
 
 ## The player
 
-- **Episodes**: series have an episode list button with thumbnails and progress. Back always returns to the title page.
+- **Episodes**: series have an episode list button with thumbnails and progress. Long seasons are listed in ranges of 24 episodes, as on the title page. Back always returns to the title page.
+- **Another version**: Try another version in the quality or settings menu drops the current version and finds the next best one, from where you are, even when playback is fine.
+- **Playback stats**: press `i`, or use Playback stats in the quality or settings menu, for a panel with the file, how it is played (direct or converted), codecs, decoded and shown size, dropped frames, buffer, your measured link, and the torrent: release name, where it was found, info hash, contents, peers, upload and download speed. The copy button puts it on the clipboard for a bug report. It stays on until closed.
 - **Remembered per title**: the subtitle you picked (or Off), its timing per episode, the audio track, quality, speed, Auto sync and subtitle size are kept in this browser, per profile.
 - **Audio**: starts on the title's original language, skipping dubs and commentaries. The track marked "Default" is the one Dodobox would choose.
 - **Subtitles**: picking a language only lists its files; choose a file on the right. Changing the subtitle stops an auto-translation that is still running.
@@ -76,9 +78,9 @@ Balanced (default) avoids huge files: a 4K or 1080p version is fine, a 10 GB epi
 
 ## Library, ratings and downloads
 
-Rate a title with the thumbs and heart under its description; tapping the same one clears it. Liked titles add "Because you liked ..." rows to Home. Library shows what you are watching, My List, your ratings and history.
+Rate a title with the thumbs and heart under its description; tapping the same one clears it. Liked titles add "Because you liked ..." rows to Home. Library shows what you are watching, My List, your ratings and history. Remove a title from history with the x on its card, or from its own page; it also leaves Continue watching.
 
-The download button on a movie, an episode, or "Download season" saves it to the server without playing it. Downloads you start yourself are never removed to free space; delete them from Library.
+The download button on a movie, an episode, or "Download season" saves it to the server without playing it. Downloads you start yourself are never removed to free space; delete them from Library. In Library each download can be paused, resumed or moved to the front; a prioritized download goes first and the others wait until it finishes. On a long season shown in episode ranges the button reads "Download episodes" and saves the range on screen.
 
 ## Your own files
 

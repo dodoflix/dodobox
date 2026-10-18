@@ -67,7 +67,10 @@ export function probe (url, key, name = '') {
         const containerOk = /mp4/.test(fmt) || (fmt === 'matroska,webm' && /\.webm$/i.test(name))
         resolve({
           duration: f.duration,
+          width: v?.width || 0,
           height: v?.height || 0,
+          vcodec: v?.codec || '',
+          acodec: (audio.find(a => a.default) || audio[0])?.codec || '',
           // Resolution class by width, since widescreen films are often cropped to fewer lines (1920x800 is still 1080p).
           tier: !v ? 0 : v.width >= 3200 || v.height >= 2000 ? 2160 : v.width >= 1800 || v.height >= 1000 ? 1080 : v.width >= 1200 || v.height >= 680 ? 720 : 480,
           direct: !!(containerOk && v && DIRECT_V.has(v.codec) && v.pix_fmt === 'yuv420p' && (!audio.length || DIRECT_A.has((audio.find(a => a.default) || audio[0]).codec))),

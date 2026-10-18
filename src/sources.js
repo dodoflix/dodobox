@@ -92,7 +92,7 @@ export function score (r, ctx = {}) {
   if (/x265|hevc|h\.?265|10.?bit/i.test(r.title)) s += mode === 'compact' ? 12 : mode === 'lossless' ? -6 : -10
   else if (/x264|h\.?264|avc/i.test(r.title)) s += 8
   if (/\b(yts|yify)\b/i.test(r.title + ' ' + (r.provider || ''))) s += 10
-  if (r.pack) s -= r.fileIdx != null ? 8 : 25
+  if (r.pack) s -= r.fileIdx != null ? 4 : 12
   if (r.pack && r.fileIdx == null && r.size > 100e9) s -= 40 // a whole-series batch: thousands of files to index before the first byte
   if (r.wrongSeason) s -= 80
   // Different shows share a title ("The Prince" is a 2023 Turkish drama and a cartoon): a year in the name settles which.

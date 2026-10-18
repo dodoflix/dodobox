@@ -2,9 +2,10 @@ import { api, cget, getProfile } from './api.js'
 import { S, progress, recordProgress } from './session.js'
 import { nowPlaying, pingPresence } from './presence.js'
 import { mapTime, offsetAt, classify } from './syncmap.js'
-import { $, esc, icon, enc, clock, bytes, store, sleep, toast, isTV, isSafari, lowres, sized, thumbW, hue } from './util.js'
+import { $, EP_PAGE, esc, icon, enc, clock, bytes, store, sleep, toast, isTV, isSafari, lowres, sized, thumbW, hue } from './util.js'
 import { glow } from './ambient.js'
 import { onBack } from './nav.js'
+import { dragScroll } from './drag.js'
 import { loadCast, castTo } from './cast.js'
 import { LANGUAGES, langOf } from './onboarding.js'
 import { volumeHTML, bindVolume } from './volume.js'
@@ -76,6 +77,7 @@ export async function watch (type, id, season, episode) {
       </div>
     </div>
     <button class="pl-slow" id="slow" hidden>Slow connection. Try another version</button>
+    <div class="pl-stats" id="stats" hidden></div>
     <div class="pl-menu" id="menu" hidden></div>
     <div class="pl-next" id="up" hidden></div>
     <div class="pl-cast" id="casting" hidden></div>
@@ -228,6 +230,50 @@ export async function watch (type, id, season, episode) {
     }
   })
 
+  // Playback stats for advanced users and bug reports: what is playing, how it is decoded, what the buffer and the download are doing.
+  let statsOn = store.get('stats', false)
+  const statsEl = $('#stats', root)
+  const buffered = () => { const t = v.currentTime; for (let i = 0; i < v.buffered.length; i++) if (v.buffered.start(i) <= t + 0.1 && t <= v.buffered.end(i)) return v.buffered.end(i) - t; return 0 }
+  const statsRows = () => {
+    const q = v.getVideoPlaybackQuality?.(); const lvl = hls?.levels?.[hls.currentLevel]
+    const mbps = info?.duration && st?.length ? (st.length * 8 / info.duration / 1e6).toFixed(1) + ' Mbps' : '-'
+    return [
+      ['File', st?.name || '-'],
+      ['Playing as', mode === 'direct' ? 'Direct play' : `Converted, ${engines[engineAt] === 'hlsjs' ? 'hls.js' : engines[engineAt] || '-'}`],
+      ['Video', info ? `${info.vcodec || '?'} ${info.width || '?'}x${info.height || '?'}` : '-'],
+      ['Audio', info ? `${info.acodec || '?'}, track ${audio + 1} of ${info.audio?.length || 1}` : '-'],
+      ['Decoded', v.videoWidth ? `${v.videoWidth}x${v.videoHeight}` : '-'],
+      ['Shown in', `${v.clientWidth}x${v.clientHeight} at ${devicePixelRatio || 1}x`],
+      ['Quality', `${quality === 'auto' ? 'Auto' : quality + 'p'}${cap() ? `, capped at ${cap()}p` : ''}${lvl?.bitrate ? `, ${(lvl.bitrate / 1e6).toFixed(1)} Mbps` : ''}`],
+      ['Frames', q ? `${q.droppedVideoFrames} dropped of ${q.totalVideoFrames}` : '-'],
+      ['Buffer', `${buffered().toFixed(1)} s ahead`],
+      ['Position', `${clock(v.currentTime)} of ${clock(v.duration || info?.duration || 0)}${v.playbackRate !== 1 ? ` at ${v.playbackRate}x` : ''}`],
+      ['Element', `ready ${v.readyState}, network ${v.networkState}${v.error ? `, error ${v.error.code}` : ''}`],
+      ['Source rate', mbps],
+      ['Your link', `${bandwidth() || '?'} Mbps measured${hls?.bandwidthEstimate ? `, ${(hls.bandwidthEstimate / 1e6).toFixed(1)} Mbps seen` : ''}`],
+      ['Release', st?.ctx?.release || '-'],
+      ['Found on', st?.ctx?.provider ? `${st.ctx.provider}, ${st.ctx.seeders ?? '?'} seeders when found` : '-'],
+      ...st?.torrent?.name && st.torrent.name !== st.ctx?.release ? [['Torrent', st.torrent.name]] : [],
+      ['Info hash', hash || '-'],
+      ['Contents', st?.torrent ? `${st.torrent.files} file${st.torrent.files === 1 ? '' : 's'}, ${bytes(st.torrent.size)}, file ${st.fileIdx ?? '?'}, pieces of ${bytes(st.torrent.pieceLength || 0)}` : '-'],
+      ['Swarm', st ? `${st.peers ?? 0} peers, ${bytes(st.torrent?.uploadSpeed || 0)}/s up` : '-'],
+      ['Shared', st?.torrent ? `${bytes(st.torrent.uploaded || 0)} up, ratio ${(st.torrent.ratio || 0).toFixed(2)}` : '-'],
+      ['Download', st ? `${st.phase}${st.pausedReason ? ` (${st.pausedReason})` : ''}, ${Math.round((st.progress || 0) * 100)}%, ${bytes(st.speed || 0)}/s, ${st.peers ?? 0} peers` : '-'],
+      ['Received', st ? `${bytes(st.downloaded || 0)} of ${bytes(st.length || 0)}` : '-']
+    ]
+  }
+  function drawStats () {
+    statsEl.hidden = !statsOn
+    if (!statsOn) return
+    statsEl.innerHTML = `<div class="st-h"><h4>Playback stats</h4><button class="icon-btn" data-copy aria-label="Copy stats">${icon('copy')}</button><button class="icon-btn" data-close aria-label="Close stats">${icon('close')}</button></div>
+      <dl>${statsRows().map(([k, x]) => `<dt>${k}</dt><dd>${esc(x)}</dd>`).join('')}</dl>`
+  }
+  const toggleStats = () => { statsOn = !statsOn; store.set('stats', statsOn); drawStats(); if (menuKind) drawMenu() }
+  statsEl.onclick = e => {
+    if (e.target.closest('[data-close]')) toggleStats()
+    if (e.target.closest('[data-copy]')) navigator.clipboard?.writeText(statsRows().map(([k, x]) => `${k}: ${x}`).join('\n') + `\nBrowser: ${navigator.userAgent}`).then(() => toast('Stats copied'), () => toast('Could not copy'))
+  }
+
   let menuKind = null
   const closeMenu = () => { menu.hidden = true; menuKind = null; wake() }
   const row = (label, { on, extra = '', data = '', disabled } = {}) => `<button ${data} class="${on ? 'on' : ''}" ${disabled ? 'disabled' : ''}><span>${label}</span>${on ? icon('check') : extra}</button>`
@@ -236,7 +282,8 @@ export async function watch (type, id, season, episode) {
     let h = ''
     if (menuKind === 'speed') h = '<h4>Speed</h4>' + SPEEDS.map(s => row(s === 1 ? 'Normal' : s + '×', { on: v.playbackRate === s, data: `data-speed="${s}"` })).join('')
     if (menuKind === 'quality') h = '<h4>Quality</h4>' + QUALITIES.filter(([q]) => q === 'auto' || +q <= (info?.tier || 2160) || q === quality).map(([q, n]) => row(n, { on: quality === q, data: `data-q="${q}"`, extra: q === 'auto' && autoH ? `<small>${autoH}p for your connection</small>` : '' })).join('') +
-      '<hr><h4>Speed</h4>' + SPEEDS.map(sp => row(sp === 1 ? 'Normal' : sp + '×', { on: v.playbackRate === sp, data: `data-speed="${sp}"` })).join('')
+      '<hr><h4>Speed</h4>' + SPEEDS.map(sp => row(sp === 1 ? 'Normal' : sp + '×', { on: v.playbackRate === sp, data: `data-speed="${sp}"` })).join('') +
+      '<hr>' + row('Try another version', { data: 'data-another' }) + row('Playback stats', { on: statsOn, data: 'data-stats' })
     // On a phone the audio, subtitles, quality, speed and party buttons are one Settings button that lists them.
     if (menuKind === 'settings') {
       const q = QUALITIES.find(x => x[0] === quality)
@@ -245,7 +292,7 @@ export async function watch (type, id, season, episode) {
         info?.audio?.length > 1 ? ['audio', 'Audio', LANG(info.audio.find(a => a.i === audio)?.lang || 'und')] : null,
         ['quality', 'Quality and speed', `${q ? q[1] : quality}${v.playbackRate !== 1 ? ` · ${v.playbackRate}×` : ''}`],
         partyPanel ? ['party', 'Watch party', ''] : null
-      ].filter(Boolean).map(([k, n, x]) => row(n, { data: `data-menu="${k}"`, extra: `${x ? `<small>${esc(x)}</small>` : ''}${icon('right')}` })).join('')
+      ].filter(Boolean).map(([k, n, x]) => row(n, { data: `data-menu="${k}"`, extra: `${x ? `<small>${esc(x)}</small>` : ''}${icon('right')}` })).join('') + row('Try another version', { data: 'data-another' }) + row('Playback stats', { on: statsOn, data: 'data-stats' })
     }
     if (menuKind === 'audio') h = '<h4>Audio</h4>' + info.audio.map(a => row(esc(LANG(a.lang || 'und')) + (a.title ? ` · ${esc(a.title)}` : '') + (a.i === bestAudio() ? '<small class="hint">Default</small>' : ''), { on: a.i === audio, data: `data-a="${a.i}"`, extra: `<small>${esc(a.codec)}</small>` })).join('')
     if (menuKind === 'subs') return drawSubsMenu()
@@ -254,13 +301,19 @@ export async function watch (type, id, season, episode) {
     menu.className = 'pl-menu'
     menu.innerHTML = h
   }
-  let epSeason = season
+  let epSeason = season; let epPage = 0
+  // The range holding the episode being played opens first, as on the title page.
+  const pageOf = s => (s === season ? Math.max(0, Math.floor(vids.filter(x => x.season === s).findIndex(x => x.episode === episode) / EP_PAGE)) : 0)
   function drawEpsMenu () {
     const seasons = [...new Set(vids.map(x => x.season))].sort((a, b) => a - b)
     const keep = menu.scrollTop
+    const list = vids.filter(x => x.season === epSeason)
+    const pages = Math.ceil(list.length / EP_PAGE)
+    if (epPage >= pages) epPage = 0
     menu.className = 'pl-menu ep-menu'
     menu.innerHTML = `${seasons.length > 1 ? `<div class="tabs">${seasons.map(n => `<button class="chip ${n === epSeason ? 'on' : ''}" data-es="${n}">${n ? 'Season ' + n : 'Specials'}</button>`).join('')}</div>` : ''}
-      <div class="eps">${vids.filter(x => x.season === epSeason).map(x => {
+      ${pages > 1 ? `<div class="tabs ranges">${Array.from({ length: pages }, (_, k) => `<button class="chip ${k === epPage ? 'on' : ''}" data-ep="${k}">${list[k * EP_PAGE].episode}-${list[Math.min(list.length, (k + 1) * EP_PAGE) - 1].episode}</button>`).join('')}</div>` : ''}
+      <div class="eps">${list.slice(epPage * EP_PAGE, (epPage + 1) * EP_PAGE).map(x => {
         const p = progress(type, id, x.season, x.episode); const r = p ? p[0] / p[1] : 0
         const cur = x.season === season && x.episode === episode
         const d = x.released ? new Date(x.released).toLocaleDateString(document.documentElement.lang || undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''
@@ -270,6 +323,12 @@ export async function watch (type, id, season, episode) {
           <span><span class="t" translate="no">${esc(x.title)}</span><br><span class="d">${cur ? 'Playing now' : d}</span></span></a>`
       }).join('')}</div>`
     menu.scrollTop = keep
+    // The strips scroll like the others: dragged with a mouse, with arrows, and opened on the chip in use.
+    for (const t of menu.querySelectorAll('.tabs')) {
+      dragScroll(t)
+      const on = t.querySelector('.on')
+      if (on) t.scrollLeft += on.getBoundingClientRect().left - t.getBoundingClientRect().left - (t.clientWidth - on.offsetWidth) / 2
+    }
   }
   function drawSubsMenu () {
     const sgn = x => { const r = Math.round(x * 10) / 10; return r === 0 ? '0.0' : (r > 0 ? '+' : '') + r.toFixed(1) }
@@ -302,7 +361,7 @@ export async function watch (type, id, season, episode) {
       </div>`
     ;['.sm-langs', '.sm-files'].forEach((q, i) => { menu.querySelector(q).scrollTop = keep[i] })
   }
-  const open = k => { if (menuKind === k) return closeMenu(); menuKind = k; epSeason = season; menu.hidden = false; drawMenu(); wake(); (k === 'eps' && menu.querySelector('.ep.cur') || menu.querySelector('[data-autofocus]') || menu.querySelector('button:not(:disabled), .ep'))?.focus() }
+  const open = k => { if (menuKind === k) return closeMenu(); menuKind = k; epSeason = season; epPage = pageOf(season); menu.hidden = false; drawMenu(); wake(); (k === 'eps' && menu.querySelector('.ep.cur') || menu.querySelector('[data-autofocus]') || menu.querySelector('button:not(:disabled), .ep'))?.focus() }
   $('#m-speed', root).onclick = () => open('speed'); $('#m-quality', root).onclick = () => open('quality'); $('#m-settings', root).onclick = () => open('settings')
   $('#m-eps', root)?.addEventListener('click', () => open('eps'))
   $('#m-audio', root).onclick = () => open('audio'); $('#m-subs', root).onclick = () => open('subs')
@@ -316,10 +375,13 @@ export async function watch (type, id, season, episode) {
     const b = e.target.closest('button'); if (!b || b.disabled) return
     const d = b.dataset
     if (d.menu) return open(d.menu)
+    if (d.stats != null) return toggleStats()
+    if (d.another != null) { closeMenu(); if (!hash) return; toast('Looking for another version...'); tried.add(hash); startAt = v.currentTime; return start() }
     if (d.speed) { v.defaultPlaybackRate = v.playbackRate = +d.speed; keep('speed', +d.speed); closeMenu() }
     if (d.q) { quality = d.q; keep('quality', quality); closeMenu(); startAt = v.currentTime; if (info) { chooseMode(); attach() } }
     if (d.a) { audio = +d.a; const t = info.audio.find(x => x.i === audio); keep('audio', { lang: t?.lang || null, title: t?.title || '' }); closeMenu(); startAt = v.currentTime; chooseMode(); attach() }
-    if (d.es != null) { epSeason = +d.es; menu.scrollTop = 0; drawMenu(); return }
+    if (d.es != null) { epSeason = +d.es; epPage = pageOf(epSeason); menu.scrollTop = 0; drawMenu(); return }
+    if (d.ep != null) { epPage = +d.ep; menu.scrollTop = 0; drawMenu(); return }
     if (d.d) { delay += +d.d; rememberDelay(); renderCue(); drawMenu() }
     if (b.hasAttribute('data-as')) { const on = !autoOn(); store.set('autosync', on); keep('autosync', on); if (on) runSync(subSel); else { syncState = ''; syncGen++; clearTimeout(syncTimer); clearTimeout(probeTimer); applyCues() } drawMenu() }
     if (d.z) { const z = Math.max(0.6, Math.min(2.2, +((P.size ?? store.get('subsize', 1)) + 0.15 * +d.z).toFixed(2))); store.set('subsize', z); keep('size', z); applySize() }
@@ -733,6 +795,8 @@ export async function watch (type, id, season, episode) {
     recordProgress({ type, id, name: m.originalName || m.name, poster: m.poster, season, episode, pos: Math.floor(v.currentTime), dur: Math.floor(v.duration) })
   }
   timers.push(setInterval(() => { if (!v.paused && Date.now() - lastSave > 9000) save() }, 3000))
+  timers.push(setInterval(drawStats, 1000))
+  drawStats()
   let prefetched = false; let upShown = false; let upT
   function upNextCheck () {
     if (!next || !v.duration) return
@@ -774,6 +838,7 @@ export async function watch (type, id, season, episode) {
     else if (k === 'f') toggleFS()
     else if (k === 'm') v.muted = !v.muted
     else if (k === 'c') { subSel ? showSub(null) : subs.length && showSub(subs.find(s => !s.embedded || st.phase === 'done')) }
+    else if (k === 'i') toggleStats()
     else if (k === 'n' && next) go(next)
     else if (/^[0-9]$/.test(k) && v.duration) { v.currentTime = v.duration * +k / 10; wake() }
   }
