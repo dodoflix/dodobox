@@ -16,6 +16,7 @@ import { listSubtitles, allowedSubUrl, fetchSubtitle, srtToVtt, decode, toVtt, l
 import * as engine from './src/engine.js'
 import * as local from './src/local.js'
 import * as downloads from './src/downloads.js'
+import { skipsFor } from './src/skips.js'
 import { chartItems } from './src/charts.js'
 import * as state from './src/state.js'
 import { report as presence } from './src/presence.js'
@@ -393,6 +394,16 @@ const routes = [
       }
     }
     json(req, res, { ...s, ...info, sidecar: (local.isLocal(h) ? local.sidecars(h) : engine.sidecars(h, s.fileIdx)).map(({ path, ...x }) => x) })
+  }],
+  // Intro, recap and ending of the episode being played; the player asks once the file is probed, so starting playback never waits for it.
+  ['GET', /^\/api\/skips\/(\w+)$/, async (req, res, [, h], q) => {
+    const s = statusOf(h, true, q.get('file'))
+    const c = s?.ctx
+    if (!s || s.fileIdx == null || !c || c.season == null || (c.type !== 'series' && c.type !== 'anime')) return json(req, res, {})
+    const info = await probe(rawUrl(h, s.fileIdx), `${h}:${s.fileIdx}`, s.name || '')
+    const m = c.type === 'anime' ? await meta(c.type, c.id).catch(() => null) : null
+    if (m?.movie) return json(req, res, {})
+    json(req, res, await skipsFor({ type: c.type, id: c.id, season: c.season, episode: c.episode, mal: m?.mal }, { chapters: info.chapters, duration: info.duration }))
   }],
   ['GET', /^\/raw\/(\w+)\/(\d+)$/, (req, res, [, h, i]) => local.isLocal(h) ? local.serve(h, req, res) : engine.serve(h, +i, req, res)],
   // Safari hands HLS to AirPlay by URL, so only subtitles inside the stream reach a TV; with `sl` or `sub` the playlist becomes a master playlist with a WebVTT rendition.

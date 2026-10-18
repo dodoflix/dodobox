@@ -110,9 +110,9 @@ test('a profile id of "__proto__" finds nothing and cannot change Object.prototy
 test('what a client sends is checked: wrong shapes are cut, colours and pictures cannot carry CSS', () => {
   const p = state.createProfile('Dee', 'red;background:url(//evil.example)')
   assert.match(p.color, /^#[0-9a-f]{6}$/i, 'a free-form colour is replaced')
-  state.updateProfile(p.id, { color: 'red;x:y', settings: { lang: '<b>', sublang: 'tur', autoNext: 'yes', interests: ['movie', '<i>'], quality: 'auto' } })
+  state.updateProfile(p.id, { color: 'red;x:y', settings: { lang: '<b>', sublang: 'tur', adultFilter: 'yes', interests: ['movie', '<i>'], quality: 'auto' } })
   assert.match(state.profile(p.id).color, /^#/)
-  assert.deepEqual([state.profile(p.id).settings.lang, state.profile(p.id).settings.sublang, state.profile(p.id).settings.autoNext], ['en', 'tur', true])
+  assert.deepEqual([state.profile(p.id).settings.lang, state.profile(p.id).settings.sublang, state.profile(p.id).settings.adultFilter], ['en', 'tur', false])
   const item = { type: 'movie', id: 'tt1', name: 'N'.repeat(500), poster: "/img?u=x');background:red;--x:('", year: '<svg>', rating: '9' }
   const [it] = state.setList(p.id, item, true)
   assert.deepEqual([it.name.length, it.poster, it.year, it.rating], [200, '', undefined, undefined])

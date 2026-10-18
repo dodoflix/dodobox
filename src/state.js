@@ -11,7 +11,7 @@ const COLORS = ['#f2a65a', '#e5646e', '#6fb7e9', '#7ad3a0', '#b58cf0', '#f0d264'
 let db = { profiles: {}, settings: {} }
 try { db = { ...db, ...JSON.parse(fs.readFileSync(FILE, 'utf8')) } } catch {}
 
-function DEFAULTS_INIT () { return { sublang: 'off', lang: 'en', interests: [], autoNext: true, quality: 'auto', sourceMode: 'balanced', adultFilter: false, bestTranslation: false, discordPresence: true, onboarded: false } }
+function DEFAULTS_INIT () { return { sublang: 'off', lang: 'en', interests: [], quality: 'auto', sourceMode: 'balanced', adultFilter: false, bestTranslation: false, discordPresence: true, onboarded: false } }
 
 // Everything a client sends is checked on the way in: the pages draw these values (colours go into style attributes, a rating is called
 // toFixed on), so a wrong shape breaks a profile's pages and a free-form string is a way to inject CSS.
@@ -38,6 +38,7 @@ for (const p of Object.values(db.profiles)) {
   p.list = (Array.isArray(p.list) ? p.list : []).map(keep).filter(Boolean)
   p.color = tint(p.color) || COLORS[0]
   p.settings = { ...DEFAULTS_INIT(), ...p.settings }
+  delete p.settings.autoNext // the next episode always follows the credits now
   for (const [k, v] of Object.entries(p.settings)) if (Object.hasOwn(DEFAULTS, k) && !settingOk(k, v)) p.settings[k] = DEFAULTS_INIT()[k]
 }
 

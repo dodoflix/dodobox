@@ -250,7 +250,7 @@ test('ffmpeg\'s file report is read as streams: codecs, languages, titles, defau
   assert.deepEqual([r.streams[0].pix_fmt, r.streams[0].width, r.streams[0].height], ['yuv420p10le', 1920, 1036])
   const mp4 = parseProbe('Input #0, mov,mp4,m4a,3gp,3g2,mj2, from \'a.mp4\':\n  Duration: 00:00:03.04, start: 0.0, bitrate: 1 kb/s\n  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 640x360 [SAR 1:1 DAR 16:9], 24 fps, 24 tbr (default)\n')
   assert.deepEqual([mp4.format, mp4.streams[0].codec, mp4.streams[0].pix_fmt, mp4.streams[0].width, mp4.streams[0].lang], ['mov,mp4,m4a,3gp,3g2,mj2', 'h264', 'yuv420p', 640, 'und'])
-  assert.deepEqual(parseProbe(''), { format: '', duration: 0, streams: [] })
+  assert.deepEqual(parseProbe(''), { format: '', duration: 0, streams: [], chapters: [] })
 })
 
 test('the encoder level covers the frame size, so 1440p and 2160p do not fail to start', () => {

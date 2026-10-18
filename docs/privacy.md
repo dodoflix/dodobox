@@ -8,7 +8,7 @@ Profiles, watch progress, My List, ratings, settings, downloads and caches live 
 
 ## What leaves your computer
 
-Your server contacts other services to do its job: catalog and artwork providers, torrent and subtitle sources, anime id lists, tracker lists, an internet speed test, and GitHub to look for a new release. Those services see your IP address and the request (a title, an id, a search). They have their own privacy policies. Torrent downloads share your IP address with other peers. Watch parties find each other through public trackers and DHT, so members' IP addresses are visible to one another; party messages are encrypted with a key made from the party code.
+Your server contacts other services to do its job: catalog and artwork providers, torrent and subtitle sources, intro and credits timing databases (AniSkip, IntroDB), anime id lists, tracker lists, an internet speed test, and GitHub to look for a new release. Those services see your IP address and the request (a title, an id, a search). They have their own privacy policies. Torrent downloads share your IP address with other peers. Watch parties find each other through public trackers and DHT, so members' IP addresses are visible to one another; party messages are encrypted with a key made from the party code.
 
 ## Discord Rich Presence
 
