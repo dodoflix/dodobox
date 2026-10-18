@@ -686,7 +686,7 @@ body.dragging .poster:hover .art { filter: none; box-shadow: 0 0 0 1px rgb(255 2
 .pp-pass { position: relative; }
 .pp-pass .field { width: 100%; padding-right: calc(var(--n, 1) * 2.2rem + .6rem); }
 .pp-row .pp-pass { flex: 1; min-width: 0; }
-.pp-row .pp-pass .field { width: 100%; flex: none; }
+.pp-row .pp-pass .field { width: 100%; height: 100%; flex: none; }
 .pp-pass .field.masked { -webkit-text-security: disc; }
 .pp-pass .pp-act { position: absolute; inset-block: 0; right: .2rem; display: flex; align-items: center; }
 .pp-pass .icon-btn { width: 2.2rem; height: 2.2rem; }
