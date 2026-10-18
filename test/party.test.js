@@ -55,6 +55,7 @@ test('members find each other, share what is playing, follow each other, and lea
   await until(() => a.status().members.length === 2 && b.status().members.length === 2)
   assert.deepEqual(a.status().members.map(m => m.name).sort(), ['Ana', 'Bob'])
   assert.equal(a.status().phase, 'live')
+  assert.equal(a.status().max, 12, 'the page shows how many can be in a party')
   await until(() => b.status().now)
   assert.deepEqual([b.status().now.item, b.status().now.source.infoHash, b.status().now.paused], [item, 'b'.repeat(40), true], 'a new member is told what is on')
   a.send('pl', { pos: 7 })
