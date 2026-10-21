@@ -2,21 +2,26 @@ import { log } from './log.js'
 // Internet speed of the machine running Dodobox. Source ranking uses it so a slow line is not handed a 60 GB remux.
 const probe = { down: 0, at: 0 }
 let peak = 0
+const WINDOW_MS = 8000
 
-export async function measure () {
+export async function measure (windowMs = WINDOW_MS) {
   if (process.env.NO_SPEEDTEST) return
   try {
     const r = await fetch('https://speed.cloudflare.com/__down?bytes=25000000', { signal: AbortSignal.timeout(15000) })
     const reader = r.body.getReader()
     let t0 = 0; let bytes = 0
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      if (!t0) t0 = performance.now() // exclude connection setup
-      else bytes += value.length
-    }
+    // Under ~13 Mbps the whole 25 MB cannot arrive before the timeout: what arrived by then or by WINDOW_MS is the speed.
+    try {
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if (!t0) t0 = performance.now() // exclude connection setup
+        else bytes += value.length
+        if (performance.now() - t0 > windowMs) { await reader.cancel(); break }
+      }
+    } catch {}
     const secs = (performance.now() - t0) / 1000
-    if (secs > 0.2 && bytes > 1e6) { probe.down = bytes * 8 / secs / 1e6; probe.at = Date.now(); log.info('speed', 'internet speed measured', { downMbps: Math.round(probe.down) }) }
+    if (secs > 0.2 && bytes > 1e5) { probe.down = bytes * 8 / secs / 1e6; probe.at = Date.now(); log.info('speed', 'internet speed measured', { downMbps: Math.round(probe.down) }) }
   } catch (e) { log.warn('speed', 'speed test failed', { err: e }) }
 }
 

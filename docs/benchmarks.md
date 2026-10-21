@@ -19,6 +19,7 @@ command produces them.
 | `match` | no | Release matchers on the corpus: recall and false positives (`--dump matcher:kind`) |
 | `pick` | no | File choice inside real multi-file torrents (`--show n` prints disagreements) |
 | `rank` | no (needs `sources --set core`) | Top result under seven viewer situations, and ranking time |
+| `throttle` | no (needs Linux `unshare`, `tc`) | Real engine against local seeders on a shaped line: does the automatic pick start and keep playing (`--alg base,repo`, `--line`, `--rtt`, `--loss`, `--keep`) |
 | `orchestrate` | no (needs `sources --set core`) | Simulated lookup plans with injected failures: time to answer and recall |
 | `app` | yes | The app's own `findSources()` on the gold titles, cold: seeded results and time |
 | `scrape` | yes | Live tracker seeder counts against the numbers sources report |
@@ -154,6 +155,33 @@ score picks a release at a lower resolution than the best acceptable one in 7 of
 screen, 4 of 20 in lossless mode and 2 of 20 on a 4 Mbps line; the gated ranker picks the best resolution every time.
 Ranking time is 1.2 to 1.5 ms against 0.04 to 0.13 ms. The oracle encodes the same product rules the gated ranker was
 written from, so treat the accuracy gain as indicative and the time as measured.
+
+### Slow and distant lines (`throttle`)
+
+Seven candidate releases (a dead one, a popular one with slow peers, a 40 GB remux, one whose peer is far away, and four
+ordinary ones), each backed by a local seeder with its own peer rate, behind a line cap and a round-trip delay set with
+`tc` in a user namespace. The pick runs the real ranking, race and engine; playback is simulated as buffering 3 MB, then
+draining at the release's bitrate for 40 s. A profile counts as a stall when it rebuffers for more than 2 s in total.
+`base` is the behaviour before the speed probe and race changes, `repo` is the code in `src/`.
+
+| line | RTT | base pick | base stalled | repo pick | repo stalled |
+|---|---|---|---|---|---|
+| 2 Mbps | 20 ms | 1080p 9.7 Mbps | 30 s | 720p 2.2 Mbps | 0 s |
+| 2 Mbps | 400 ms | 1080p 4.2 Mbps | 24 s | 720p 2.2 Mbps | 11 s |
+| 5 Mbps | 20 ms | 1080p 9.7 Mbps | 20 s | 720p 2.2 Mbps | 0 s |
+| 5 Mbps | 400 ms | 1080p 6.1 Mbps | 30 s | 720p 2.2 Mbps | 0 s |
+| 10 Mbps | 20 ms | 1080p 9.7 Mbps | 0 s | 1080p 4.2 Mbps | 0 s |
+| 10 Mbps | 400 ms | 1080p 6.1 Mbps | 30 s | 1080p 4.2 Mbps | 7 s |
+| 25 Mbps | 20 ms | 1080p 9.7 Mbps | 0 s | 1080p 9.7 Mbps | 0 s |
+| 25 Mbps | 400 ms | 1080p 6.1 Mbps | 30 s | 1080p 9.7 Mbps | 13 s |
+
+Stalls fall from 6 of 8 profiles to 3 of 8, median start from 26 s to 22 s. Two causes in the old code: the 25 MB speed probe
+cannot finish under about 13 Mbps, so a slow line read as unknown and nothing was penalised for its bitrate; and the
+6.5 s race ended before a distant link had ramped up, so every rival looked alike and the most-seeded one won. What
+remains is the engine's request pipeline growing slowly at 400 ms: the right release is picked and starts, then
+rebuffers during the ramp. At 2 Mbps the 2.2 Mbps release is chosen over a 1.3 Mbps one that has a very distant
+peer (an extra 1 s round trip); a stronger over-the-line penalty was tried and moved that case from a stall to never
+starting, so it was dropped. The probe's 13 Mbps limit is modelled, not measured (it needs the Cloudflare endpoint).
 
 ### Orchestration (`orchestrate`)
 
