@@ -1,4 +1,4 @@
-import { api, getProfile, getToken } from './api.js'
+import { api, getProfile, getToken, setToken } from './api.js'
 import { $, esc, icon } from './util.js'
 import { pickProfile } from './session.js'
 import { focusFirst } from './nav.js'
@@ -14,15 +14,23 @@ export function showPicker ({ dismissable = false } = {}) {
     let manage = false
 
     const done = async id => { await pickProfile(id); root.hidden = true; root.innerHTML = ''; resolve(id) }
-    // A locked profile asks for its PIN first, unless this browser already holds a session for it. Leaving a locked profile ends its session.
+    // A locked profile asks for its PIN first, unless this browser holds a session the server still knows (one kept across a server restart is dead).
+    const unlocked = async p => {
+      if (!p.locked) return true
+      if (getToken(p.id)) {
+        try { await api('/api/me', { headers: { 'x-profile': p.id, 'x-token': getToken(p.id) } }); return true } catch { setToken(p.id, '') }
+      }
+      return unlockProfile(p)
+    }
+    // Leaving a locked profile ends its session.
     const open = async p => {
       const prev = getProfile()
-      if (p.locked && !getToken(p.id) && !(await unlockProfile(p))) return
+      if (!(await unlocked(p))) return
       await done(p.id)
       if (prev && prev !== p.id) lockProfile(prev)
     }
     // Editing or deleting a locked profile needs its PIN too; the session made for it ends with the edit.
-    const edit = async p => { if (p.locked && !getToken(p.id) && !(await unlockProfile(p))) return; form({ edit: p }) }
+    const edit = async p => { if (!(await unlocked(p))) return; form({ edit: p }) }
     const finishEdit = async p => { if (p?.locked && p.id !== getProfile()) await lockProfile(p.id) }
 
     async function list () {
