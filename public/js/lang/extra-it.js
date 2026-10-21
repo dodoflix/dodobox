@@ -45,6 +45,7 @@ export const rows = [
 /*more*/ 'Mostra password', 'Nascondi password',
 /*more*/ 'Incolla',
 /*more*/ 'Il browser ha bloccato l\'incolla. Incolla tu nel campo.',
+/*+*/ 'Collega OpenSubtitles', 'OpenSubtitles limita i download dei sottotitoli al giorno. Accedi con un account opensubtitles.org con abbonamento VIP e i download dei sottotitoli continueranno a funzionare. Gli account senza VIP non possono scaricare in questo modo.', 'Informazioni sul VIP', 'Crea un account', 'Nome utente', 'Password', 'Collega', 'Verifica in corso...', 'Nome utente o password errati', 'Inserisci nome utente e password di OpenSubtitles', 'Impossibile raggiungere OpenSubtitles, riprova tra un attimo', 'Account OpenSubtitles', 'Cambia', 'Scollega', 'Non collegato. Un account VIP di opensubtitles.org mantiene attivi i download dei sottotitoli quando il limite giornaliero condiviso è raggiunto.', 'OpenSubtitles collegato', 'OpenSubtitles scollegato', 'I download dei sottotitoli hanno raggiunto il limite giornaliero. Collega un account OpenSubtitles VIP per continuare.', 'I download dei sottotitoli hanno raggiunto il limite giornaliero e il tuo account OpenSubtitles non è VIP, quindi non può aiutare.', 'Questo fornitore di sottotitoli ha raggiunto il suo limite per ora.', 'Limite del fornitore raggiunto, riprova più tardi', 'Prova un altro'
 ]
 export const patterns = [
   'Ciao $1, rendilo tuo', 'Stagione $1', 'Stagione $1 · Episodio $2', 'Riprendi S$1 E$2', 'S$1 E$2$3', 'Esce il $1', '$1 h $2 min', '$1 min', '$1restano $2 h $3 min', '$1restano $2 min',
@@ -55,5 +56,6 @@ export const patterns = [
   'Preparazione della lingua... $1%', 'Traduzione... $1%',
   'Miglioramento della qualità... $1%',
   'Installazione... $1%',
-  'Dodobox $1 è disponibile', 'La versione $1 è disponibile', 'Hai la versione $1.', 'Scarica la nuova immagine e ricrea il container: $1', 'Solo forzati: $1', 'Nessun sottotitolo in $1 trovato', 'Codice QR per $1', '$1 si è unito alla sessione', '$1 ha lasciato la sessione', '$1 sta guardando $2', '$1 ha messo in pausa', '$1 ha ripreso la riproduzione', '$1 è passato a $2'
+  'Dodobox $1 è disponibile', 'La versione $1 è disponibile', 'Hai la versione $1.', 'Scarica la nuova immagine e ricrea il container: $1', 'Solo forzati: $1', 'Nessun sottotitolo in $1 trovato', 'Codice QR per $1', '$1 si è unito alla sessione', '$1 ha lasciato la sessione', '$1 sta guardando $2', '$1 ha messo in pausa', '$1 ha ripreso la riproduzione', '$1 è passato a $2',
+  'Accesso come $1. Usato quando si raggiunge il limite di download condiviso.', 'Accesso come $1. Il suo limite di download per oggi è esaurito.', '$1 non è riuscito ad accedere. Collega di nuovo.', 'Accesso come $1, ma questo account non è VIP, quindi OpenSubtitles non gli concede download e non viene usato.'
 ]

@@ -8,6 +8,7 @@ import { upgradeSelects, syncSelect } from './dropdown.js'
 import { uiLangFor } from './i18n.js'
 import { pingPresence } from './presence.js'
 import { changePin } from './pin.js'
+import { accountStatus, accountRow, connectAccount } from './opensubs.js'
 
 const SUBS = [['off', 'Off'], ...LANGUAGES.map(([, c, n]) => [c, n]), ['pob', 'Português (Brasil)']]
 const CAPS = [20, 40, 100, 250, 500, 1000]
@@ -20,7 +21,7 @@ let stopPolling = () => {}
 export async function settings (root) {
   stopPolling() // a redraw of the page replaces the previous one's follow-up calls
   calm()
-  const [srv, g, st] = await Promise.all([api('/api/server'), api('/api/settings'), api('/api/storage')])
+  const [srv, g, st, os] = await Promise.all([api('/api/server'), api('/api/settings'), api('/api/storage'), accountStatus()])
   const me = S.me
   const url = srv.urls[0] || `http://localhost:${srv.port}`
   const dirs = srv.mediaDirs
@@ -42,6 +43,10 @@ export async function settings (root) {
         <button class="switch" role="switch" data-k="adultFilter" aria-checked="${!!me.settings.adultFilter}" aria-label="Adult content filter"></button></div>
       <div class="set"><div class="l"><b>Best translation quality</b><span>Auto-translated subtitles use a larger translator. It downloads about 2 GB the first time, and each subtitle improves gradually while you watch.</span><span id="hqstat" class="dim"></span></div>
         <button class="switch" role="switch" data-k="bestTranslation" aria-checked="${!!me.settings.bestTranslation}" aria-label="Best translation quality"></button></div>
+    </div>
+
+    <div class="group"><h3>Subtitles</h3>
+      <div class="set" id="osrow">${accountRow(os)}</div>
     </div>
 
     <div class="group"><h3>Profile lock</h3>
@@ -115,6 +120,13 @@ export async function settings (root) {
     if (it) { it.classList.toggle('on'); setSetting('interests', [...root.querySelectorAll('#interests .on')].map(b => b.dataset.t)); return }
     const sg = e.target.closest('[data-seg] button')
     if (sg) { const k = sg.parentElement.dataset.seg; setSetting(k, sg.dataset.v); sg.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === sg)) }
+    const ob = e.target.closest('[data-os]')
+    if (ob) {
+      if (ob.dataset.os === 'remove') await api('/api/opensubtitles', { method: 'DELETE' })
+      else if (!await connectAccount()) return
+      $('#osrow').innerHTML = accountRow(await accountStatus())
+      toast(ob.dataset.os === 'remove' ? 'OpenSubtitles disconnected' : 'OpenSubtitles connected')
+    }
     const pb = e.target.closest('[data-pin]')
     if (pb) { if (await changePin(me, { remove: pb.dataset.pin === 'remove' })) { $('#pinrow').innerHTML = pinRow(me); toast(me.hasPin ? 'PIN saved' : 'PIN removed') } }
     if (e.target.closest('#switch')) { await showPicker({ dismissable: true }); location.hash = '#/'; location.reload() }

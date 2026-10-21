@@ -45,6 +45,7 @@ export const rows = [
 /*more*/ 'Hiện mật khẩu', 'Ẩn mật khẩu',
 /*more*/ 'Dán',
 /*more*/ 'Trình duyệt đã chặn dán. Hãy tự dán vào ô.',
+/*+*/ 'Kết nối OpenSubtitles', 'OpenSubtitles giới hạn số lượt tải phụ đề mỗi ngày. Hãy đăng nhập bằng tài khoản opensubtitles.org có gói VIP để việc tải phụ đề tiếp tục hoạt động. Tài khoản không có VIP không thể tải theo cách này.', 'Về VIP', 'Tạo tài khoản', 'Tên người dùng', 'Mật khẩu', 'Kết nối', 'Đang kiểm tra...', 'Tên người dùng hoặc mật khẩu không đúng', 'Nhập tên người dùng và mật khẩu OpenSubtitles', 'Không kết nối được OpenSubtitles, hãy thử lại sau giây lát', 'Tài khoản OpenSubtitles', 'Thay đổi', 'Ngắt kết nối', 'Chưa kết nối. Tài khoản VIP của opensubtitles.org giúp việc tải phụ đề tiếp tục khi đạt giới hạn hằng ngày dùng chung.', 'Đã kết nối OpenSubtitles', 'Đã ngắt kết nối OpenSubtitles', 'Lượt tải phụ đề đã đạt giới hạn hằng ngày. Hãy kết nối tài khoản OpenSubtitles VIP để tiếp tục.', 'Lượt tải phụ đề đã đạt giới hạn hằng ngày, và tài khoản OpenSubtitles của bạn không phải VIP nên không thể giúp.', 'Nguồn phụ đề này tạm thời đã đạt giới hạn.', 'Nguồn đã đạt giới hạn, hãy thử lại sau', 'Thử cái khác'
 ]
 export const patterns = [
   'Chào $1, hãy biến nó thành của bạn', 'Mùa $1', 'Mùa $1 · Tập $2', 'Tiếp tục S$1 E$2', 'S$1 E$2$3', 'Phát sóng $1', '$1 giờ $2 phút', '$1 phút', '$1còn $2 giờ $3 phút', '$1còn $2 phút',
@@ -55,5 +56,6 @@ export const patterns = [
   'Đang chuẩn bị ngôn ngữ... $1%', 'Đang dịch... $1%',
   'Đang cải thiện chất lượng... $1%',
   'Đang cài đặt... $1%',
-  'Dodobox $1 đã có sẵn', 'Phiên bản $1 đã có sẵn', 'Bạn đang dùng phiên bản $1.', 'Kéo image mới và tạo lại container: $1', 'Chỉ phụ đề bắt buộc: $1', 'Không tìm thấy phụ đề $1', 'Mã QR cho $1', '$1 đã vào phòng', '$1 đã rời phòng', '$1 đang xem $2', '$1 đã tạm dừng phát', '$1 đã tiếp tục phát', '$1 đã tua đến $2'
+  'Dodobox $1 đã có sẵn', 'Phiên bản $1 đã có sẵn', 'Bạn đang dùng phiên bản $1.', 'Kéo image mới và tạo lại container: $1', 'Chỉ phụ đề bắt buộc: $1', 'Không tìm thấy phụ đề $1', 'Mã QR cho $1', '$1 đã vào phòng', '$1 đã rời phòng', '$1 đang xem $2', '$1 đã tạm dừng phát', '$1 đã tiếp tục phát', '$1 đã tua đến $2',
+  'Đã đăng nhập là $1. Được dùng khi đạt giới hạn tải dùng chung.', 'Đã đăng nhập là $1. Giới hạn tải hôm nay đã hết.', '$1 không đăng nhập được. Hãy kết nối lại.', 'Đã đăng nhập là $1, nhưng tài khoản này không phải VIP nên OpenSubtitles không cho tải và nó không được dùng.'
 ]

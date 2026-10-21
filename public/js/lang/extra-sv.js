@@ -45,6 +45,7 @@ export const rows = [
 /*more*/ 'Visa lösenord', 'Dölj lösenord',
 /*more*/ 'Klistra in',
 /*more*/ 'Webbläsaren blockerade inklistring. Klistra in i fältet själv.',
+/*+*/ 'Anslut OpenSubtitles', 'OpenSubtitles begränsar nedladdningar av undertexter per dag. Logga in med ett opensubtitles.org-konto med VIP-medlemskap så fortsätter nedladdningarna fungera. Konton utan VIP kan inte ladda ner på det här sättet.', 'Om VIP', 'Skapa ett konto', 'Användarnamn', 'Lösenord', 'Anslut', 'Kontrollerar...', 'Fel användarnamn eller lösenord', 'Ange ditt användarnamn och lösenord för OpenSubtitles', 'OpenSubtitles kunde inte nås, försök igen om en stund', 'OpenSubtitles-konto', 'Ändra', 'Koppla från', 'Inte ansluten. Ett VIP-konto från opensubtitles.org håller nedladdningarna igång när den delade dagsgränsen är nådd.', 'OpenSubtitles anslutet', 'OpenSubtitles frånkopplat', 'Dagsgränsen för nedladdning av undertexter är nådd. Anslut ett VIP-konto på OpenSubtitles för att fortsätta.', 'Dagsgränsen för nedladdning av undertexter är nådd, och ditt OpenSubtitles-konto är inte VIP så det kan inte hjälpa.', 'Den här undertextleverantören har nått sin gräns för tillfället.', 'Leverantörens gräns är nådd, försök igen senare', 'Prova en annan'
 ]
 export const patterns = [
   'Hej $1, gör det till ditt', 'Säsong $1', 'Säsong $1 · Avsnitt $2', 'Återuppta S$1 A$2', 'S$1 A$2$3', 'Sänds $1', '$1 h $2 min', '$1 min', '$1$2 h $3 min kvar', '$1$2 min kvar',
@@ -55,5 +56,6 @@ export const patterns = [
   'Förbereder språket... $1 %', 'Översätter... $1 %',
   'Förbättrar kvaliteten... $1 %',
   'Installerar... $1 %',
-  'Dodobox $1 är tillgänglig', 'Version $1 är tillgänglig', 'Du har version $1.', 'Hämta den nya avbilden och skapa om containern: $1', 'Endast tvingade: $1', 'Inga $1-undertexter hittades', 'QR-kod för $1', '$1 gick med i tittarfesten', '$1 lämnade tittarfesten', '$1 tittar på $2', '$1 pausade uppspelningen', '$1 återupptog uppspelningen', '$1 hoppade till $2'
+  'Dodobox $1 är tillgänglig', 'Version $1 är tillgänglig', 'Du har version $1.', 'Hämta den nya avbilden och skapa om containern: $1', 'Endast tvingade: $1', 'Inga $1-undertexter hittades', 'QR-kod för $1', '$1 gick med i tittarfesten', '$1 lämnade tittarfesten', '$1 tittar på $2', '$1 pausade uppspelningen', '$1 återupptog uppspelningen', '$1 hoppade till $2',
+  'Inloggad som $1. Används när den delade nedladdningsgränsen är nådd.', 'Inloggad som $1. Dagens nedladdningsgräns är förbrukad.', '$1 kunde inte logga in. Anslut igen.', 'Inloggad som $1, men det här kontot är inte VIP så OpenSubtitles ger det inga nedladdningar och det används inte.'
 ]

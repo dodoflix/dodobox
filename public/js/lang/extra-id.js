@@ -45,6 +45,7 @@ export const rows = [
 /*more*/ 'Tampilkan kata sandi', 'Sembunyikan kata sandi',
 /*more*/ 'Tempel',
 /*more*/ 'Peramban memblokir tempel. Tempel sendiri ke kolom.',
+/*+*/ 'Hubungkan OpenSubtitles', 'OpenSubtitles membatasi unduhan subtitle per hari. Masuk dengan akun opensubtitles.org yang memiliki keanggotaan VIP agar unduhan subtitle tetap berjalan. Akun tanpa VIP tidak bisa mengunduh dengan cara ini.', 'Tentang VIP', 'Buat akun', 'Nama pengguna', 'Kata sandi', 'Hubungkan', 'Memeriksa...', 'Nama pengguna atau kata sandi salah', 'Masukkan nama pengguna dan kata sandi OpenSubtitles', 'OpenSubtitles tidak dapat dijangkau, coba lagi sebentar lagi', 'Akun OpenSubtitles', 'Ubah', 'Putuskan', 'Belum terhubung. Akun VIP dari opensubtitles.org menjaga unduhan subtitle tetap berjalan saat batas harian bersama tercapai.', 'OpenSubtitles terhubung', 'OpenSubtitles diputuskan', 'Unduhan subtitle telah mencapai batas harian. Hubungkan akun OpenSubtitles VIP untuk melanjutkan.', 'Unduhan subtitle telah mencapai batas harian, dan akun OpenSubtitles Anda bukan VIP sehingga tidak bisa membantu.', 'Penyedia subtitle ini sedang mencapai batasnya.', 'Batas penyedia tercapai, coba lagi nanti', 'Coba yang lain'
 ]
 export const patterns = [
   'Hai $1, buat jadi milikmu', 'Musim $1', 'Musim $1 · Episode $2', 'Lanjutkan S$1 E$2', 'S$1 E$2$3', 'Tayang $1', '$1 j $2 mnt', '$1 mnt', '$1sisa $2 j $3 mnt', '$1sisa $2 mnt',
@@ -55,5 +56,6 @@ export const patterns = [
   'Menyiapkan bahasa... $1%', 'Menerjemahkan... $1%',
   'Meningkatkan kualitas... $1%',
   'Memasang... $1%',
-  'Dodobox $1 tersedia', 'Versi $1 tersedia', 'Anda memiliki versi $1.', 'Tarik image baru lalu buat ulang container: $1', 'Hanya paksa: $1', 'Subtitel $1 tidak ditemukan', 'Kode QR untuk $1', '$1 bergabung ke sesi', '$1 keluar dari sesi', '$1 sedang menonton $2', '$1 menjeda pemutaran', '$1 melanjutkan pemutaran', '$1 melompat ke $2'
+  'Dodobox $1 tersedia', 'Versi $1 tersedia', 'Anda memiliki versi $1.', 'Tarik image baru lalu buat ulang container: $1', 'Hanya paksa: $1', 'Subtitel $1 tidak ditemukan', 'Kode QR untuk $1', '$1 bergabung ke sesi', '$1 keluar dari sesi', '$1 sedang menonton $2', '$1 menjeda pemutaran', '$1 melanjutkan pemutaran', '$1 melompat ke $2',
+  'Masuk sebagai $1. Dipakai saat batas unduhan bersama tercapai.', 'Masuk sebagai $1. Batas unduhan hari ini sudah habis.', '$1 tidak bisa masuk. Hubungkan lagi.', 'Masuk sebagai $1, tetapi akun ini bukan VIP sehingga OpenSubtitles tidak memberinya unduhan dan tidak dipakai.'
 ]

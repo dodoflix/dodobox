@@ -1,4 +1,4 @@
-import { api, cget, getProfile } from './api.js'
+import { api, cget, getProfile, getToken } from './api.js'
 import { report } from './report.js'
 import { S, progress, recordProgress } from './session.js'
 import { nowPlaying, pingPresence } from './presence.js'
@@ -6,6 +6,7 @@ import { mapTime, offsetAt, classify } from './syncmap.js'
 import { $, EP_PAGE, esc, icon, enc, clock, bytes, store, sleep, toast, isTV, isSafari, lowres, sized, thumbW, hue } from './util.js'
 import { glow } from './ambient.js'
 import { onBack } from './nav.js'
+import { accountStatus, connectAccount } from './opensubs.js'
 import { dragScroll } from './drag.js'
 import { loadCast, castTo } from './cast.js'
 import { LANGUAGES, langOf } from './onboarding.js'
@@ -503,7 +504,7 @@ export async function watch (type, id, season, episode) {
       }, 700)
     }
     try {
-      const r = await fetch(entry.src + (entry.translated && entry.src.includes('&hq=1') ? `&at=${Math.floor(v.currentTime || 0)}` : ''), { signal: ctl.signal }).finally(() => { clearInterval(watch); if (entry.status && !again) { entry.status = ''; if (menuKind === 'subs') drawMenu() } })
+      const r = await fetch(entry.src + (entry.translated && entry.src.includes('&hq=1') ? `&at=${Math.floor(v.currentTime || 0)}` : ''), { signal: ctl.signal, headers: { 'x-profile': getProfile(), 'x-token': getToken(getProfile()) } }).finally(() => { clearInterval(watch); if (entry.status && !again) { entry.status = ''; if (menuKind === 'subs') drawMenu() } })
       if (r.status === 409) { if (gen === subGen && subSel === entry) { entry.status = 'Waiting for more of the download...'; drawMenu(); refreshT = setTimeout(() => loadEntry(entry, auto), 25000) } return toast('Built-in subtitles will be ready after a little more of the download.') }
       if (r.status === 429) {
         if (gen !== subGen) return
@@ -512,6 +513,10 @@ export async function watch (type, id, season, episode) {
         for (const x of subs) if (!x.embedded && !x.translated && host(x) === host(entry)) x.limited = true
         drawMenu()
         const alt = subs.find(x => x !== entry && x.lang === entry.lang && !x.forced && !x.embedded && !x.limited)
+        // Without an account of the household's own, signing in is the way past the limit; with one, its own limit is what was hit.
+        const acct = await accountStatus()
+        if (acct.vipOnly) return toast('Subtitle downloads are at their daily limit, and your OpenSubtitles account is not a VIP member so it cannot help.', { key: 'subquota', ms: 12000, ...(alt && { action: { label: 'Try another', run: () => showSub(alt) } }) })
+        if (!acct.user) return toast('Subtitle downloads are at their daily limit. Connect a VIP OpenSubtitles account to keep going.', { key: 'subquota', ms: 15000, action: { label: 'Connect', run: async () => { if (!await connectAccount()) return; for (const x of subs) delete x.limited; drawMenu(); showSub(entry) } } })
         return toast('This subtitle provider has reached its limit for now.', { key: 'subquota', ms: 7000, ...(alt && { action: { label: 'Try another', run: () => showSub(alt) } }) })
       }
       if (!r.ok) throw new Error('subtitle ' + r.status)

@@ -45,6 +45,7 @@ export const rows = [
 /*more*/ 'Wachtwoord tonen', 'Wachtwoord verbergen',
 /*more*/ 'Plakken',
 /*more*/ 'De browser blokkeerde plakken. Plak zelf in het veld.',
+/*+*/ 'OpenSubtitles koppelen', 'OpenSubtitles beperkt het downloaden van ondertitels per dag. Log in met een opensubtitles.org-account met VIP-lidmaatschap en je downloads blijven werken. Accounts zonder VIP kunnen zo niet downloaden.', 'Over VIP', 'Account aanmaken', 'Gebruikersnaam', 'Wachtwoord', 'Koppelen', 'Controleren...', 'Gebruikersnaam of wachtwoord onjuist', 'Voer je OpenSubtitles-gebruikersnaam en -wachtwoord in', 'OpenSubtitles is niet bereikbaar, probeer het zo opnieuw', 'OpenSubtitles-account', 'Wijzigen', 'Ontkoppelen', 'Niet gekoppeld. Een VIP-account van opensubtitles.org houdt ondertitels downloaden mogelijk als de gedeelde daglimiet is bereikt.', 'OpenSubtitles gekoppeld', 'OpenSubtitles ontkoppeld', 'De daglimiet voor ondertitel-downloads is bereikt. Koppel een VIP-OpenSubtitles-account om door te gaan.', 'De daglimiet voor ondertitel-downloads is bereikt en je OpenSubtitles-account is geen VIP, dus het kan niet helpen.', 'Deze ondertitelbron heeft voorlopig zijn limiet bereikt.', 'Limiet van de bron bereikt, probeer het later opnieuw', 'Andere proberen'
 ]
 export const patterns = [
   'Hoi $1, maak het van jou', 'Seizoen $1', 'Seizoen $1 · Aflevering $2', 'Hervat S$1 A$2', 'S$1 A$2$3', 'Verschijnt $1', '$1 u $2 min', '$1 min', '$1nog $2 u $3 min', '$1nog $2 min',
@@ -55,5 +56,6 @@ export const patterns = [
   'Taal voorbereiden... $1%', 'Vertalen... $1%',
   'Kwaliteit verbeteren... $1%',
   'Installeren... $1%',
-  'Dodobox $1 is beschikbaar', 'Versie $1 is beschikbaar', 'Je hebt versie $1.', 'Haal de nieuwe image op en maak de container opnieuw aan: $1', 'Alleen geforceerd: $1', 'Geen $1 ondertitels gevonden', 'QR-code voor $1', '$1 doet mee', '$1 is weggegaan', '$1 kijkt naar $2', '$1 heeft het afspelen gepauzeerd', '$1 heeft het afspelen hervat', '$1 spoelde naar $2'
+  'Dodobox $1 is beschikbaar', 'Versie $1 is beschikbaar', 'Je hebt versie $1.', 'Haal de nieuwe image op en maak de container opnieuw aan: $1', 'Alleen geforceerd: $1', 'Geen $1 ondertitels gevonden', 'QR-code voor $1', '$1 doet mee', '$1 is weggegaan', '$1 kijkt naar $2', '$1 heeft het afspelen gepauzeerd', '$1 heeft het afspelen hervat', '$1 spoelde naar $2',
+  'Ingelogd als $1. Wordt gebruikt als de gedeelde downloadlimiet is bereikt.', 'Ingelogd als $1. De downloadlimiet is voor vandaag op.', '$1 kon niet inloggen. Koppel opnieuw.', 'Ingelogd als $1, maar dit account is geen VIP, dus OpenSubtitles geeft het geen downloads en het wordt niet gebruikt.'
 ]

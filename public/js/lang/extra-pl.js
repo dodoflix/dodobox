@@ -45,6 +45,7 @@ export const rows = [
 /*more*/ 'Pokaż hasło', 'Ukryj hasło',
 /*more*/ 'Wklej',
 /*more*/ 'Przeglądarka zablokowała wklejanie. Wklej samodzielnie w polu.',
+/*+*/ 'Połącz z OpenSubtitles', 'OpenSubtitles ogranicza dzienną liczbę pobrań napisów. Zaloguj się na konto opensubtitles.org z członkostwem VIP, a pobieranie napisów będzie działać dalej. Konta bez VIP nie mogą w ten sposób pobierać.', 'O VIP', 'Utwórz konto', 'Nazwa użytkownika', 'Hasło', 'Połącz', 'Sprawdzanie...', 'Nieprawidłowa nazwa użytkownika lub hasło', 'Wpisz nazwę użytkownika i hasło OpenSubtitles', 'Nie można połączyć się z OpenSubtitles, spróbuj za chwilę', 'Konto OpenSubtitles', 'Zmień', 'Rozłącz', 'Niepołączono. Konto VIP z opensubtitles.org pozwala dalej pobierać napisy, gdy wspólny dzienny limit zostanie wyczerpany.', 'OpenSubtitles połączono', 'OpenSubtitles rozłączono', 'Dzienny limit pobierania napisów został osiągnięty. Połącz konto VIP OpenSubtitles, aby kontynuować.', 'Dzienny limit pobierania napisów został osiągnięty, a Twoje konto OpenSubtitles nie jest VIP, więc nie może pomóc.', 'Ten dostawca napisów osiągnął na razie swój limit.', 'Limit dostawcy osiągnięty, spróbuj później', 'Spróbuj innego'
 ]
 export const patterns = [
   'Cześć $1, dostosuj to do siebie', 'Sezon $1', 'Sezon $1 · Odcinek $2', 'Wznów S$1 O$2', 'S$1 O$2$3', 'Premiera $1', '$1 godz. $2 min', '$1 min', '$1zostało $2 godz. $3 min', '$1zostało $2 min',
@@ -55,5 +56,6 @@ export const patterns = [
   'Przygotowywanie języka... $1%', 'Tłumaczenie... $1%',
   'Poprawianie jakości... $1%',
   'Instalowanie... $1%',
-  'Dostępny jest Dodobox $1', 'Dostępna jest wersja $1', 'Masz wersję $1.', 'Pobierz nowy obraz i utwórz kontener ponownie: $1', 'Tylko wymuszone: $1', 'Nie znaleziono napisów: $1', 'Kod QR dla $1', 'Do seansu dołącza: $1', 'Seans opuszcza: $1', '$1 ogląda: $2', '$1 wstrzymał(a) odtwarzanie', '$1 wznowił(a) odtwarzanie', '$1 przewinął(-ęła) do $2'
+  'Dostępny jest Dodobox $1', 'Dostępna jest wersja $1', 'Masz wersję $1.', 'Pobierz nowy obraz i utwórz kontener ponownie: $1', 'Tylko wymuszone: $1', 'Nie znaleziono napisów: $1', 'Kod QR dla $1', 'Do seansu dołącza: $1', 'Seans opuszcza: $1', '$1 ogląda: $2', '$1 wstrzymał(a) odtwarzanie', '$1 wznowił(a) odtwarzanie', '$1 przewinął(-ęła) do $2',
+  'Zalogowano jako $1. Używane, gdy wspólny limit pobierania zostanie wyczerpany.', 'Zalogowano jako $1. Dzisiejszy limit pobierania został wyczerpany.', '$1 nie udało się zalogować. Połącz ponownie.', 'Zalogowano jako $1, ale to konto nie jest VIP, więc OpenSubtitles nie daje mu pobrań i nie jest używane.'
 ]
