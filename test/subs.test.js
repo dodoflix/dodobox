@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { listSubtitles, timing } from '../src/subs.js'
+import { listSubtitles, timing, scoreSub } from '../src/subs.js'
 
 const json = body => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } })
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -38,4 +38,16 @@ test('subtitles: a list built while a provider failed is not taken for the whole
     const list = await listSubtitles({ type: 'movie', id: 'tt9100002', titles: ['Stub Movie'] }, ['tur'], '')
     assert.ok(list.length >= 1 && list.every(s => s.partial), 'what the addon had, marked as possibly incomplete')
   } finally { restore(); timing.quickMs = 3500 }
+})
+
+test('subtitles: scoring prefers the matching release, plain dialogue and film timing over raw downloads', () => {
+  const base = { lang: 'eng', rel: 'Stub.Movie.2001.1080p.BluRay.x264-GRP', dl: 100, fps: 23.976 }
+  const rel = 'Stub.Movie.2001.1080p.BluRay.x264-GRP'
+  const score = s => scoreSub({ ...base, ...s }, rel, ['eng'])
+  assert.ok(score({}) > score({ rel: 'Stub.Movie.2001.DVDRip.XviD-OTHER', dl: 5000 }), 'same release beats a popular other one')
+  assert.ok(score({}) > score({ hi: true }), 'hearing-impaired lines lose')
+  assert.ok(score({}) > score({ fps: 25 }), 'PAL timing loses against a film release')
+  assert.ok(score({ trusted: true }) > score({}))
+  assert.ok(score({ rating: 9 }) > score({ rating: 0 }))
+  assert.ok(score({}) > score({ forced: true }))
 })

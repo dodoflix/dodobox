@@ -41,8 +41,9 @@ End to end on the 90 hard titles (`npm run bench -- app --set edge`): a seeded r
   is a product preference (a healthy 1080p over a thin 4K), not a defect, and ranking time was never a cost (1 ms). The
   tracker scrape was the part that changed outcomes, and it sits in front of the existing score. The candidate stays in
   `bench/candidates/rank-gates.js` and `rank` compares it.
-- **Subtitles.** The existing providers, embedded tracks and sidecars stay. AnimeTosho lists extracted subtitle tracks, but
-  their download host does not resolve.
+- **Subtitle providers.** The existing providers, embedded tracks and sidecars stay. AnimeTosho lists extracted subtitle
+  tracks, but their download host does not resolve. Only the ranking of their files changed (`scoreSub`, see `subs` in
+  `docs/benchmarks.md`).
 - **TorrentsDB, Peerflix, SubsPlease, nekobt, TokyoTosho, torrents-csv.** No measurable gain. Their adapters stay in
   `bench/lib/providers.js` so a later run can re-test them.
 

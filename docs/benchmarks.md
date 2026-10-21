@@ -22,6 +22,7 @@ command produces them.
 | `orchestrate` | no (needs `sources --set core`) | Simulated lookup plans with injected failures: time to answer and recall |
 | `app` | yes | The app's own `findSources()` on the gold titles, cold: seeded results and time |
 | `scrape` | yes | Live tracker seeder counts against the numbers sources report |
+| `subs` | no (`--snapshot` needs network) | Subtitle ranking: does the top pick match the timing of the release being played; `--grid` fits the weights, `--weights` tries a set |
 | `search` | yes | Title search relevance and latency |
 | `idmap` | yes | Anime id mapping coverage and agreement |
 | `skips` | yes | Skip markers (intro, recap, ending): AniSkip and IntroDB coverage by popularity; with `--server url`, chapter marks and file lengths of real releases through a running app (use a throwaway `DATA_DIR`) |
@@ -232,6 +233,31 @@ two episodes of the same show on disk to compare and was not built.
 
 The time includes the tracker scrape of the best fifteen candidates (about 250 ms) and, for anime, the first-use ani.zip
 lookup. A second request for the same title is served from the cache in a few milliseconds.
+
+### Subtitle ranking (`subs`)
+
+No subtitle is labelled, so the oracle is leave-one-out. A file X stands for "the file for the release being played" (every
+file was uploaded for some release and synced to it). The ranker sees X's release name only. A candidate is acceptable
+when it is sound (at least 60% of its siblings' median cue count, reaches 80% of their median end, under 0.5% broken
+characters, under 4% sound-effect lines) and 60% or more of its cue starts sit within 0.5 s of X's. Chance agreement is
+about 20%. Cases: the four most downloaded sound files of each title and language, against the others of the group.
+
+Snapshot: 5 films (Matrix, Oppenheimer, Dune: Part Two, Parasite, Casablanca) in English, Turkish and Spanish, 14 files each,
+216 files, 54 cases. A random pick is acceptable 27% of the time.
+
+| ranker | top-1 acceptable | mean reciprocal rank |
+|---|---|---|
+| previous score (similarity, downloads, forced) | 22/54 (41%) | 0.58 |
+| shipped `scoreSub` | 40/54 (74%) | 0.82 |
+
+Weights fitted by `--grid` and scored with each title left out in turn: 35/54 (65%). Dropping one signal from the fitted
+set: release similarity 29/54, hearing-impaired penalty 34/54, film frame rate 36/54, trusted uploader 37/54, rating 37/54.
+Downloads add nothing once the release name is compared (41/54 without them); they stay as a small tie-break for a playing release with no name.
+
+Limits: films only (the download host stopped answering after about 220 files, a quota, so series and anime are missing;
+`--snapshot` resumes), and the oracle shares the ranker's idea that a similar release name means a similar cut and treats
+sound-effect lines as a defect, which is also what the hearing-impaired penalty encodes. The film frame-rate penalty is
+untested on TV releases, where 25 fps is common.
 
 ### Not pursued
 
