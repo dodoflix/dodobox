@@ -7,7 +7,7 @@ import path from 'node:path'
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-race-'))
 process.env.DATA_DIR = tmp
 process.env.NO_DHT = '1'
-const { race, rivalsOf } = await import('../src/race.js')
+const { race, rivalsOf, racing } = await import('../src/race.js')
 const { measured } = await import('../src/sources.js')
 const engine = await import('../src/engine.js')
 
@@ -59,6 +59,18 @@ test('only two race on a slow line', () => {
   const list = ['a', 'b', 'c'].map(h => row(h))
   assert.equal(rivalsOf(list, list[0], { mbps: 5 }).length, 2)
   assert.equal(rivalsOf(list, list[0], { mbps: 50 }).length, 3)
+})
+
+test('rivals are listed as racing only while the race runs', async t => {
+  measured.clear()
+  const seen = []
+  const r = await run(t, [A, B], {
+    [A.infoHash]: s => { seen.push(racing.has(A.infoHash)); return { speed: 2e6, downloaded: s * 2e6, phase: 'downloading' } },
+    [B.infoHash]: () => ({ speed: 0, downloaded: 0, phase: 'metadata' })
+  })
+  assert.ok(seen.length && seen.every(Boolean))
+  assert.equal(racing.size, 0)
+  assert.equal(r.winner, A)
 })
 
 test.after(async () => { await engine.shutdown(); fs.rmSync(tmp, { recursive: true, force: true }) })

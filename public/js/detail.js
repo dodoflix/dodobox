@@ -3,6 +3,7 @@ import { S, progress, inList, toggleList, ratingOf, rate, removeHistory } from '
 import { $, EP_PAGE, esc, icon, enc, mins, showSize, sized, fullWidth, hue, lowres, thumbW, known, canTrailer, slowLink, toast } from './util.js'
 import { dragScroll } from './drag.js'
 import { glow } from './ambient.js'
+import { displayPx } from './bandwidth.js'
 
 const watchHref = (t, id, s, e) => `#/watch/${t}/${enc(id)}` + (s != null ? `/${s}/${e}` : '')
 const TYPE_LABEL = { movie: 'Movie', series: 'Series', anime: 'Anime' }
@@ -119,7 +120,7 @@ export async function title (root, type, id) {
   const shownEps = () => { const list = videos.filter(v => v.season === season); return grouped() ? list.slice(page * PAGE, (page + 1) * PAGE) : list }
   async function download (body) {
     try {
-      const r = await api('/api/download', { method: 'POST', body })
+      const r = await api('/api/download', { method: 'POST', body: { ...body, display: displayPx() } })
       toast(r.queued ? (r.total > 1 ? `Added ${r.queued} episodes to your downloads` : 'Added to your downloads') : 'Already downloaded or on its way')
     } catch (e) { toast(e.message) }
     refreshDl()

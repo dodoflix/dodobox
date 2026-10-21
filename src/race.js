@@ -8,6 +8,9 @@ const BASE_MS = 6500
 const MAX_MS = 20000
 const CLIMB_POLLS = 6 // polls are 500 ms apart
 
+// Versions in a race are an implementation detail: the library and the download slots do not count them.
+export const racing = new Set()
+
 // Seeder counts say little about real speed, so the best few versions race for a moment.
 // A slow line leaves little room for rivals to share, so only two race there.
 export const rivalsOf = (list, first, ctx) => list.filter(s => s.seeders > 0 && !s.wrongSeason && score(s, ctx) >= score(first, ctx) - 45).slice(0, ctx.mbps && ctx.mbps < 15 ? 2 : 3)
@@ -23,7 +26,7 @@ const needOf = (r, ctx, n) => {
 // seconds (handshakes and slow start), so the race keeps going while any is still metadata-less or speeding up.
 export async function race (rivals, start, ctx = {}, { status = engine.status, remove = engine.remove, wait = ms => new Promise(r => setTimeout(r, ms)) } = {}) {
   const t0 = Date.now()
-  rivals.forEach(r => start(r))
+  rivals.forEach(r => { racing.add(r.infoHash); start(r) })
   const speedOf = r => { const st = status(r.infoHash, true); return st ? { bps: st.speed, got: st.downloaded, phase: st.phase } : { bps: 0, got: 0, phase: 'metadata' } }
   const rank = (a, b) => (b.got + b.bps * 3) - (a.got + a.bps * 3)
   let winner = null
@@ -43,5 +46,6 @@ export async function race (rivals, start, ctx = {}, { status = engine.status, r
   log.debug('race', 'result', { ms: Date.now() - t0, rivals: seen.map(x => `${x.r.infoHash.slice(0, 8)}:${Math.round(x.bps / 1e3)}kB/s:${Math.round(x.got / 1e3)}kB`).join(' ') })
   winner ||= seen.filter(x => x.phase !== 'metadata').sort(rank)[0]?.r || rivals[0]
   for (const r of rivals) if (r !== winner && status(r.infoHash, true)?.phase !== 'done') await remove(r.infoHash).catch(e => log.debug('race', 'dropping a losing version failed', { err: e }))
+  rivals.forEach(r => racing.delete(r.infoHash))
   return winner
 }
