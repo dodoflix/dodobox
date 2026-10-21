@@ -2,11 +2,13 @@
 import { execFileSync, execFile } from 'node:child_process'
 import fs from 'node:fs'
 import ffmpegStatic from 'ffmpeg-static'
+import { log } from './log.js'
 
 const works = bin => { try { execFileSync(bin, ['-version'], { stdio: 'ignore' }); return true } catch { return false } }
 const pick = (env, system, bundled) => env || (works(system) ? system : bundled)
 
 export const FFMPEG = pick(process.env.FFMPEG, 'ffmpeg', ffmpegStatic)
+log.info('ffmpeg', 'using', { path: FFMPEG, source: process.env.FFMPEG ? 'FFMPEG env' : FFMPEG === 'ffmpeg' ? 'system' : 'bundled' })
 
 const VAAPI_DEVICE = process.env.VAAPI_DEVICE || '/dev/dri/renderD128'
 
@@ -25,7 +27,7 @@ export const ENCODERS = {
 export const trial = name => new Promise(resolve => {
   const e = ENCODERS[name]
   execFile(FFMPEG, ['-v', 'error', '-nostdin', ...e.pre, '-f', 'lavfi', '-i', 'testsrc=size=1280x720:rate=5:duration=1', ...e.video(720), '-f', 'null', '-'],
-    { timeout: 15000 }, err => resolve(!err))
+    { timeout: 15000 }, (err, _out, text) => { log.debug('ffmpeg', `${name} trial ${err ? 'failed' : 'passed'}`, { err: err && String(text || err.message).trim().split('\n').pop() }); resolve(!err) })
 })
 
 let chosen
@@ -33,8 +35,9 @@ export async function encoder () {
   if (!chosen) {
     chosen = (async () => {
       const forced = process.env.DODOBOX_ENCODER
-      if (forced && ENCODERS[forced]) return forced
-      if (!forced) for (const n of ['h264_nvenc', 'h264_videotoolbox', 'h264_vaapi']) if (await trial(n)) return n
+      if (forced && ENCODERS[forced]) { log.info('ffmpeg', 'encoder forced', { encoder: forced }); return forced }
+      if (!forced) for (const n of ['h264_nvenc', 'h264_videotoolbox', 'h264_vaapi']) if (await trial(n)) { log.info('ffmpeg', 'encoder chosen', { encoder: n }); return n }
+      log.info('ffmpeg', 'encoder chosen', { encoder: 'libx264', why: 'no working graphics encoder' })
       return 'libx264'
     })()
   }

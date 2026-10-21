@@ -2,6 +2,7 @@
 // everything not tied to a profile (the downloads, playing a title) stays open to everyone on the network.
 import crypto from 'node:crypto'
 import { promisify } from 'node:util'
+import { log } from './log.js'
 
 const scrypt = promisify(crypto.scrypt)
 export const PIN_FORMAT = /^\d{4,8}$/
@@ -32,12 +33,14 @@ export function failed (id, now = Date.now()) {
   f.n++
   if (f.n >= FREE_TRIES) f.until = now + Math.min(MAX_WAIT_MS, 30e3 * 2 ** (f.n - FREE_TRIES))
   fails.set(id, f)
+  log.warn('lock', 'wrong PIN', { profile: id, inARow: f.n, lockedSec: f.until > now ? Math.ceil((f.until - now) / 1000) : 0 })
 }
 export const succeeded = id => { fails.delete(id) }
 
 export function issue (id) {
   const token = crypto.randomBytes(24).toString('hex')
   tokens.set(token, { id, at: Date.now() })
+  log.info('lock', 'session issued', { profile: id })
   return token
 }
 export function valid (id, token, now = Date.now()) {

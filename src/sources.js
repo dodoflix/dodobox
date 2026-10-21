@@ -2,6 +2,7 @@ import { getJSON as fetchJSON, getText, once } from './http.js'
 import { matchRelease, titleVerdict, isPack, isEpisode, seasonOf, entrySeason } from './release.js'
 import { animeIds, episodeNumbers } from './ids.js'
 import { scrape } from './tracker.js'
+import { log } from './log.js'
 
 // Torrent discovery: stream and search providers for movies and series, an anime tracker for anime.
 const TRACKERS = [
@@ -20,7 +21,8 @@ export async function refreshTrackers () {
     const text = await getText('https://cdn.jsdelivr.net/gh/ngosang/trackerslist@master/trackers_best.txt', { timeout: 8000 })
     const found = text.split(/\s+/).filter(u => /^(udp|https?):\/\//.test(u)).slice(0, 12)
     if (found.length) live = found
-  } catch {}
+    log.debug('sources', 'tracker list refreshed', { n: found.length })
+  } catch (e) { log.warn('sources', 'tracker list refresh failed', { err: e }) }
 }
 export const magnetFor = (hash, name = '', extraTrackers = []) =>
   `magnet:?xt=urn:btih:${hash}&dn=${encodeURIComponent(name)}` +
@@ -268,7 +270,7 @@ export async function runTiers (tiers, { deadline = DEADLINE_MS, cap = HARD_CAP_
   const t0 = Date.now()
   const got = []
   let failed = false
-  const track = job => job.then(rows => { got.push(...rows) }, e => { failed = true; console.warn('[sources]', e.message) })
+  const track = job => job.then(rows => { got.push(...rows) }, e => { failed = true; log.warn('sources', 'provider failed', { err: e }) })
   const first = tiers.first.map(track)
   let all = Promise.all(first)
   await first[0]
@@ -308,8 +310,9 @@ async function find (item, ctx) {
   const key = JSON.stringify([item.type, item.id, item.season, item.episode, !!item.adult])
   const hit = cache.get(key)
   const sctx = { ...ctx, runtimeMin: item.runtimeMin || RUNTIME[item.type], year: item.year, kind: item.type }
-  if (hit && Date.now() - hit.at < hit.ttl) return rankLive(hit.list, sctx)
+  if (hit && Date.now() - hit.at < hit.ttl) { log.debug('sources', 'cache hit', { title: item.title, season: item.season, episode: item.episode, n: hit.list.length }); return rankLive(hit.list, sctx) }
 
+  const t0 = Date.now()
   const { type, season, episode } = item
   const tiers = type === 'movie' ? movieTiers(item) : type === 'series' ? seriesTiers(item) : await animeTiers(item)
   const build = rows => {
@@ -327,10 +330,11 @@ async function find (item, ctx) {
   }
   const { rows, failed, done } = await runTiers(tiers)
   const list = build(rows)
+  log.info('sources', 'search done', { title: item.title, type, season, episode, ms: Date.now() - t0, rows: rows.length, unique: list.length, seeded: list.filter(r => r.seeders > 0).length, failed })
   // Nothing found is remembered briefly, unless a source errored: that says nothing about the title.
   if (list.length) cache.set(key, { at: Date.now(), list, ttl: failed ? PARTIAL_TTL : LIST_TTL })
   else if (!failed) cache.set(key, { at: Date.now(), list, ttl: NOTHING_TTL })
   // Sources that answered after the deadline top up the cached list for the next request.
-  done.then(late => { const full = build(late.rows); if (full.length > list.length || (!late.failed && failed)) cache.set(key, { at: Date.now(), list: full, ttl: late.failed ? PARTIAL_TTL : LIST_TTL }) }).catch(() => {})
+  done.then(late => { log.debug('sources', 'late results', { title: item.title, rows: late.rows.length }); const full = build(late.rows); if (full.length > list.length || (!late.failed && failed)) cache.set(key, { at: Date.now(), list: full, ttl: late.failed ? PARTIAL_TTL : LIST_TTL }) }).catch(() => {})
   return rankLive(list, sctx)
 }

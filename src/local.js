@@ -10,6 +10,7 @@ import { settings } from './state.js'
 import { VIDEO_EXT, hasWords } from './release.js'
 import { sidecarsFor, SUB_FILE } from './sidecar.js'
 import { sendRange, MIME } from './range.js'
+import { log } from './log.js'
 
 const FILE = path.join(DATA, 'local.json')
 const MIN_BYTES = +process.env.MIN_LOCAL_BYTES || 30e6
@@ -58,7 +59,7 @@ async function matchOnline (p) {
 function walk (dir, out, depth = 0) {
   if (depth > 6) return
   let items
-  try { items = fs.readdirSync(dir, { withFileTypes: true }) } catch { return }
+  try { items = fs.readdirSync(dir, { withFileTypes: true }) } catch (e) { log.warn('local', 'cannot read folder', { dir, err: e.code || e }); return }
   for (const it of items) {
     if (it.name.startsWith('.')) continue
     const p = path.join(dir, it.name)
@@ -73,7 +74,9 @@ function walk (dir, out, depth = 0) {
 export function rescan () {
   if (scanning) return scanning
   scanning = (async () => {
+    const t0 = Date.now()
     const files = []
+    log.debug('local', 'scan start', { dirs: dirs().join(',') })
     for (const d of dirs()) walk(d, files)
     const next = []
     for (const f of files) {
@@ -83,6 +86,7 @@ export function rescan () {
         const parsed = parseName(f.p)
         k = { mtime: f.mtime, size: f.size, at: Date.now(), parsed, match: parsed ? await hooks.match(parsed) : null }
         known[f.p] = k
+        log.debug('local', k.match ? 'matched' : 'no match', { file: f.p, parsed: parsed && `${parsed.title}${parsed.season != null ? ` S${parsed.season}E${parsed.episode}` : ''}`, as: k.match && `${k.match.type}:${k.match.mid}` })
       }
       if (k.match) {
         const e = { id: 'l' + crypto.createHash('sha1').update(f.p).digest('hex').slice(0, 16), path: f.p, size: f.size, ...k.match, season: k.parsed.season ?? null, episode: k.parsed.episode ?? null }
@@ -92,6 +96,7 @@ export function rescan () {
     for (const p of Object.keys(known)) if (!files.some(f => f.p === p)) delete known[p]
     index = next
     fs.writeFile(FILE, JSON.stringify(known), () => {})
+    log.info('local', 'scan done', { files: files.length, matched: index.length, ms: Date.now() - t0 })
     return index.length
   })().finally(() => { scanning = null })
   return scanning
@@ -145,6 +150,6 @@ export function serve (id, req, res) {
 }
 
 export function watch () {
-  rescan().catch(e => console.warn('[local]', e.message))
-  setInterval(() => rescan().catch(() => {}), 10 * 60e3).unref()
+  rescan().catch(e => log.warn('local', 'scan failed', { err: e }))
+  setInterval(() => rescan().catch(e => log.warn('local', 'scan failed', { err: e })), 10 * 60e3).unref()
 }

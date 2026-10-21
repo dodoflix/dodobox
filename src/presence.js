@@ -3,6 +3,7 @@
 import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
+import { log } from './log.js'
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1560673013807054931'
 // The page reports every 15 s, so silence means it was closed.
@@ -54,7 +55,7 @@ async function connect () {
   if (Date.now() < retryAt) throw new Error('discord unavailable')
   ready ||= (async () => {
     for (const file of candidates()) {
-      try { return (sock = await dial(file)) } catch {}
+      try { return (sock = await dial(file)) } catch (e) { log.debug('presence', 'discord socket not usable', { file, err: e.code || e }) }
     }
     retryAt = Date.now() + RETRY_MS
     ready = null
@@ -105,5 +106,5 @@ export function report (b) {
   const key = JSON.stringify(rest)
   if (last && last.key === key && (timestamps ? last.start != null && Math.abs(timestamps.start - last.start) <= 3 : last.start == null)) return
   last = { key, start: timestamps?.start }
-  setActivity(activity).catch(() => { last = null })
+  setActivity(activity).catch(e => { log.debug('presence', 'discord update failed', { err: e }); last = null })
 }

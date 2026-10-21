@@ -6,6 +6,7 @@ import crypto from 'node:crypto'
 import { DATA } from './paths.js'
 import { run } from './transcode.js'
 import { fetchRetry, once } from './http.js'
+import { log } from './log.js'
 
 const DIR = path.join(DATA, 'img')
 fs.mkdirSync(DIR, { recursive: true })
@@ -45,7 +46,7 @@ async function original (u, signal) {
   const f = path.join(DIR, hash(u))
   try { return { f, buf: await readFile(f), type: await readFile(f + '.t', 'utf8') } } catch {}
   if (signal?.aborted) throw cancelled()
-  const r = await once('img:' + u, () => fetchRetry(u, { timeout: 12000, tries: 3 })).catch(() => { throw Object.assign(new Error('image fetch failed'), { code: 502 }) })
+  const r = await once('img:' + u, () => fetchRetry(u, { timeout: 12000, tries: 3 })).catch(e => { log.debug('images', 'fetch failed', { url: u.slice(0, 200), err: e }); throw Object.assign(new Error('image fetch failed'), { code: 502 }) })
   if (!/^image\//.test(r.headers.get('content-type') || '')) throw Object.assign(new Error('image fetch failed'), { code: 502 })
   const buf = Buffer.from(await r.clone().arrayBuffer())
   if (buf.length > 8e6) throw new Error('image too large')
@@ -71,7 +72,7 @@ export async function image (u, w, { webp = false, signal } = {}) {
       const args = webp ? ['-quality', '78'] : ['-q:v', sw >= 1080 ? '2' : '4']
       const buf = await run(['-protocol_whitelist', 'pipe', '-i', 'pipe:0', '-vf', scale, '-frames:v', '1', ...(webp ? ['-c:v', 'libwebp'] : []), ...args, '-f', webp ? 'webp' : 'mjpeg', 'pipe:1'], orig.buf)
       if (buf.length) { await writeFile(small, buf); return { buf, type: `image/${webp ? 'webp' : 'jpeg'}` } }
-    } catch {} finally { release() }
+    } catch (e) { log.warn('images', 'resize failed, sending the original', { w: sw, err: String(e.message).split('\n').pop() }) } finally { release() }
     return webp ? image(u, w, { signal }) : { buf: orig.buf, type: orig.type }
   })
 }

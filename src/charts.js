@@ -1,6 +1,7 @@
 // Open weekly Top 10 chart files, with titles matched through the app's own search.
 import { fetchRetry, once } from './http.js'
 import { catalog, meta, cached } from './meta.js'
+import { log } from './log.js'
 
 const BASE = 'https://www.netflix.com/tudum/top10/data/'
 const KIND = { movie: /^Films/, series: /^TV/ }
@@ -44,7 +45,7 @@ export async function chartItems (kind, iso) {
   const found = await Promise.all(names.map(n => cached(`chartmap:${kind}:${n}`, 7 * 24 * 3600e3, async () => {
     const hits = await catalog({ type: kind, q: n, page: 1 })
     return hits.find(h => norm(h.name) === norm(n)) || hits[0] || null
-  }).catch(() => null)))
+  }).catch(e => { log.debug('charts', 'title not matched', { kind, name: n, err: e }); return null })))
   const seen = new Set()
   const items = found.filter(i => i && !seen.has(i.id) && seen.add(i.id))
   return Promise.all(items.map(async i => {

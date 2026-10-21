@@ -1,4 +1,5 @@
 import { store, slowLink } from './util.js'
+import { report } from './report.js'
 
 let profile = store.get('profile', '')
 // A profile with a PIN is opened with a session token the server issued after the PIN was entered; it is kept per profile in this browser.
@@ -74,6 +75,7 @@ export async function api (path, { method = 'GET', body, raw, ref, headers } = {
     } catch (e) { if (ref?.signal?.aborted) throw cancelled(); lastErr = e } finally { live.delete(id); release() }
     if (i < tries - 1) await sleep(wait)
   }
+  report('warn', `request failed: ${method} ${path.split('?')[0]}`, { status: lastErr?.status, err: lastErr?.message, url: path.slice(0, 200) })
   throw lastErr
 }
 

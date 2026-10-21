@@ -221,3 +221,10 @@ test('requests from another site, and from a made-up hostname, are refused', asy
   for (const host of ['dodobox.local', 'nas', 'tv.lan', '192.168.1.5:3000', '[::1]:3000', 'NAS.EXAMPLE.COM']) assert.equal(await hit('GET', '/api/party', { host }), 200, host)
   for (const host of ['attacker.com', 'x.nip.io', 'dodobox.local.evil.com', 'tv.lan.evil.com']) assert.equal(await hit('GET', '/api/party', { host }), 421, host)
 })
+
+test('the log holds requests, torrent events, ffmpeg runs and page errors, and no PINs', async () => {
+  await get('/api/log', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ level: 'error', msg: 'video element error', f: { code: 4 } }) })
+  const text = fs.readFileSync(path.join(process.env.DATA_DIR, 'logs', 'dodobox.log'), 'utf8')
+  for (const want of [/\[start\] listening/, /\[http\] GET \/api\/library/, /\[torrent\] ready hash=/, /\[probe\] ok/, /\[transcode\] segment/, /\[client\] video element error code=4/, /\[lock\] wrong PIN/]) assert.match(text, want)
+  assert.doesNotMatch(text, /1357|9999/)
+})

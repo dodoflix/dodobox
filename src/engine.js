@@ -7,6 +7,7 @@ import { sidecarsFor, SUB_FILE } from './sidecar.js'
 import { sendRange, MIME } from './range.js'
 
 import './data.js'
+import { log } from './log.js'
 import { DATA } from './paths.js'
 export { DATA }
 const DL = path.join(DATA, 'downloads')
@@ -15,7 +16,9 @@ fs.mkdirSync(DL, { recursive: true })
 
 const client = new WebTorrent({ dht: !process.env.NO_DHT, lsd: !process.env.NO_DHT, utp: !process.env.NO_DHT })
 client.setMaxListeners(0) // every torrent listens for the client's 'listening' event
-client.on('error', e => console.error('[torrent]', e.message))
+client.on('error', e => log.error('torrent', 'client error', { err: e }))
+client.on('listening', () => log.info('torrent', 'client listening', { port: client.torrentPort, dht: !process.env.NO_DHT }))
+client.on('warning', e => log.debug('torrent', 'client warning', { err: e }))
 
 let lib = {}
 try { lib = JSON.parse(fs.readFileSync(STATE, 'utf8')) } catch {}
@@ -23,14 +26,23 @@ const save = () => { fs.writeFileSync(STATE + '.tmp', JSON.stringify(lib, null, 
 
 function attach (entry) {
   const t = client.add(entry.magnet, { path: DL })
+  const t0 = Date.now(); const h = entry.hash.slice(0, 8)
+  log.info('torrent', 'add', { hash: entry.hash, ctx: entry.ctx && `${entry.ctx.type}:${entry.ctx.id}:${entry.ctx.season ?? ''}:${entry.ctx.episode ?? ''}`, trackers: (entry.magnet.match(/&tr=/g) || []).length })
   t.setMaxListeners(50) // every open read of the file listens for verified pieces
-  t.on('error', e => console.error('[torrent]', entry.hash, e.message))
+  t.on('error', e => log.error('torrent', 'error', { hash: h, err: e }))
+  t.on('warning', e => log.debug('torrent', 'warning', { hash: h, err: e }))
+  t.on('metadata', () => log.info('torrent', 'metadata', { hash: h, name: t.name, files: t.files.length, size: t.length, ms: Date.now() - t0 }))
+  t.on('noPeers', where => log.warn('torrent', 'no peers found', { hash: h, where, afterMs: Date.now() - t0 }))
+  t.on('done', () => log.info('torrent', 'done', { hash: h, name: t.name, ms: Date.now() - t0, downloaded: t.downloaded }))
+  t.on('wire', w => log.debug('torrent', 'peer connected', { hash: h, peers: t.numPeers, addr: w.remoteAddress, client: w.peerExtendedHandshake?.v }))
   t.on('ready', () => {
+    log.info('torrent', 'ready', { hash: h, ms: Date.now() - t0, peers: t.numPeers })
     for (const f of t.files) f.deselect()
     const idx = entry.fileIdx ?? pickFile(t.files.map(f => ({ name: f.path, length: f.length })), entry.ctx)
-    if (idx < 0) { entry.error = 'No playable file found in torrent'; return }
+    if (idx < 0) { entry.error = 'No playable file found in torrent'; log.warn('torrent', entry.error, { hash: h, files: t.files.map(f => f.path).slice(0, 8).join(' | ') }); return }
     entry.fileIdx = idx
     entry.name = t.files[idx].name
+    log.info('torrent', 'file chosen', { hash: h, idx, name: entry.name, size: t.files[idx].length })
     t.files[idx].select()
     for (const x of entry.extra || []) {
       x.fileIdx ??= pickFile(t.files.map(f => ({ name: f.path, length: f.length })), x.ctx)
@@ -98,6 +110,7 @@ const pending = (r, t) => { const f = fileOf(r, t); return !!f && !f.done }
 function setPaused (e, t, r, reason) {
   const k = rowKey(e, r)
   if (reason === (paused.get(k) ?? null)) return
+  log.debug('torrent', reason ? 'paused' : 'resumed', { key: k, reason: reason || paused.get(k) })
   if (reason) { fileOf(r, t)?.deselect(); paused.set(k, reason) } else { paused.delete(k); fileOf(r, t)?.select() }
 }
 function rebalance () {
@@ -123,7 +136,7 @@ function heal () {
     const t = torrentOf(e.hash)
     if (!t) continue
     if (!t.ready) {
-      if (!e.pinned && now - Math.max(e.lastUsed || 0, e.added || 0) > NO_METADATA_MS) remove(e.hash).catch(() => {})
+      if (!e.pinned && now - Math.max(e.lastUsed || 0, e.added || 0) > NO_METADATA_MS) { log.warn('torrent', 'no metadata after 10 minutes, dropping', { hash: e.hash }); remove(e.hash).catch(() => {}) }
       continue
     }
     const wanted = now - (e.lastUsed || 0) < WATCH_MS && rowsOf(e).some(r => pending(r, t) && !paused.has(rowKey(e, r)))
@@ -131,18 +144,20 @@ function heal () {
     const s = stalled.get(e.hash) || stalled.set(e.hash, { since: now, askedAt: 0 }).get(e.hash)
     if (now - s.since < 8000 || now - s.askedAt < 30000) continue
     s.askedAt = now
+    log.debug('torrent', 'stalled, asking trackers and DHT again', { hash: e.hash, peers: t.numPeers, stalledMs: now - s.since })
     try { t.discovery?.tracker?.update(); t.discovery?._dhtAnnounce?.() } catch { /* a missing tracker or DHT only means nothing to ask */ }
   }
 }
 setInterval(() => { rebalance(); heal() }, 5000).unref()
 
-export function pin (hash) { if (lib[hash]) { lib[hash].pinned = true; save() } }
+export function pin (hash) { if (lib[hash]) { log.debug('torrent', 'pinned', { hash }); lib[hash].pinned = true; save() } }
 
 // Pause, resume and prioritize act on one episode (one file of its torrent).
 export function hold (hash, file, on) {
   const e = lib[hash]; if (!e) return false
   const r = rowFor(e, file)
   r.held = on || undefined
+  log.info('torrent', on ? 'held by the user' : 'released by the user', { hash, file })
   if (on) delete r.priority
   save(); rebalance()
   return true
@@ -151,6 +166,7 @@ export function prioritize (hash, file, on) {
   const e = lib[hash]; if (!e) return false
   const r = rowFor(e, file)
   r.priority = on || undefined
+  log.info('torrent', on ? 'prioritized' : 'unprioritized', { hash, file })
   if (on) delete r.held
   save(); rebalance()
   return true
@@ -198,6 +214,7 @@ export function status (hash, silent, file) {
 // The file turned out to be another title: the entry is marked failed so it is never offered for this one again.
 export function reject (hash, file, why) {
   const e = lib[hash]; if (!e) return
+  log.warn('torrent', 'source rejected', { hash, file, why })
   rowFor(e, file).error = why
   save()
 }
@@ -210,6 +227,7 @@ function pruneEmpty (dir) {
 
 export async function remove (hash, file) {
   if (!lib[hash]) return false
+  log.info('torrent', 'remove', { hash, file })
   const e = lib[hash]
   const t = torrentOf(hash)
   if (file != null && e.extra?.length) {
@@ -297,6 +315,7 @@ export function storage () {
 export async function evict (maxBytes) {
   const { used, entries } = storage()
   let over = used - maxBytes
+  if (over > 0) log.info('torrent', 'over the storage cap, evicting', { usedMB: Math.round(used / 1e6), capMB: Math.round(maxBytes / 1e6) })
   for (const e of entries.filter(x => !lib[x.hash]?.pinned).sort((a, b) => a.lastUsed - b.lastUsed)) {
     if (over <= 0) break
     if (Date.now() - e.lastUsed < 30 * 60e3) continue
@@ -305,4 +324,6 @@ export async function evict (maxBytes) {
   }
 }
 
+export const stats = () => ({ torrents: client.torrents.length, peers: client.torrents.reduce((a, t) => a + t.numPeers, 0), downKBs: Math.round(client.downloadSpeed / 1e3), upKBs: Math.round(client.uploadSpeed / 1e3) })
+export const details = () => client.torrents.map(t => ({ hash: t.infoHash.slice(0, 8), name: t.name?.slice(0, 60), ready: t.ready, progress: +(t.progress * 100).toFixed(1), downKBs: Math.round(t.downloadSpeed / 1e3), upKBs: Math.round(t.uploadSpeed / 1e3), peers: t.numPeers, paused: [...paused].filter(([k]) => k.startsWith(t.infoHash)).map(([, v]) => v).join(',') || undefined }))
 export const shutdown = () => new Promise(r => client.destroy(r))

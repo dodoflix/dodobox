@@ -2,6 +2,7 @@
 import { spawn, execFile } from 'node:child_process'
 import { srtToVtt } from './subs.js'
 import { FFMPEG, ENCODERS, encoder } from './bin.js'
+import { log } from './log.js'
 
 export const SEG = 6
 const DIRECT_V = new Set(['h264', 'vp8', 'vp9', 'av1'])
@@ -54,10 +55,11 @@ async function refusePlaylist (url) {
 }
 export function probe (url, key, name = '') {
   if (!probes.has(key)) {
+    const t0 = Date.now()
     const p = refusePlaylist(url).then(() => new Promise((resolve, reject) => {
       // With no output file ffmpeg prints what it found and exits with an error, which is expected here.
       const kid = execFile(FFMPEG, ['-hide_banner', '-nostdin', '-probesize', '5000000', '-analyzeduration', '5000000', '-i', url], { maxBuffer: 1e7, timeout: 120000 }, (err, out, text) => {
-        if (!/^Input #0/m.test(text || '')) return reject(err || new Error('ffmpeg could not read the file'))
+        if (!/^Input #0/m.test(text || '')) { log.warn('probe', 'ffmpeg could not read the file', { key, name, err: err?.message, ffmpeg: String(text || '').trim().split('\n').slice(-3).join(' | ') }); return reject(err || new Error('ffmpeg could not read the file')) }
         const f = parseProbe(text)
         const v = f.streams.find(s => s.type === 'video')
         const audio = f.streams.filter(s => s.type === 'audio').map((s, i) => ({ i, codec: s.codec, lang: s.lang, title: s.title, default: s.default }))
@@ -67,6 +69,7 @@ export function probe (url, key, name = '') {
         // Both Matroska and WebM report "matroska,webm"; only a real .webm is browser-safe, .mkv is not.
         const fmt = f.format
         const containerOk = /mp4/.test(fmt) || (fmt === 'matroska,webm' && /\.webm$/i.test(name))
+        log.info('probe', 'ok', { key, name, ms: Date.now() - t0, format: f.format, duration: f.duration, streams: f.streams.map(s => `${s.type}:${s.codec}${s.lang ? ':' + s.lang : ''}${s.width ? ':' + s.width + 'x' + s.height : ''}`).join(' ') })
         resolve({
           duration: f.duration,
           width: v?.width || 0,
@@ -82,7 +85,7 @@ export function probe (url, key, name = '') {
       })
       probeKids.set(key, kid)
     }))
-    p.catch(() => probes.delete(key)).finally(() => probeKids.delete(key))
+    p.catch(e => { log.warn('probe', 'failed', { key, name, ms: Date.now() - t0, err: e }); probes.delete(key) }).finally(() => probeKids.delete(key))
     probes.set(key, p)
   }
   return probes.get(key)
@@ -98,14 +101,18 @@ export function playlist (duration, query) {
 // A read of a torrent that stops getting pieces never ends by itself and would hold one of the few encoder slots for good.
 export const run = (args, input, ms = 120000, signal) => new Promise((resolve, reject) => {
   const p = spawn(FFMPEG, ['-v', 'error', '-nostdin', ...args], { stdio: [input ? 'pipe' : 'ignore', 'pipe', 'pipe'] })
-  const out = []; let err = ''
+  const out = []; let err = ''; const t0 = Date.now()
+  log.debug('ffmpeg', 'start', { pid: p.pid, args: args.map(a => (String(a).length > 120 ? String(a).slice(0, 120) + '...' : a)).join(' ') })
   const timer = setTimeout(() => { err = 'ffmpeg timed out'; p.kill('SIGKILL') }, ms)
   signal?.addEventListener('abort', () => { err = 'cancelled'; p.kill('SIGKILL') }, { once: true })
   if (signal?.aborted) p.kill('SIGKILL')
   p.stdout.on('data', d => out.push(d))
   p.stderr.on('data', d => { err += d })
-  p.on('error', e => { clearTimeout(timer); reject(e) })
-  p.on('close', code => { clearTimeout(timer); code === 0 ? resolve(Buffer.concat(out)) : reject(Object.assign(new Error(err.trim() || `ffmpeg exit ${code}`), signal?.aborted && { code: 499 })) })
+  p.on('error', e => { clearTimeout(timer); log.error('ffmpeg', 'could not start', { ffmpeg: FFMPEG, err: e }); reject(e) })
+  p.on('close', (code, sig) => {
+    clearTimeout(timer)
+    log[code === 0 ? 'debug' : 'warn']('ffmpeg', code === 0 ? 'done' : 'failed', { pid: p.pid, code, sig, ms: Date.now() - t0, bytes: out.reduce((a, c) => a + c.length, 0), stderr: err.trim().split('\n').slice(-4).join(' | ') || undefined })
+    code === 0 ? resolve(Buffer.concat(out)) : reject(Object.assign(new Error(err.trim() || `ffmpeg exit ${code}`), signal?.aborted && { code: 499 })) })
   if (input) p.stdin.on('error', () => {}).end(input)
 })
 
@@ -121,6 +128,7 @@ const slot = signal => new Promise((resolve, reject) => {
   signal.addEventListener('abort', () => { const i = waiting.indexOf(resolve); if (i >= 0) { waiting.splice(i, 1); reject(Object.assign(new Error('cancelled'), { code: 499 })) } }, { once: true })
 })
 const release = () => { const next = waiting.shift(); if (next) next(); else running-- }
+export const encodes = () => ({ running, queued: waiting.length })
 
 export function segment (url, key, n, audio = 0, maxH = 1080) {
   const k = `${key}:${audio}:${maxH}:${n}`
@@ -129,20 +137,22 @@ export function segment (url, key, n, audio = 0, maxH = 1080) {
     const ctl = new AbortController()
     const p = (async () => {
       const name = await encoder()
+      const t0 = Date.now()
       await slot(ctl.signal)
+      const t1 = Date.now()
       try {
         // Re-encode (not copy) so every segment starts on a keyframe; -output_ts_offset keeps timestamps continuous.
         const encode = enc => run([...enc.pre, '-ss', String(t), '-i', url, '-t', String(SEG), '-map', '0:v:0', '-map', `0:a:${audio}?`, '-sn', '-dn',
           ...enc.video(maxH), '-af', 'aresample=async=1:first_pts=0', '-c:a', 'aac', '-b:a', '160k', '-ac', '2', '-ar', '48000', '-f', 'mpegts', '-muxdelay', '0', '-muxpreload', '0', '-output_ts_offset', String(t), 'pipe:1'], null, SEG_TIMEOUT, ctl.signal)
         // A graphics card that refuses the job (a size or setting it cannot take) must not stop playback: the processor does it.
-        return await encode(ENCODERS[name]).catch(e => {
+        return await encode(ENCODERS[name]).then(b => { log.debug('transcode', 'segment', { key, n, audio, maxH, encoder: name, queuedMs: t1 - t0, ms: Date.now() - t1, bytes: b.length }); return b }).catch(e => {
           if (name === 'libx264' || ctl.signal.aborted) throw e
-          console.warn(`[transcode] ${name} failed (${String(e.message).split('\n').pop().slice(0, 120)}); using the processor for this segment`)
+          log.warn('transcode', 'graphics encoder failed, using the processor for this segment', { key, n, encoder: name, err: String(e.message).split('\n').pop().slice(0, 200) })
           return encode(ENCODERS.libx264)
         })
       } finally { release() }
     })()
-    p.catch(() => segs.delete(k))
+    p.catch(e => { log[e.code === 499 ? 'debug' : 'warn']('transcode', 'segment failed', { key, n, audio, maxH, err: e.message?.split('\n').pop() }); segs.delete(k) })
     segs.set(k, { p, key, ctl })
     if (segs.size > 60) segs.delete(segs.keys().next().value)
   }
@@ -151,6 +161,7 @@ export function segment (url, key, n, audio = 0, maxH = 1080) {
 
 // The player has been left: its queued and running encodes, and the probe, stop instead of holding the few encoder slots while they wait for pieces nobody downloads.
 export function cancel (key) {
+  log.debug('transcode', 'cancel', { key })
   for (const [k, e] of segs) if (e.key === key) { e.ctl.abort(); segs.delete(k) }
   probeKids.get(key)?.kill('SIGKILL')
 }

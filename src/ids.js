@@ -7,6 +7,7 @@ import './data.js'
 import { DATA } from './paths.js'
 import { fetchRetry, getJSON } from './http.js'
 import { cached } from './meta.js'
+import { log } from './log.js'
 
 const FILE = path.join(DATA, 'anime-ids.json')
 const MAX_AGE = 24 * 3600e3
@@ -34,9 +35,10 @@ async function refresh () {
     try {
       const list = await (await fetchRetry(url, { timeout: 60000, tries: 2 })).json()
       map = reduceFribb(list); loaded = Date.now()
+      log.info('ids', 'anime id list refreshed', { url, entries: list.length })
       fs.writeFileSync(FILE + '.tmp', JSON.stringify({ at: loaded, map })); fs.renameSync(FILE + '.tmp', FILE)
       return
-    } catch (e) { console.warn('[ids]', e.message) }
+    } catch (e) { log.warn('ids', 'anime id list refresh failed', { url, err: e }) }
   }
 }
 // Resolves once there is a list to read: the saved one at once, or the download on a fresh install. Started by the first

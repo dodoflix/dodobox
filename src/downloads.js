@@ -2,6 +2,7 @@
 import { meta } from './meta.js'
 import * as engine from './engine.js'
 import * as local from './local.js'
+import { log } from './log.js'
 
 const MAX_ACTIVE = 3
 const queue = []
@@ -24,6 +25,7 @@ export function prioritize (k, on = true) {
   return true
 }
 export function cancel (k) {
+  log.info('downloads', 'cancel', { key: k })
   const i = queue.findIndex(j => j.key === k); if (i >= 0) queue.splice(i, 1)
   const f = failed.findIndex(j => j.key === k); if (f >= 0) failed.splice(f, 1)
 }
@@ -45,6 +47,7 @@ export async function enqueue ({ type, id, season, episode, all, from, to, mode,
     const f = failed.findIndex(x => x.key === job.key); if (f >= 0) failed.splice(f, 1)
     queue.push(job); added++
   }
+  log.info('downloads', 'enqueued', { title: m.name, type, season, episode, added, total: targets.length, queue: queue.length })
   pump()
   return { queued: added, total: targets.length }
 }
@@ -55,10 +58,12 @@ async function pump () {
   try {
     while (queue.length && (queue[0].priority || active() < MAX_ACTIVE)) {
       const job = queue.shift()
+      log.info('downloads', 'starting', { key: job.key, title: job.title, priority: job.priority, left: queue.length })
       try {
         await play({ type: job.type, id: job.id, season: job.season, episode: job.episode, mode: job.mode, audio: job.audio, sublang: job.sublang, safe: job.safe, pin: true })
         if (job.priority) engine.prioritizeCtx({ type: job.type, id: job.id, season: job.season, episode: job.episode }, true)
       } catch (e) {
+        log.warn('downloads', 'failed', { key: job.key, title: job.title, err: e })
         failed.unshift({ key: job.key, type: job.type, id: job.id, title: job.title, poster: job.poster, season: job.season, episode: job.episode, error: e.message, at: Date.now() })
         failed.length = Math.min(failed.length, 20)
       }

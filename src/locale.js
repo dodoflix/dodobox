@@ -4,6 +4,7 @@ import path from 'node:path'
 import './data.js'
 import { DATA } from './paths.js'
 import { fetchRetry } from './http.js'
+import { log } from './log.js'
 
 const FILE = path.join(DATA, 'locale-cache.json')
 const WEEK = 7 * 24 * 3600e3
@@ -40,7 +41,7 @@ async function fill (lang, need) {
     for (const r of rows) byId.set(r.id.value, { label: r.label?.value, article: r.an?.value })
     for (const id of need) cache.set(`${lang}:${id}`, { at: Date.now(), ...(byId.get(key(id)) || {}) })
     save()
-  } catch { /* offline or throttled: show English */ }
+  } catch (e) { log.debug('locale', 'title translation unavailable, showing English', { lang, err: e }) }
 }
 
 export async function localizeItems (items, lang) {
@@ -59,7 +60,7 @@ async function describe (lang, id, article) {
   try {
     const r = await fetchRetry(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(article.replace(/ /g, '_'))}`, { headers: { 'user-agent': UA['user-agent'] }, timeout: 7000, tries: 1 })
     const j = await r.json(); if (j.type === 'standard' && (j.extract || '').length > 60) d.text = j.extract
-  } catch {}
+  } catch (e) { log.debug('locale', 'description unavailable', { lang, id, err: e }) }
   cache.set(dk, d); save()
 }
 

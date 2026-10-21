@@ -4,7 +4,7 @@ Dodobox is software you run yourself. The project runs no servers for it, has no
 
 ## What stays on your computer
 
-Profiles, watch progress, My List, ratings, settings, downloads and caches live in the data folder of the machine that runs Dodobox. Nothing in it is sent to the authors.
+Profiles, watch progress, My List, ratings, settings, downloads and caches live in the data folder of the machine that runs Dodobox. The server also keeps a local log there (`data/logs`). Nothing in it is sent to the authors.
 
 ## What leaves your computer
 

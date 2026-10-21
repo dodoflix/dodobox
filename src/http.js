@@ -1,4 +1,5 @@
 // Outbound HTTP with retries, per-provider rate limits, request merging and a circuit breaker.
+import { log } from './log.js'
 const UA = { 'user-agent': 'Mozilla/5.0 dodobox' }
 const inflight = new Map()
 const hosts = new Map()
@@ -43,25 +44,30 @@ const retryAfter = r => { const v = r.headers.get('retry-after'); const n = Numb
 export async function fetchRetry (url, { tries = 3, timeout = 10000, headers, ...opts } = {}) {
   const host = new URL(url).hostname
   const h = hostState(host)
+  const shown = url.length > 200 ? url.slice(0, 200) + '...' : url
+  if (Date.now() < h.openUntil) log.debug('fetch', 'skipped, host cooling down', { url: shown })
   if (Date.now() < h.openUntil) throw Object.assign(new Error(`${host} is cooling down`), { cooling: true })
   let last
   for (let i = 1; i <= tries; i++) {
     await slot(h)
+    const t0 = Date.now()
     let wait = 400 * 2 ** (i - 1) * (0.75 + Math.random() / 2)
     try {
       const r = await fetch(url, { ...opts, headers: { ...UA, ...headers }, signal: AbortSignal.timeout(timeout) })
-      if (r.ok) { h.fails = 0; return r }
+      if (r.ok) { h.fails = 0; log.debug('fetch', 'ok', { url: shown, status: r.status, ms: Date.now() - t0, try: i > 1 ? i : undefined }); return r }
       const retriable = r.status === 429 || r.status === 408 || r.status >= 500
       last = Object.assign(new Error(`${r.status} ${host}`), { status: r.status, final: !retriable })
+      log.warn('fetch', 'bad status', { url: shown, status: r.status, try: i, of: tries, ms: Date.now() - t0, retry: retriable && i < tries })
       if (!retriable) { h.fails = 0; throw last }
       wait = Math.min(8000, retryAfter(r) || wait)
     } catch (e) {
       if (e.final) throw e
+      log.warn('fetch', 'request failed', { url: shown, try: i, of: tries, ms: Date.now() - t0, err: e.cause?.code ? `${e.message} (${e.cause.code})` : e.message, retry: i < tries })
       last = e
     } finally { release(h) }
     if (i < tries) await new Promise(res => setTimeout(res, wait)) // the slot is free while waiting
   }
-  if (++h.fails >= 4) { h.openUntil = Date.now() + 30000; h.fails = 0 }
+  if (++h.fails >= 4) { h.openUntil = Date.now() + 30000; h.fails = 0; log.warn('fetch', 'host failing, pausing requests for 30s', { host }) }
   throw last
 }
 

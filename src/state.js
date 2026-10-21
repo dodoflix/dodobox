@@ -4,12 +4,13 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import './data.js'
 import { DATA } from './paths.js'
+import { log } from './log.js'
 
 const FILE = path.join(DATA, 'state.json')
 const COLORS = ['#f2a65a', '#e5646e', '#6fb7e9', '#7ad3a0', '#b58cf0', '#f0d264']
 
 let db = { profiles: {}, settings: {} }
-try { db = { ...db, ...JSON.parse(fs.readFileSync(FILE, 'utf8')) } } catch {}
+try { db = { ...db, ...JSON.parse(fs.readFileSync(FILE, 'utf8')) } } catch (e) { if (e.code !== 'ENOENT') log.error('state', 'state.json could not be read, starting empty', { err: e }) }
 
 function DEFAULTS_INIT () { return { sublang: 'off', lang: 'en', interests: [], quality: 'auto', sourceMode: 'balanced', adultFilter: false, bestTranslation: false, discordPresence: true, onboarded: false } }
 
@@ -50,8 +51,10 @@ function persist () {
 export function flush () {
   clearTimeout(timer)
   const tmp = FILE + '.tmp'
-  fs.writeFileSync(tmp, JSON.stringify(db))
-  fs.renameSync(tmp, FILE)
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(db))
+    fs.renameSync(tmp, FILE)
+  } catch (e) { log.error('state', 'could not save state.json', { err: e }); throw e }
 }
 
 export const profiles = () => Object.values(db.profiles).map(({ id, name, color, pin }) => ({ id, name, color, locked: !!pin }))
@@ -63,6 +66,7 @@ export const pinOf = id => own(id)?.pin || null
 export function setPin (id, record) {
   const p = own(id); if (!p) return false
   if (record) p.pin = record; else delete p.pin
+  log.info('state', record ? 'pin set' : 'pin removed', { profile: id })
   persist()
   return true
 }
@@ -74,6 +78,7 @@ export function createProfile (name, color) {
   if (n >= MAX_PROFILES) throw Object.assign(new Error('Too many profiles'), { code: 409 })
   const id = crypto.randomBytes(4).toString('hex')
   db.profiles[id] = { id, name, color: tint(color) || COLORS[n % COLORS.length], created: Date.now(), progress: {}, recent: {}, history: {}, ratings: {}, list: [], settings: { ...DEFAULTS } }
+  log.info('state', 'profile created', { profile: id, profiles: n + 1 })
   persist()
   return db.profiles[id]
 }
@@ -92,6 +97,7 @@ const pickSettings = s => Object.fromEntries(Object.entries(s && typeof s === 'o
 
 export function deleteProfile (id) {
   const ok = delete db.profiles[id]
+  log.info('state', 'profile deleted', { profile: id })
   persist()
   return ok
 }
@@ -161,6 +167,7 @@ export const settings = () => ({ ...GLOBAL, ...db.settings })
 export function setSettings (patch) {
   if (patch.maxStorageGB != null) db.settings.maxStorageGB = Math.max(2, Math.min(5000, +patch.maxStorageGB || GLOBAL.maxStorageGB))
   if ('mediaDirs' in patch) db.settings.mediaDirs = Array.isArray(patch.mediaDirs) ? patch.mediaDirs.map(String).filter(Boolean) : null
+  log.info('state', 'server settings changed', patch)
   persist()
   return settings()
 }

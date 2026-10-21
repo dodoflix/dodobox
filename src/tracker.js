@@ -3,6 +3,7 @@
 import dgram from 'node:dgram'
 import dns from 'node:dns/promises'
 import crypto from 'node:crypto'
+import { log } from './log.js'
 
 export function scrapeTracker (tracker, hashes, timeout = 1200) {
   const u = new URL(tracker)
@@ -32,9 +33,10 @@ export function scrapeTracker (tracker, hashes, timeout = 1200) {
 // `enough` trackers have answered (plus a moment for a close fourth) instead of waiting for the slowest or dead ones.
 export function scrape (hashes, trackers, timeout, enough = 3) {
   const out = new Map()
+  const t0 = Date.now()
   return new Promise(resolve => {
     let pending = trackers.length; let answered = 0; let closing
-    const finish = () => { clearTimeout(closing); resolve(out) }
+    const finish = () => { clearTimeout(closing); log.debug('tracker', 'scrape', { hashes: hashes.length, trackers: trackers.length, answered, found: out.size, ms: Date.now() - t0 }); resolve(out) }
     if (!pending) return finish()
     for (const t of trackers) {
       scrapeTracker(t, hashes, timeout).then(m => {
