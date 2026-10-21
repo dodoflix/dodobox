@@ -36,7 +36,7 @@ async function addon ({ type, id, season, episode, imdb }) {
   if (type === 'anime' && !imdb) return [] // the addon only knows IMDb-style ids
   const key = imdb ? `${imdb}:1:${episode}` : type === 'series' ? `${id}:${season}:${episode}` : id
   const r = await fetchRetry(`${ADDON}/subtitles/${imdb ? 'series' : type}/${key}.json`, { timeout: 9000, tries: 2 })
-  return ((await r.json()).subtitles || []).map(s => ({ lang: s.lang, url: s.url, rel: s.movieReleaseName || s.subtitleFileName || '', dl: +s.g || 0, via: 'addon' }))
+  return ((await r.json()).subtitles || []).map(s => ({ lang: s.lang, url: s.url, rel: s.movieReleaseName || s.subtitleFileName || '', dl: +s.g || 0, fps: (+s.fpsMilli || 0) / 1000, via: 'addon' }))
 }
 
 // One language per request: asking for several at once ("sublanguageid-tur,eng") makes the service answer some queries with
@@ -86,7 +86,7 @@ async function restOne ({ type, id, season, episode, titles, imdb }, code) {
       if (!/^(srt|sub|ass|ssa)$/i.test(s.SubFormat) || !s.SubDownloadLink || found.has(s.SubDownloadLink)) continue
       // A title search returns the show's files in no useful order: keep the ones that name this episode.
       if (type === 'anime' && !(sameShow(s, { episode, titles, imdb }) && plausible(rel, { episode, titles }) && (p.startsWith('episode-') || +s.SeriesEpisode === +episode || mentions(`${rel} ${s.SubFileName}`, episode)))) continue
-      found.set(s.SubDownloadLink, { lang: s.SubLanguageID, url: s.SubDownloadLink, enc: s.SubEncoding, rel, dl: +s.SubDownloadsCnt || 0, forced: s.SubForeignPartsOnly === '1', via: 'rest' })
+      found.set(s.SubDownloadLink, { lang: s.SubLanguageID, url: s.SubDownloadLink, enc: s.SubEncoding, rel, dl: +s.SubDownloadsCnt || 0, forced: s.SubForeignPartsOnly === '1', hi: s.SubHearingImpaired === '1', rating: +s.SubRating || 0, fps: +s.MovieFPS || 0, trusted: s.SubFromTrusted === '1', via: 'rest' })
     }
     if (found.size >= (type === 'anime' ? 3 : 1)) break
   }
@@ -141,11 +141,19 @@ function lookup (q, langs, release) {
   }))
   return { quick, full }
 }
+// Higher is a better pick. Weights are tuned by `npm run bench -- subs`.
+export const WEIGHTS = { sim: 5, dl: 0.2, lang: 2, forced: 6, rating: 0.2, hi: 6, trusted: 1, fpsOdd: 1 }
+const FILM_FPS = [23.976, 23.98, 24]
+export function scoreSub (s, release, langs, w = WEIGHTS) {
+  return similarity(release, s.rel) * w.sim + Math.log10(s.dl + 1) * w.dl + (langs.includes(s.lang) ? w.lang : 0) - (s.forced ? w.forced : 0) +
+    (s.rating || 0) * w.rating - (s.hi ? w.hi : 0) + (s.trusted ? w.trusted : 0) - (s.fps && !FILM_FPS.includes(s.fps) ? w.fpsOdd : 0)
+}
+export { addon, rest }
 function assemble (q, langs, release, found) {
   const all = found.filter(x => q.type !== 'anime' || plausible(x.rel, q)).map(x => ({ ...x, enc: x.enc || LEGACY[x.lang] }))
   const seen = new Set()
   const scored = all.filter(s => !seen.has(s.url) && seen.add(s.url))
-    .map(s => ({ ...s, score: similarity(release, s.rel) * 3 + Math.log10(s.dl + 1) + (langs.includes(s.lang) ? 2 : 0) - (s.forced ? 6 : 0) }))
+    .map(s => ({ ...s, score: scoreSub(s, release, langs) }))
     .sort((x, y) => y.score - x.score)
   const count = {}
   const out = []
