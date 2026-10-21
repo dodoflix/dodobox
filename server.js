@@ -10,7 +10,7 @@ import qr from 'qrcode-generator'
 import { Bonjour } from 'bonjour-service'
 import { fileURLToPath } from 'node:url'
 import { catalog, meta, animeImdb, isAdultItem } from './src/meta.js'
-import { findSources, measured, score, refreshTrackers, lengthFits } from './src/sources.js'
+import { findSources, measured, refreshTrackers, lengthFits } from './src/sources.js'
 import { titleVerdict } from './src/release.js'
 import { episodeNumbers, warm as warmIds } from './src/ids.js'
 import { party, newCode, cleanItem, LIMITS } from './src/party.js'
@@ -27,6 +27,7 @@ import { image, remote } from './src/images.js'
 import { lanAddresses, openBrowser } from './src/net.js'
 import { encoder, FFMPEG } from './src/bin.js'
 import * as speed from './src/speed.js'
+import { race, rivalsOf } from './src/race.js'
 import { localizeItems, localizeMeta } from './src/locale.js'
 import { syncInWorker, parseCues, shiftVtt } from './src/sync.js'
 import * as better from './src/translate-hq.js'
@@ -157,35 +158,14 @@ async function play (b) {
   // A pack may number its files by TVDB season or absolutely; the engine needs those numbers to open the right file.
   const numbers = item.type === 'anime' && !item.movie ? await episodeNumbers(+String(item.id).replace('al:', ''), item.episode) : null
   const start = pick => engine.add({ hash: pick.infoHash, magnet: pick.magnet, ctx: { type: item.type, id: item.id, title: m.name, poster: m.poster, season: item.season, episode: item.episode, release: pick.release, provider: pick.provider, seeders: pick.seeders, ...numbers && { tvdbSeason: numbers.tvdbSeason, tvdbEpisode: numbers.tvdbEpisode, abs: numbers.abs } }, fileIdx: pick.fileIdx, pinned: !!b.pin })
-  // Seeder counts say little about real speed, so the best few versions race for a moment.
-  const rivals = b.infoHash || b.pin ? [first] : list.filter(s => s.seeders > 0 && !s.wrongSeason && score(s, ctxOf(b)) >= score(first, ctxOf(b)) - 45).slice(0, 3)
-  const pick = rivals.length > 1 ? await race(rivals, start) : first
+  const rivals = b.infoHash || b.pin ? [first] : rivalsOf(list, first, { ...ctxOf(b), runtimeMin: item.runtimeMin, year: item.year, kind: item.type })
+  const pick = rivals.length > 1 ? await race(rivals, start, { ...ctxOf(b), runtimeMin: item.runtimeMin }) : first
   const e = start(pick)
   log.info('play', 'chosen', { hash: pick.infoHash, name: pick.title, seeders: pick.seeders, raced: rivals.length > 1 ? rivals.length : undefined })
   // The next episode is usually what is watched next: its list is ready by then.
   if (!flat && !b.infoHash) findSources({ ...item, episode: item.episode + 1 }, ctxOf(b)).catch(swallow('looking ahead to the next episode'))
   engine.evict(state.settings().maxStorageGB * 1e9).catch(swallow('evicting old downloads'))
   return engine.status(e.hash, false)
-}
-
-async function race (rivals, start) {
-  const t0 = Date.now()
-  rivals.forEach(r => start(r))
-  const speedOf = r => { const st = engine.status(r.infoHash, true); return st ? { bps: st.speed, got: st.downloaded, phase: st.phase } : { bps: 0, got: 0 } }
-  let winner = null
-  while (!winner && Date.now() - t0 < 6500) {
-    await new Promise(r => setTimeout(r, 500))
-    const t = Date.now() - t0
-    const seen = rivals.map(r => ({ r, ...speedOf(r) }))
-    const fast = seen.find(x => x.bps >= 1.2e6 || x.got >= 3e6)
-    if (t >= 2500 && fast && (fast.r === rivals[0] || t >= 4500)) winner = seen.filter(x => x.bps >= 1.2e6 || x.got >= 3e6).sort((a, b) => (b.got + b.bps * 3) - (a.got + a.bps * 3))[0].r
-  }
-  const seen = rivals.map(r => ({ r, ...speedOf(r) }))
-  for (const x of seen) measured.set(x.r.infoHash, { bps: x.bps, at: Date.now() })
-  log.debug('race', 'result', { ms: Date.now() - t0, rivals: seen.map(x => `${x.r.infoHash.slice(0, 8)}:${Math.round(x.bps / 1e3)}kB/s:${Math.round(x.got / 1e3)}kB`).join(' ') })
-  winner ||= seen.sort((a, b) => (b.got + b.bps * 3) - (a.got + a.bps * 3))[0].bps ? seen[0].r : rivals[0]
-  for (const r of rivals) if (r !== winner && engine.status(r.infoHash, true)?.phase !== 'done') await engine.remove(r.infoHash).catch(swallow('dropping a losing version'))
-  return winner
 }
 
 const embeddedCache = new Map()
