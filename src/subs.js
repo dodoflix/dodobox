@@ -93,6 +93,14 @@ async function restOne ({ type, id, season, episode, titles, imdb }, code) {
   return Object.assign([...found.values()], { incomplete: failed > 0 })
 }
 
+// dl.opensubtitles.org answers 404 ("IP ... exceeded") once the IP's anonymous download quota is used up, and further tries count
+// toward a firewall ban. Stop asking for a while; its files stay listed but flagged `limited`.
+let quotaUntil = 0
+const quotaHit = () => Date.now() < quotaUntil
+const fromOpensubtitles = u => new URL(u).hostname === 'dl.opensubtitles.org'
+const quotaError = () => Object.assign(new Error('opensubtitles download limit reached for now'), { code: 429 })
+const usable = list => (quotaHit() ? list.map(s => (fromOpensubtitles(s.url) ? { ...s, limited: true } : s)) : list)
+
 const listCache = new Map()
 const jobs = new Map()
 export const timing = { quickMs: 3500 }
@@ -103,7 +111,7 @@ const mark = (list, partial) => (partial ? list.map(s => ({ ...s, partial: true 
 export async function listSubtitles (q, langs = [], release = '') {
   const key = JSON.stringify([q.type, q.id, q.season, q.episode, langs, release])
   const hit = listCache.get(key)
-  if (hit && Date.now() - hit.at < hit.ttl) return hit.list
+  if (hit && Date.now() - hit.at < hit.ttl) return usable(hit.list)
   let job = jobs.get(key)
   if (!job) {
     job = lookup(q, langs, release)
@@ -115,8 +123,8 @@ export async function listSubtitles (q, langs = [], release = '') {
     jobs.set(key, job)
   }
   const done = await Promise.race([job.full, wait(timing.quickMs)])
-  if (done) return mark(done.list, !done.complete)
-  return mark(await job.quick, true)
+  if (done) return usable(mark(done.list, !done.complete))
+  return usable(mark(await job.quick, true))
 }
 // The addon's answers carry only a release name: drop ones naming a sequel the title is not, or another episode.
 const SEQUEL = /shipp?uu?den|boruto|next generations/i
@@ -149,6 +157,7 @@ export function scoreSub (s, release, langs, w = WEIGHTS) {
     (s.rating || 0) * w.rating - (s.hi ? w.hi : 0) + (s.trusted ? w.trusted : 0) - (s.fps && !FILM_FPS.includes(s.fps) ? w.fpsOdd : 0)
 }
 export { addon, rest }
+export const resetQuota = () => { quotaUntil = 0 }
 function assemble (q, langs, release, found) {
   const all = found.filter(x => q.type !== 'anime' || plausible(x.rel, q)).map(x => ({ ...x, enc: x.enc || LEGACY[x.lang] }))
   const seen = new Set()
@@ -162,7 +171,7 @@ function assemble (q, langs, release, found) {
     if (n > PER_LANG) continue
     out.push({ lang: s.lang, label: `${langName(s.lang)}${n > 1 ? ' #' + n : ''}`, hint: (s.forced ? 'Forced only: ' : '') + s.rel.replace(/\.(srt|sub|ass)$/i, '').slice(0, 42), enc: s.enc, url: s.url, forced: s.forced, best: n === 1 && !s.forced && similarity(release, s.rel) > 0.34 })
   }
-  return out.sort((x, y) => (langs.indexOf(x.lang) + 1 || 99) - (langs.indexOf(y.lang) + 1 || 99) || x.label.localeCompare(y.label))
+  return out.sort((x, y) => (langs.indexOf(x.lang) + 1 || 99) - (langs.indexOf(y.lang) + 1 || 99) || langName(x.lang).localeCompare(langName(y.lang))) // stable: within a language the best-ranked file stays first ('Turkish #10' is not before '#2')
 }
 
 // Only the subtitle providers' own hosts may be fetched, so /api/sub can't be used as an open proxy.
@@ -174,7 +183,13 @@ export async function fetchSubtitle (url, enc) {
   const f = path.join(CACHE, crypto.createHash('sha1').update(url + (enc || '')).digest('hex') + '.vtt')
   try { return fs.readFileSync(f, 'utf8') } catch {}
   return once('sub:' + f, async () => {
-    const r = await fetchRetry(url, { timeout: 15000, tries: 3, headers: /yifysubtitles/.test(url) ? yifyHeaders : undefined })
+    if (fromOpensubtitles(url) && quotaHit()) throw quotaError()
+    const r = await fetchRetry(url, { timeout: 15000, tries: 3, headers: /yifysubtitles/.test(url) ? yifyHeaders : undefined }).catch(e => {
+      if (e.status !== 404 || !fromOpensubtitles(url)) throw e
+      quotaUntil = Date.now() + 3600e3
+      log.warn('subs', 'opensubtitles download quota exceeded, skipping its files for 1h')
+      throw quotaError()
+    })
     let buf = Buffer.from(await r.arrayBuffer())
     if (buf[0] === 0x50 && buf[1] === 0x4b) buf = unzipFirst(buf)
     if (buf[0] === 0x1f && buf[1] === 0x8b) buf = zlib.gunzipSync(buf)

@@ -349,6 +349,10 @@ export async function watch (type, id, season, episode) {
     for (const x of subs) { const k = x.lang || '_file'; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x) }
     const pref = S.me.settings.sublang
     const order = [...groups.keys()].sort((a, b) => (b === pref) - (a === pref) || (b === 'eng') - (a === 'eng') || (a === '_file') - (b === '_file') || LANG(a).localeCompare(LANG(b)))
+    const fileTail = x => {
+      const note = !embeddedOk(x) ? '<small>after more download</small>' : x.best && !x.limited ? '<small>best match</small>' : ''
+      return subSel === x ? `<span class="tail">${note}${icon('check')}</span>` : note
+    }
     smLang ??= subSel ? (subSel.lang || '_file') : 'off'
     const files = smLang !== 'off' ? groups.get(smLang) || [] : []
     // The search is over and nothing real (not a machine translation) exists in the viewer's language.
@@ -362,7 +366,7 @@ export async function watch (type, id, season, episode) {
         ${order.map(k => `<button role="option" data-l="${k}" class="${smLang === k ? 'on' : ''}"><span>${esc(name(k))}</span><small>${groups.get(k).length}</small></button>`).join('') || '<div class="adj"><span class="dim">No subtitles found online</span></div>'}
       </div>
       <div class="sm-files" role="listbox" aria-label="Subtitle file">
-        ${files.map(x => `<button role="option" data-s="${subs.indexOf(x)}" class="${subSel === x ? 'on' : ''}" ${embeddedOk(x) && !x.pending ? '' : 'disabled'}><span>${esc(x.label)}<small class="hint">${esc(x.status || x.hint || '')}${x.partial ? ' · partial' : ''}</small></span>${subSel === x ? icon('check') : !embeddedOk(x) ? '<small>after more download</small>' : x.best ? '<small>best match</small>' : ''}</button>`).join('') || (smLang === 'off' ? '<div class="adj"><span class="dim">Subtitles are off</span></div>' : '')}
+        ${files.map(x => `<button role="option" data-s="${subs.indexOf(x)}" class="${subSel === x ? 'on' : ''}" ${embeddedOk(x) && !x.pending && !x.limited ? '' : 'disabled'}><span>${esc(x.label)}<small class="hint">${esc(x.limited ? 'Provider limit reached, try again later' : x.status || x.hint || '')}${x.partial ? ' · partial' : ''}</small></span>${fileTail(x)}</button>`).join('') || (smLang === 'off' ? '<div class="adj"><span class="dim">Subtitles are off</span></div>' : '')}
       </div></div>
       <div class="sm-foot">
         ${missing ? `<div class="adj"><span class="dim">No ${esc(name(pref))} subtitles found</span></div>` : ''}
@@ -501,6 +505,15 @@ export async function watch (type, id, season, episode) {
     try {
       const r = await fetch(entry.src + (entry.translated && entry.src.includes('&hq=1') ? `&at=${Math.floor(v.currentTime || 0)}` : ''), { signal: ctl.signal }).finally(() => { clearInterval(watch); if (entry.status && !again) { entry.status = ''; if (menuKind === 'subs') drawMenu() } })
       if (r.status === 409) { if (gen === subGen && subSel === entry) { entry.status = 'Waiting for more of the download...'; drawMenu(); refreshT = setTimeout(() => loadEntry(entry, auto), 25000) } return toast('Built-in subtitles will be ready after a little more of the download.') }
+      if (r.status === 429) {
+        if (gen !== subGen) return
+        // The limit is the provider's, so every file from the same host is out until it lifts.
+        const host = e => { try { return new URL(new URLSearchParams(e.src.split('?')[1]).get('url')).hostname } catch { return '' } }
+        for (const x of subs) if (!x.embedded && !x.translated && host(x) === host(entry)) x.limited = true
+        drawMenu()
+        const alt = subs.find(x => x !== entry && x.lang === entry.lang && !x.forced && !x.embedded && !x.limited)
+        return toast('This subtitle provider has reached its limit for now.', { key: 'subquota', ms: 7000, ...(alt && { action: { label: 'Try another', run: () => showSub(alt) } }) })
+      }
       if (!r.ok) throw new Error('subtitle ' + r.status)
       const covered = r.headers.get('x-covered')
       const text = await r.text()
@@ -557,14 +570,14 @@ export async function watch (type, id, season, episode) {
     const sv = P.sub
     if (sv?.off) return
     if (sv) {
-      const pool = subs.filter(s => embeddedOk(s) && !s.pending && !s.forced && (sv.tr ? s.translated?.to === sv.tr : s.lang === sv.lang && !s.translated))
+      const pool = subs.filter(s => embeddedOk(s) && !s.pending && !s.forced && !s.limited && (sv.tr ? s.translated?.to === sv.tr : s.lang === sv.lang && !s.translated))
       const hit = pool.find(s => s.label === sv.label) || (sv.tr ? null : pool.find(s => !s.manualOnly))
       if (hit) { if (hit !== subSel && (!subSel || subSel.autoPicked)) showSub(hit, { auto: true }); return }
       if (!final) return
     }
     const want = S.me.settings.sublang
     if (!want || want === 'off' || subSel) return
-    const hit = subs.find(s => s.lang === want && !s.forced && !s.manualOnly && embeddedOk(s)) || subs.find(s => s.lang === want && !s.manualOnly && embeddedOk(s))
+    const hit = subs.find(s => s.lang === want && !s.forced && !s.manualOnly && !s.limited && embeddedOk(s)) || subs.find(s => s.lang === want && !s.manualOnly && !s.limited && embeddedOk(s))
     if (hit) showSub(hit, { auto: true })
   }
   const translationTargets = () => [...LANGUAGES.filter(l => l[0] !== 'en'), ...(S.me.settings.sublang === 'pob' ? [['pt', 'pob']] : [])]
@@ -585,10 +598,10 @@ export async function watch (type, id, season, episode) {
     // Entries already shown keep their identity (the picked one stays picked) when a fuller list arrives.
     const apply = list => {
       const known = new Map(subs.filter(x => x.src).map(x => [x.src, x]))
-      const own = x => known.get(x.src) || x
-      const ext = list.map(s => ({ lang: s.lang, label: LANG(s.lang) + (s.label.match(/ #\d+$/)?.[0] || ''), hint: s.hint, best: s.best, forced: s.forced, src: `/api/sub?url=${enc(s.url)}${s.enc ? '&enc=' + enc(s.enc) : ''}` })).map(own)
+      const own = x => { const k = known.get(x.src); if (k) { k.best = x.best; k.limited ||= x.limited } return k || x }
+      const ext = list.map(s => ({ lang: s.lang, label: LANG(s.lang) + (s.label.match(/ #\d+$/)?.[0] || ''), hint: s.hint, limited: s.limited, best: s.best && !s.limited, forced: s.forced, src: `/api/sub?url=${enc(s.url)}${s.enc ? '&enc=' + enc(s.enc) : ''}` })).map(own)
       subs = [...embedded, ...ext]
-      const base = subs.find(x => x.lang === 'eng' && !x.forced && !x.pending && embeddedOk(x))
+      const base = subs.find(x => x.lang === 'eng' && !x.forced && !x.pending && !x.limited && embeddedOk(x))
       if (base) for (const [c2, c3] of targets) if (supported.includes(c2)) subs.push(own({ lang: c3, label: 'Auto-translated', hint: 'Translated from English', src: `/api/sub/translate?src=${enc(base.src)}&to=${c2}${S.me.settings.bestTranslation ? '&hq=1' : ''}`, translated: { src: base.src, to: c2 }, manualOnly: true }))
     }
     apply(raw)
