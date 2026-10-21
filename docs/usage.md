@@ -79,7 +79,7 @@ Off by default, in Settings and first-run setup. When on, titles marked as adult
 
 ## Download size
 
-Balanced (default) avoids huge files: a 4K or 1080p version is fine, a 10 GB episode is not. Smallest prefers compact encodes. Best quality accepts very large files such as disc remuxes. Several of the best versions race for a few seconds when you press play, and the fastest wins.
+Balanced (default) avoids huge files: a 4K or 1080p version is fine, a 10 GB episode is not. Smallest prefers compact encodes. Best quality accepts very large files such as disc remuxes. Several of the best versions race for a few seconds when you press play or download, and the fastest wins.
 
 ## Library, ratings and downloads
 

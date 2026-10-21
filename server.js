@@ -27,7 +27,7 @@ import { image, remote } from './src/images.js'
 import { lanAddresses, openBrowser } from './src/net.js'
 import { encoder, FFMPEG } from './src/bin.js'
 import * as speed from './src/speed.js'
-import { race, rivalsOf } from './src/race.js'
+import { race, rivalsOf, racing } from './src/race.js'
 import { localizeItems, localizeMeta } from './src/locale.js'
 import { syncInWorker, parseCues, shiftVtt } from './src/sync.js'
 import * as better from './src/translate-hq.js'
@@ -158,7 +158,7 @@ async function play (b) {
   // A pack may number its files by TVDB season or absolutely; the engine needs those numbers to open the right file.
   const numbers = item.type === 'anime' && !item.movie ? await episodeNumbers(+String(item.id).replace('al:', ''), item.episode) : null
   const start = pick => engine.add({ hash: pick.infoHash, magnet: pick.magnet, ctx: { type: item.type, id: item.id, title: m.name, poster: m.poster, season: item.season, episode: item.episode, release: pick.release, provider: pick.provider, seeders: pick.seeders, ...numbers && { tvdbSeason: numbers.tvdbSeason, tvdbEpisode: numbers.tvdbEpisode, abs: numbers.abs } }, fileIdx: pick.fileIdx, pinned: !!b.pin })
-  const rivals = b.infoHash || b.pin ? [first] : rivalsOf(list, first, { ...ctxOf(b), runtimeMin: item.runtimeMin, year: item.year, kind: item.type })
+  const rivals = b.infoHash ? [first] : rivalsOf(list, first, { ...ctxOf(b), runtimeMin: item.runtimeMin, year: item.year, kind: item.type })
   const pick = rivals.length > 1 ? await race(rivals, start, { ...ctxOf(b), runtimeMin: item.runtimeMin }) : first
   const e = start(pick)
   log.info('play', 'chosen', { hash: pick.infoHash, name: pick.title, seeders: pick.seeders, raced: rivals.length > 1 ? rivals.length : undefined })
@@ -597,7 +597,7 @@ const routes = [
   ['GET', /^\/api\/downloads$/, async (req, res) => { const d = downloads.state(); json(req, res, { queue: await hideAdult(d.queue, safeOf(req)), failed: await hideAdult(d.failed, safeOf(req)) }) }],
   ['POST', /^\/api\/downloads\/(.+)\/(prioritize|unprioritize)$/, (req, res, [, k, what]) => json(req, res, { ok: downloads.prioritize(decodeURIComponent(k), what === 'prioritize') })],
   ['DELETE', /^\/api\/downloads\/(.+)$/, (req, res, [, k]) => { downloads.cancel(decodeURIComponent(k)); json(req, res, { ok: true }) }],
-  ['GET', /^\/api\/library$/, async (req, res) => json(req, res, await hideAdult(engine.library(), safeOf(req), e => e.ctx || {}))],
+  ['GET', /^\/api\/library$/, async (req, res) => json(req, res, await hideAdult(engine.library().filter(r => !racing.has(r.hash)), safeOf(req), e => e.ctx || {}))],
   ['POST', /^\/api\/library\/(\w+)(?::(\d+))?\/(pause|resume|prioritize|unprioritize)$/, (req, res, [, h, f, what]) => json(req, res, { ok: what === 'pause' || what === 'resume' ? engine.hold(h.toLowerCase(), f, what === 'pause') : engine.prioritize(h.toLowerCase(), f, what === 'prioritize') })],
   ['DELETE', /^\/api\/library\/(\w+)(?::(\d+))?$/, async (req, res, [, h, f]) => json(req, res, { ok: await engine.remove(h, f) })]
 ]

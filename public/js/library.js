@@ -3,6 +3,7 @@ import { S, removeHistory } from './session.js'
 import { $, esc, icon, bytes, poster, enc, mins, layered, hue } from './util.js'
 import { calm } from './ambient.js'
 import { dragScroll } from './drag.js'
+import { displayPx } from './bandwidth.js'
 
 const watchHref = c => `#/watch/${c.type}/${enc(c.id)}` + (c.season != null ? `/${c.season}/${c.episode}` : '')
 const SE = i => (i.season != null ? `S${i.season} E${i.episode}` : '')
@@ -77,7 +78,7 @@ export async function library (root) {
     if (top) { await api(`/api/downloads/${encodeURIComponent(top.dataset.top)}/${+top.dataset.on ? 'prioritize' : 'unprioritize'}`, { method: 'POST' }).catch(() => {}); return draw() }
     if (del) { await api(`/api/library/${del}`, { method: 'DELETE' }); draw() }
     if (q) { await api(`/api/downloads/${encodeURIComponent(q)}`, { method: 'DELETE' }); draw() }
-    if (retry) { await api('/api/download', { method: 'POST', body: JSON.parse(retry) }); draw() }
+    if (retry) { await api('/api/download', { method: 'POST', body: { ...JSON.parse(retry), display: displayPx() } }); draw() }
   }
   // One poll at a time, the next one scheduled after the last finished: quickly while something downloads, rarely when nothing does,
   // and not at all in a hidden tab (it refreshes as soon as the tab is shown again).
