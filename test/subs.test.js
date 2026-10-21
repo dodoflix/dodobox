@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { listSubtitles, timing, scoreSub } from '../src/subs.js'
+import { listSubtitles, fetchSubtitle, resetQuota, timing, scoreSub } from '../src/subs.js'
 
 const json = body => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } })
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -50,4 +50,34 @@ test('subtitles: scoring prefers the matching release, plain dialogue and film t
   assert.ok(score({ trusted: true }) > score({}))
   assert.ok(score({ rating: 9 }) > score({ rating: 0 }))
   assert.ok(score({}) > score({ forced: true }))
+})
+
+test('subtitles: a 404 from the download host (IP quota used up) stops further tries and flags its files', async () => {
+  const restore = stub({}); timing.quickMs = 5000
+  const calls = []
+  const inner = globalThis.fetch
+  globalThis.fetch = async url => { if (new URL(url).hostname === 'dl.opensubtitles.org') { calls.push(url); return new Response('quota', { status: 404 }) } return inner(url) }
+  try {
+    const q = { type: 'movie', id: 'tt9100003', titles: ['Stub Movie'] }
+    assert.equal((await listSubtitles(q, ['tur'], '')).length, 3)
+    await assert.rejects(fetchSubtitle('https://dl.opensubtitles.org/f1.gz'), { code: 429 })
+    await assert.rejects(fetchSubtitle('https://dl.opensubtitles.org/f2.gz'), { code: 429 })
+    assert.equal(calls.length, 1, 'the second file is not even requested')
+    const after = await listSubtitles(q, ['tur'], '')
+    assert.equal(after.length, 3, 'still listed')
+    assert.deepEqual(after.filter(s => s.limited).length, 2, 'the quota-hit host\'s files are flagged')
+  } finally { globalThis.fetch = inner; restore(); resetQuota(); timing.quickMs = 3500 }
+})
+
+test('subtitles: several files in one language stay in rank order, not label order', async () => {
+  const real = globalThis.fetch
+  globalThis.fetch = async url => {
+    const host = new URL(url).hostname
+    if (host === 'opensubtitles-v3.strem.io') return json({ subtitles: Array.from({ length: 12 }, (_, i) => ({ lang: 'tur', url: `https://subs5.strem.io/${i}`, movieReleaseName: `Stub.Movie.2001.${i}`, g: String(100 - i) })) })
+    return new Response('nothing', { status: 404 })
+  }
+  try {
+    const list = await listSubtitles({ type: 'movie', id: 'tt9100004', titles: ['Stub Movie'] }, ['tur'], '')
+    assert.deepEqual(list.slice(0, 3).map(s => s.label), ['Turkish', 'Turkish #2', 'Turkish #3'])
+  } finally { globalThis.fetch = real }
 })

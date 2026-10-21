@@ -583,6 +583,7 @@ html.lock, html.lock body { overflow: hidden; }
 .ep-menu .ep .n { font-size: var(--fd-m); }
 .pl-menu .hint { display: block; max-width: 13rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); margin-top: .1rem; }
 .pl-menu button > span:first-child { flex: 1 1 auto; min-width: 0; }
+.pl-menu .tail { display: inline-flex; align-items: center; gap: .5rem; flex: none; }
 
 /* Dropdowns and the profile menu share the player menu's look */
 button.avatar { border: 0; padding: 0; cursor: pointer; transition: box-shadow .2s, transform .2s var(--ease); }
