@@ -6,6 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { EventEmitter } from 'node:events'
+import { log } from './log.js'
 
 const scrypt = promisify(crypto.scrypt)
 const EXT = 'dodobox_party'
@@ -102,16 +103,17 @@ export class Party extends EventEmitter {
       infoHash = k.infoHash; this.key = k.key
       ;({ default: WebTorrent } = await import('webtorrent'))
       if (this.gen !== gen) throw Object.assign(new Error('Left the party'), { code: 409 })
-    } catch (e) { if (this.gen === gen) this.reset(); throw e }
+    } catch (e) { log.warn('party', 'join failed', { err: e }); if (this.gen === gen) this.reset(); throw e }
     this.locked = !!pass
+    log.info('party', 'joining', { self: this.self.id, password: this.locked, name: name })
     this.self.name = String(name).slice(0, 24); this.self.color = color(tint)
     this.state = state
     this.client = new WebTorrent({ dht: this.options.dht ?? true, lsd: false, utp: false })
-    this.client.on('error', e => console.error('[party]', e.message))
+    this.client.on('error', e => log.error('party', 'client error', { err: e }))
     const trackers = this.options.trackers ?? TRACKERS
     this.torrent = this.client.add(`magnet:?xt=urn:btih:${infoHash}&dn=party${trackers.map(t => '&tr=' + encodeURIComponent(t)).join('')}`, { path: path.join(os.tmpdir(), 'dodobox-party') })
-    this.torrent.on('error', e => console.error('[party]', e.message))
-    this.torrent.on('warning', () => {})
+    this.torrent.on('error', e => log.error('party', 'torrent error', { err: e }))
+    this.torrent.on('warning', e => log.debug('party', 'torrent warning', { err: e }))
     const party = this
     this.torrent.on('wire', wire => {
       class Channel {
@@ -121,7 +123,8 @@ export class Party extends EventEmitter {
       }
       Channel.prototype.name = EXT
       wire.use(Channel)
-      wire.once('close', () => party.wires.delete(wire))
+      log.debug('party', 'peer connected', { addr: wire.remoteAddress, peers: party.torrent?.numPeers })
+      wire.once('close', () => { party.wires.delete(wire); log.debug('party', 'peer closed', { addr: wire.remoteAddress, direct: party.wires.size }) })
     })
     const addPeers = () => { for (const p of this.options.peers || []) this.torrent.addPeer(p) }
     if (this.torrent.infoHash) addPeers(); else this.torrent.once('infoHash', addPeers)
@@ -134,6 +137,7 @@ export class Party extends EventEmitter {
 
   leave () {
     if (this.phase === 'idle') return
+    log.info('party', 'leaving', { members: this.members.size })
     try { this.say('by') } catch {}
     const client = this.client
     this.reset()
@@ -155,18 +159,19 @@ export class Party extends EventEmitter {
 
   receive (buf, from) {
     const m = open(this.key, buf)
+    if (!m) log.debug('party', 'message could not be opened (wrong key or corrupted)', { bytes: buf.length })
     if (!m || typeof m.f !== 'string' || !Number.isInteger(m.q) || typeof m.k !== 'string' || m.f === this.self.id) return
     const id = `${m.f}:${m.q}`
     if (this.seen.has(id) || Math.abs(Date.now() - (+m.ts || 0)) > LIMITS.skew) return
     this.seen.add(id)
     if (this.seen.size > LIMITS.seen) this.seen.delete(this.seen.values().next().value)
     const known = this.members.has(m.f)
-    if (!known && this.members.size >= LIMITS.members) return
+    if (!known && this.members.size >= LIMITS.members) { log.warn('party', 'full, member refused', { from: m.f, limit: LIMITS.members }); return }
     const who = this.members.get(m.f) || { id: m.f, name: '', color: '' }
     // One member cannot flood the others: each sender has a small budget that refills over time.
     const t = Date.now()
     who.tokens = Math.min(LIMITS.burst, (who.tokens ?? LIMITS.burst) + (t - (who.last ?? t)) / 1000 * LIMITS.rate); who.last = t
-    if (who.tokens < 1) return
+    if (who.tokens < 1) { log.warn('party', 'member over the message budget, dropped', { from: m.f, k: m.k }); return }
     who.tokens--
     // Members that cannot reach each other directly are bridged by whoever can reach both.
     this.fan(buf, [...this.wires].filter(w => w !== from))
@@ -174,9 +179,10 @@ export class Party extends EventEmitter {
     const first = m.k === 'hi' && !who.named
     if (m.k === 'hi') { who.name = str(m.name, 24) || 'Guest'; who.color = color(m.color); who.named = true }
     this.members.set(m.f, who)
+    if (first) log.info('party', 'member joined', { id: m.f, name: who.name, members: this.members.size })
     if (first) this.note(`join:${m.f}:${m.q}`, who, `${who.name} joined the party`)
     if (!known) { this.say('hi'); const now = this.status().now; if (now) this.say('st', now) }
-    if (this.phase === 'connecting' && this.members.size > 1) this.phase = 'live'
+    if (this.phase === 'connecting' && this.members.size > 1) { this.phase = 'live'; log.info('party', 'live', { members: this.members.size }) }
     this.act(m, who)
     if (!known || m.k === 'hi') this.changed()
   }
@@ -187,7 +193,7 @@ export class Party extends EventEmitter {
     const pos = secs(m.pos)
     if (m.k === 'ch') { const text = str(m.text, LIMITS.text).trim(); if (text) this.hear({ id: `${m.f}:${m.q}`, from: { id: who.id, name: who.name, color: who.color }, text, at: Date.now() }); return }
     if (m.k === 'rx') { this.react(m.to, who.id, m.e); return }
-    if (m.k === 'by') { this.members.delete(m.f); this.changed(); this.emit('event', { type: 'left', from }); this.note(`by:${m.f}:${m.q}`, who, `${who.name || 'Guest'} left the party`); return }
+    if (m.k === 'by') { log.info('party', 'member left', { id: m.f }); this.members.delete(m.f); this.changed(); this.emit('event', { type: 'left', from }); this.note(`by:${m.f}:${m.q}`, who, `${who.name || 'Guest'} left the party`); return }
     if (m.k === 'st' && item) { this.state = { item, source, pos: pos ?? 0, paused: !!m.paused, at: Date.now() }; this.emit('event', { type: 'state', from, ...this.state }) }
     if (m.k === 'ld' && item) {
       this.note(`${m.f}:${m.q}`, who, `${who.name} is watching ${item.title}${item.season != null ? ` S${item.season} E${item.episode}` : ''}`.trim())
@@ -255,7 +261,7 @@ export class Party extends EventEmitter {
 
   prune () {
     let any = false
-    for (const [id, m] of this.members) if (id !== this.self.id && Date.now() - m.at > LIMITS.ttl) { this.members.delete(id); any = true; this.note(`gone:${id}:${Date.now()}`, m, `${m.name || 'Guest'} left the party`) }
+    for (const [id, m] of this.members) if (id !== this.self.id && Date.now() - m.at > LIMITS.ttl) { log.info('party', 'member timed out', { id }); this.members.delete(id); any = true; this.note(`gone:${id}:${Date.now()}`, m, `${m.name || 'Guest'} left the party`) }
     if (any) this.changed()
   }
 

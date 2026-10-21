@@ -7,6 +7,7 @@ import { Worker } from 'node:worker_threads'
 import { DATA } from './paths.js'
 import { fetchRetry } from './http.js'
 import * as hq from './translate-hq.js'
+import { log } from './log.js'
 
 const REGISTRY = 'https://firefox.settings.services.mozilla.com/v1/buckets/main/collections/translations-models/records'
 const FILES = 'https://firefox-settings-attachments.cdn.mozilla.net/'
@@ -25,6 +26,7 @@ async function registry () {
     fs.mkdirSync(DIR, { recursive: true }); fs.writeFileSync(file, JSON.stringify(data))
     reg = { at: Date.now(), data }
   } catch (e) {
+    log.warn('translate', 'model registry unavailable', { err: e })
     // Offline: the list saved last time still says which models exist.
     try { reg = { at: Date.now() - 11 * 3600e3, data: JSON.parse(fs.readFileSync(file, 'utf8')) } } catch { throw e }
   }
@@ -249,12 +251,14 @@ export function translateSubtitle (vtt, code, report, signal) {
     const mine = j
     mine.done = chain = chain.catch(() => {}).then(async () => {
       if (mine.stop) throw cancelled()
+      const t0 = Date.now()
       const t = await translateVtt(vtt, code, report, mine)
+      log.info('translate', 'subtitle translated', { code, ms: Date.now() - t0, chars: t.length })
       fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, t)
       cache.set(key, t); if (cache.size > 40) cache.delete(cache.keys().next().value)
       return t
     })
-    mine.done.then(() => {}, () => {}).then(() => { if (running.get(key) === mine) running.delete(key) })
+    mine.done.then(() => {}, e => { if (!e.cancelled) log.warn('translate', 'subtitle translation failed', { code, err: e }) }).then(() => { if (running.get(key) === mine) running.delete(key) })
     running.set(key, mine)
   }
   const mine = j
@@ -305,7 +309,7 @@ async function run (j) {
         try {
           const out = clean(j.a.texts[i], await hq.line(k, j.code, prep(j.a.texts[i])))
           j.lines[i] = sane(j.a.texts[i], out) ? out : null
-        } catch { j.lines[i] = null }
+        } catch (e) { log.debug('translate', 'better translation failed for a line', { i, err: e }); j.lines[i] = null }
         j.finished++
       }
     }))

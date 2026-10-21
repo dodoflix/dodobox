@@ -83,3 +83,4 @@ To change a stored shape: add the next numbered file and list it, write a test w
 ## Tests
 
 `npm test` runs unit tests, an offline end-to-end test (local seeder, download, probe, HLS, subtitles; needs `ffmpeg` on the path), library, profile API, HTTP client, sync and translation tests, and static checks of the frontend. `npm run lint` runs ESLint.
+- **Logging:** `src/log.js` is imported first by `server.js`. `log.debug|info|warn|error(tag, message, fields)` and any `console.*` go to `data/logs/dodobox.log` (rotated at 8 MB); info and above also print. The page reports its errors, player events and failed requests to `POST /api/log` (`public/js/report.js`). Request bodies are logged field by field with `pin`, `current`, `password`, `code`, `token` and `text` masked. A failure that is handled by carrying on still logs at debug (`swallow` in `server.js`), so no `catch {}` hides what went wrong.

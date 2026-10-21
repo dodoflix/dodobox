@@ -40,6 +40,8 @@ async function boot () {
     return
   }
   const { lanAddresses } = await import('../src/net.js')
+  const { LOG_FILE, log } = await import('../src/log.js')
+  app.on('child-process-gone', (_e, d) => log.error('desktop', 'child process gone', { type: d.type, reason: d.reason, code: d.exitCode }))
 
   try {
     server = await start()
@@ -61,6 +63,7 @@ async function boot () {
     ...(canAutoStart ? [{ label: 'Start when I sign in', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin, click: item => app.setLoginItemSettings({ openAtLogin: item.checked, args: ['--hidden'] }) }] : []),
     { label: 'Check for updates', click: () => updateCheck(true) },
     { label: 'Show data folder', click: () => shell.openPath(process.env.DATA_DIR) },
+    { label: 'Show log file', click: () => shell.showItemInFolder(LOG_FILE) },
     { type: 'separator' },
     { label: 'Quit', click: () => app.quit() }
   ])
@@ -79,15 +82,17 @@ async function boot () {
   if (selfUpdates) {
     const { autoUpdater } = updater
     autoUpdater.autoDownload = false
+    autoUpdater.logger = { info: m => log.info('updater', String(m)), warn: m => log.warn('updater', String(m)), error: m => log.error('updater', String(m)), debug: m => log.debug('updater', String(m)) }
     updates.useDriver({
       self: true,
       download: () => autoUpdater.downloadUpdate(),
       install: () => autoUpdater.quitAndInstall(),
       check: () => autoUpdater.checkForUpdates().catch(() => {})
     })
-    autoUpdater.on('error', e => { console.error('[update]', e.message); updates.set({ phase: 'error', error: String(e.message).split('\n')[0].slice(0, 160) }) })
+    autoUpdater.on('error', e => { log.error('updater', 'error', { err: e }); updates.set({ phase: 'error', error: String(e.message).split('\n')[0].slice(0, 160) }) })
     autoUpdater.on('download-progress', p => { updates.set({ progress: Math.round(p.percent) }); tray.setToolTip(`Downloading the update... ${Math.round(p.percent)}%`) })
     autoUpdater.on('update-available', async info => {
+      log.info('updater', 'update available', { version: info.version, current: app.getVersion() })
       updates.set({ version: info.version, url: `https://github.com/dodoflix/dodobox/releases/tag/v${info.version}`, phase: 'available', error: null })
       if (asked === info.version) return
       asked = info.version
@@ -100,6 +105,7 @@ async function boot () {
       updates.download().catch(e => dialog.showErrorBox('Update failed', e.message)).finally(idle)
     })
     autoUpdater.on('update-downloaded', async () => {
+      log.info('updater', 'update downloaded')
       updates.set({ phase: 'ready', progress: 100 })
       idle()
       const { response } = await dialog.showMessageBox({ type: 'info', title: 'Dodobox update', message: 'The update is ready', detail: 'Restart Dodobox to finish.', buttons: ['Restart now', 'Later'], defaultId: 0, cancelId: 1 })
@@ -132,12 +138,13 @@ async function boot () {
   app.on('before-quit', e => {
     if (quitting) return
     quitting = true
+    log.info('desktop', 'quitting')
     e.preventDefault()
     Promise.race([stop(), new Promise(resolve => setTimeout(resolve, 5000))]).finally(() => app.exit(0))
   })
 
-  console.log(`Dodobox desktop: ${url} (data in ${process.env.DATA_DIR})`)
+  log.info('desktop', 'ready', { url, version: app.getVersion(), packaged: app.isPackaged, selfUpdates, portable: !!process.env.PORTABLE_EXECUTABLE_DIR, hidden: hidden(process.argv), autoStart: canAutoStart ? app.getLoginItemSettings().openAtLogin : undefined, data: process.env.DATA_DIR })
   if (!hidden(process.argv) && !app.getLoginItemSettings().wasOpenedAtLogin) openUi()
 }
 
-boot().catch(e => { dialog.showErrorBox('Dodobox could not start', String(e?.message || e)); app.exit(1) })
+boot().catch(e => { console.error('[desktop]', e?.stack || e); dialog.showErrorBox('Dodobox could not start', String(e?.message || e)); app.exit(1) })

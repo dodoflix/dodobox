@@ -1,3 +1,4 @@
+import { log } from './log.js'
 // Internet speed of the machine running Dodobox. Source ranking uses it so a slow line is not handed a 60 GB remux.
 const probe = { down: 0, at: 0 }
 let peak = 0
@@ -15,8 +16,8 @@ export async function measure () {
       else bytes += value.length
     }
     const secs = (performance.now() - t0) / 1000
-    if (secs > 0.2 && bytes > 1e6) { probe.down = bytes * 8 / secs / 1e6; probe.at = Date.now() }
-  } catch {}
+    if (secs > 0.2 && bytes > 1e6) { probe.down = bytes * 8 / secs / 1e6; probe.at = Date.now(); log.info('speed', 'internet speed measured', { downMbps: Math.round(probe.down) }) }
+  } catch (e) { log.warn('speed', 'speed test failed', { err: e }) }
 }
 
 // Torrent throughput seen in practice also counts: it can exceed a short HTTP test.

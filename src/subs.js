@@ -6,6 +6,7 @@ import crypto from 'node:crypto'
 import { DATA } from './paths.js'
 import { fetchRetry, once } from './http.js'
 import { yifyList, unzipFirst, yifyHeaders } from './yify.js'
+import { log } from './log.js'
 
 const LEGACY = { tur: 'windows-1254', ara: 'windows-1256', per: 'windows-1256', rus: 'windows-1251', ukr: 'windows-1251', bul: 'windows-1251', srp: 'windows-1251', ell: 'windows-1253', heb: 'windows-1255', pol: 'windows-1250', cze: 'windows-1250', hun: 'windows-1250', rum: 'windows-1250', hrv: 'windows-1250', slv: 'windows-1250', tha: 'windows-874', vie: 'windows-1258' }
 
@@ -77,7 +78,7 @@ async function restOne ({ type, id, season, episode, titles, imdb }, code) {
   for (const p of paths) {
     const r = await fetchRetry(`${REST}/${p}`, { headers: { 'X-User-Agent': 'TemporaryUserAgent' }, timeout: 6000, tries: 2 }).catch(() => null)
     // Two failures in a row mean the service is down or throttling: more paths would only take longer to fail.
-    if (!r) { if (++failed >= 2) break; continue }
+    if (!r) { log.debug('subs', 'opensubtitles path failed', { path: p }); if (++failed >= 2) { log.warn('subs', 'opensubtitles failing twice in a row, giving up', { lang }); break } continue }
     failed = 0
     const list = await r.json().catch(() => null)
     for (const s of Array.isArray(list) ? list : []) {

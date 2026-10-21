@@ -6,7 +6,7 @@ Start the server and open its address (the start scripts open it for you; with `
 
 ## Desktop app
 
-Each [release](https://github.com/dodoflix/dodobox/releases) has installers for Windows (setup and portable), macOS (Apple silicon and Intel, `.dmg`) and Linux x64 (`AppImage`, `.deb`). The app is just the server: it sits in the system tray and has no window of its own. Click the tray icon to open Dodobox in your browser. The tray menu also copies the address for phones and TVs, turns on "Start when I sign in" (Windows and macOS), shows the data folder and quits. Data lives in the app's folder for your user.
+Each [release](https://github.com/dodoflix/dodobox/releases) has installers for Windows (setup and portable), macOS (Apple silicon and Intel, `.dmg`) and Linux x64 (`AppImage`, `.deb`). The app is just the server: it sits in the system tray and has no window of its own. Click the tray icon to open Dodobox in your browser. The tray menu also copies the address for phones and TVs, turns on "Start when I sign in" (Windows and macOS), shows the data folder, shows the log file and quits. Data lives in the app's folder for your user.
 
 The installers are not signed yet, so the system warns on first run:
 
@@ -122,3 +122,9 @@ Everything else (storage limit, subtitle language, quality, download size) is in
 - **"Nothing is available"**: no sources have seeders for it right now.
 - **Phone cannot reach the address**: both devices must be on the same Wi-Fi; guest networks often isolate devices. Allow Node through the firewall.
 - Metadata, torrent search and subtitles come from third-party services. If one is blocked on your network its results are missing.
+
+## Logs
+
+The server writes a log to `data/logs/dodobox.log` (up to 8 MB, then it moves to `dodobox.log.old`). It records requests, torrent and ffmpeg activity, searches, subtitles, watch parties, updates, startup settings, and errors from the player page, with timestamps. PINs, party codes and chat text are never written, but titles and addresses are, so skim it before sending. In the desktop app, tray menu, **Show log file** opens its folder; send that file when reporting a problem.
+
+`LOG_LEVEL=info` (or `warn`, `error`) keeps the file smaller; the default is `debug`.

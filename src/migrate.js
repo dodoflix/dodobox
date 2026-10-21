@@ -44,7 +44,7 @@ export function migrate (dir, migrations = MIGRATIONS) {
   const current = migrations.length
   fs.mkdirSync(dir, { recursive: true })
   let version = 0
-  const fresh = fs.readdirSync(dir).length === 0
+  const fresh = fs.readdirSync(dir).every(f => f === 'logs') // the log is written before the first migration runs
   try { version = +JSON.parse(fs.readFileSync(path.join(dir, FILE), 'utf8')).version || 0 } catch { if (fresh) version = current }
   if (version > current) {
     throw Object.assign(new Error(`This data folder (${dir}) was made by a newer Dodobox: it is at data version ${version}, this Dodobox understands up to ${current}. Update Dodobox, or restore an older copy of the folder.`), { code: 'NEWER_DATA' })

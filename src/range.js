@@ -1,3 +1,5 @@
+import { log } from './log.js'
+
 export function sendRange (req, res, { length, type, stream }) {
   const m = /bytes=(\d*)-(\d*)/.exec(req.headers.range || '')
   let start = 0; let end = length - 1
@@ -12,7 +14,7 @@ export function sendRange (req, res, { length, type, stream }) {
     ...(m && { 'content-range': `bytes ${start}-${end}/${length}` })
   })
   const s = stream(start, end)
-  s.on('error', () => res.destroy())
+  s.on('error', e => { log.debug('range', 'read failed', { start, end, err: e }); res.destroy() })
   res.on('close', () => s.destroy())
   s.pipe(res)
 }

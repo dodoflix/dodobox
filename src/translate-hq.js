@@ -4,6 +4,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { fork, spawn } from 'node:child_process'
 import { DATA } from './paths.js'
+import { log } from './log.js'
 
 const DIR = path.join(DATA, 'translate', 'hq')
 const WORKER = new URL('./translate-hq-worker.js', import.meta.url).pathname
@@ -55,7 +56,7 @@ export function ensure (retry) {
   if (retry) progress.failedAt = 0
   if (installed() || installing || Date.now() - progress.failedAt < 2 * 60e3) return
   progress.pct = 0
-  installing = install().catch(e => { progress.failedAt = Date.now(); console.error('[translate-hq] install failed:', e.message) }).finally(() => { installing = null })
+  installing = install().catch(e => { progress.failedAt = Date.now(); log.error('translate-hq', 'install failed', { err: e }) }).finally(() => { installing = null })
 }
 export function status () {
   if (installed()) return { state: 'ready', device: device() }

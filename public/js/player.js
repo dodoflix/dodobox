@@ -1,4 +1,5 @@
 import { api, cget, getProfile } from './api.js'
+import { report } from './report.js'
 import { S, progress, recordProgress } from './session.js'
 import { nowPlaying, pingPresence } from './presence.js'
 import { mapTime, offsetAt, classify } from './syncmap.js'
@@ -90,6 +91,7 @@ export async function watch (type, id, season, episode) {
 
   const root = $('.pl', layer); const v = $('video', root)
   const subsEl = $('.pl-subs', root); const menu = $('#menu', root)
+  const openedAt = Date.now()
   let dead = false; let hash; let st; let info; let mode = 'direct'; let hls
   let marks = {}; let skipTo = null // intro, recap and ending of the episode, and where the skip button leads
   const titleKey = `title:${getProfile()}:${type}:${id}`
@@ -131,7 +133,7 @@ export async function watch (type, id, season, episode) {
   }
   const hideLoad = () => { $('#load', root).hidden = true }
   const showSlowLink = () => { if (!$('#another', root) && !$('#retry', root)) $('#l-act', root).innerHTML = '<button class="slow-link" id="another">Try another version</button>' }
-  const fail = (title, line) => setLoad({ title, line, actions: '<button class="btn btn-ink" id="retry" data-autofocus>Try again</button><a class="btn btn-ghost" href="#/title/' + type + '/' + enc(id) + '">Go back</a>' })
+  const fail = (title, line) => { report('error', `player: ${title}`, { line, title: id, type }); return setLoad({ title, line, actions: '<button class="btn btn-ink" id="retry" data-autofocus>Try again</button><a class="btn btn-ghost" href="#/title/' + type + '/' + enc(id) + '">Go back</a>' }) }
 
   const fx = (side, text) => { const el = $(`.pl-fx.${side}`, root); el.textContent = text; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go') }
   const seekBy = d => { if (!v.duration) return; v.currentTime = Math.max(0, Math.min(v.duration - 0.5, v.currentTime + d)); fx(d > 0 ? 'r' : 'l', (d > 0 ? '+' : '') + d + 's'); wake() }
@@ -153,6 +155,13 @@ export async function watch (type, id, season, episode) {
     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = p ? 'paused' : 'playing'
   }
   v.addEventListener('play', () => { sync(); pingPresence() }); v.addEventListener('pause', () => { sync(); save(); wake(); pingPresence() }); v.addEventListener('seeked', pingPresence)
+  let waitedAt = 0; let started = false
+  v.addEventListener('waiting', () => { waitedAt ||= Date.now() })
+  v.addEventListener('playing', () => {
+    report('info', waitedAt ? 'player: playback resumed' : 'player: playing', { hash, mode, engine: mode === 'hls' ? engines[engineAt] : undefined, t: Math.round(v.currentTime), bufferedMs: waitedAt ? Date.now() - waitedAt : undefined, sinceStartMs: started ? undefined : Date.now() - openedAt, w: v.videoWidth, h: v.videoHeight, dropped: v.getVideoPlaybackQuality?.().droppedVideoFrames })
+    waitedAt = 0; started = true
+  })
+  v.addEventListener('ended', () => report('info', 'player: ended', { hash }))
   v.addEventListener('playing', () => { clearTimeout(wd); clearTimeout(slowT); $('#slow', root).hidden = true; hideLoad(); $('.pl-spin', root).hidden = true; sync(); wake(); wakeLock() })
   let spinT
   let slowT
@@ -671,6 +680,7 @@ export async function watch (type, id, season, episode) {
         hls = new Hls({ maxBufferLength: 40, backBufferLength: 30, manifestLoadingMaxRetry: 3, fragLoadingMaxRetry: 5, levelLoadingMaxRetry: 3 })
         let netTries = 0
         hls.on(Hls.Events.ERROR, (_, d) => {
+          report(d.fatal ? 'error' : 'warn', `hls.js ${d.type}: ${d.details}`, { fatal: d.fatal, status: d.response?.code, url: d.frag?.relurl || d.url, hash, t: Math.round(v.currentTime) })
           if (!d.fatal) return
           if (d.type === Hls.ErrorTypes.NETWORK_ERROR && netTries++ < 4) hls.startLoad()
           else if (d.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError()
@@ -692,11 +702,13 @@ export async function watch (type, id, season, episode) {
     clearTimeout(wd)
     wd = setTimeout(() => {
       if (dead || !info || $('#load', root).hidden || $('#retry', root)) return
+      report('warn', `nothing playing ${ms / 1000}s after attaching`, { mode, engine: engines[engineAt], hash, ready: v.readyState, net: v.networkState })
       if (mode === 'direct') { mode = 'hls'; startAt = Math.max(startAt, v.currentTime); attach(); return }
       showSlowLink()
     }, ms)
   }
   v.addEventListener('error', () => {
+    report('error', `video element error: ${v.error?.message || v.error?.code}`, { code: v.error?.code, mode, engine: engines[engineAt], src: v.currentSrc.replace(location.origin, ''), t: Math.round(v.currentTime), vcodec: info?.vcodec, acodec: info?.acodec })
     if (dead || !info) return
     if (mode === 'direct') { mode = 'hls'; startAt = v.currentTime; toast('Switching to a compatible stream...'); attach() } else if (!hls) { if (nextEngine()) { startAt = v.currentTime; attach() } else fail('Can\'t play this one', 'The video could not be decoded on this device.') }
   })
@@ -737,6 +749,7 @@ export async function watch (type, id, season, episode) {
       hls?.destroy(); v.removeAttribute('src'); v.load(); info = null; subSel = null; subs = []; marks = {}; paintSkip()
       setLoad({ title: m.name, line: 'Finding the best version...', pct: null, actions: '' })
       const began = Date.now()
+      report('info', 'player: opening', { type, id, season, episode, quality, forced, display: displayPx() })
       for (let attempt = 0; attempt < 5 && !dead; attempt++) {
         st = await api('/api/play', { method: 'POST', body: { type, id, season, episode, infoHash: forced, exclude: [...tried], prefer: quality, display: displayPx() } })
         hash = st.hash; forced = undefined
@@ -747,6 +760,7 @@ export async function watch (type, id, season, episode) {
         } catch (e) {
           if (e.abort) return
           if (!e.stall) throw e
+          report('warn', 'player: version given up', { hash, attempt, why: e.message, phase: st?.phase, peers: st?.peers, speedKBs: st && Math.round(st.speed / 1e3) })
           tried.add(hash); info = null
           setLoad({ line: 'That version is slow. Trying another...', pct: null, actions: '' })
           // Versions nobody is sharing take a while to give up on one by one: after 90 s the title is called unavailable.
@@ -755,6 +769,7 @@ export async function watch (type, id, season, episode) {
       }
       if (dead || !info) return
       audio = pickAudio(); chooseMode()
+      report('info', 'player: version ready', { hash, ms: Date.now() - began, mode, direct: info.direct, vcodec: info.vcodec, acodec: info.acodec, w: info.width, h: info.height, durationSec: Math.round(info.duration), audioTracks: info.audio?.length, subTracks: info.subs?.length, peers: st.peers, speedKBs: Math.round(st.speed / 1e3) })
       $('#m-audio', root).hidden = !(info.audio?.length > 1)
       setLoad({ line: 'Getting ready...', pct: null })
       attach()
@@ -772,6 +787,7 @@ export async function watch (type, id, season, episode) {
     if (st.downloaded !== seen) { seen = st.downloaded; stuck = 0; return } // still arriving: just slow
     if ((stuck += 2.5) < 40) return
     stuck = 0
+    report('warn', 'player: stuck buffering, recovering', { hash, t: Math.round(v.currentTime), phase: st.phase, peers: st.peers, downloaded: st.downloaded, reattached })
     startAt = v.currentTime
     if (st.phase === 'done' && !reattached) { reattached = true; attach(); return }
     tried.add(hash); start()

@@ -2,6 +2,7 @@
 // Per marker the first source that has one wins: the file's own chapters (exact for this file), then the community
 // databases, AniSkip (anime, by MAL id) and IntroDB (series, by IMDb id), which record times against one release.
 import { getJSON } from './http.js'
+import { log } from './log.js'
 
 const KINDS = ['intro', 'recap', 'outro']
 const TTL = 6 * 3600e3
@@ -60,7 +61,7 @@ async function introdb (imdb, season, episode) {
   return out
 }
 
-const ask = (fn, ...a) => fn(...a).catch(() => ({}))
+const ask = (fn, ...a) => fn(...a).catch(e => { log.debug('skips', 'lookup failed', { source: fn.name, err: e }); return {} })
 
 // item: { type, id, season, episode, mal }; chapters and duration come from the probe of the file in hand.
 export async function skipsFor (item, { chapters = [], duration = 0 } = {}) {

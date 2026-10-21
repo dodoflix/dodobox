@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import http from 'node:http'
+import { log } from './src/log.js'
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import zlib from 'node:zlib'
+import { monitorEventLoopDelay } from 'node:perf_hooks'
 import qr from 'qrcode-generator'
 import { Bonjour } from 'bonjour-service'
 import { fileURLToPath } from 'node:url'
@@ -23,7 +25,7 @@ import * as state from './src/state.js'
 import { report as presence } from './src/presence.js'
 import { image, remote } from './src/images.js'
 import { lanAddresses, openBrowser } from './src/net.js'
-import { encoder } from './src/bin.js'
+import { encoder, FFMPEG } from './src/bin.js'
 import * as speed from './src/speed.js'
 import { localizeItems, localizeMeta } from './src/locale.js'
 import { syncInWorker, parseCues, shiftVtt } from './src/sync.js'
@@ -33,7 +35,7 @@ import { once } from './src/http.js'
 import { langOfName } from './src/sidecar.js'
 import { DATA } from './src/paths.js'
 import * as updates from './src/update.js'
-import { probe, playlist, segment, warm, cancel, embeddedSub, anyToVtt, SEG } from './src/transcode.js'
+import { probe, playlist, segment, warm, cancel, embeddedSub, anyToVtt, encodes, SEG } from './src/transcode.js'
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url))
 const PUBLIC = path.join(ROOT, 'public')
@@ -61,7 +63,17 @@ const body = req => new Promise((resolve, reject) => {
   req.on('end', () => resolve(Buffer.concat(chunks)))
   req.on('error', reject)
 })
-const jbody = async req => { try { return JSON.parse(await body(req)) } catch { throw Object.assign(new Error('bad JSON'), { code: 400 }) } }
+// For a failure that is handled by carrying on: it still goes to the log.
+const swallow = (what, fallback) => e => { log.debug('server', `${what} failed`, { err: e }); return fallback }
+const SECRET_FIELD = /^(pin|current|password|code|token|text)$/i
+const clip = (v, n = 200) => (typeof v === 'string' && v.length > n ? v.slice(0, n) + '...' : v)
+const jbody = async req => {
+  try {
+    const b = JSON.parse(await body(req))
+    if (b && typeof b === 'object' && !Array.isArray(b) && req.url !== '/api/log') log.debug('body', `${req.method} ${req.url.split('?')[0]}`, Object.fromEntries(Object.entries(b).slice(0, 25).map(([k, v]) => [k, SECRET_FIELD.test(k) ? '***' : clip(typeof v === 'object' ? JSON.stringify(v) : v)])))
+    return b
+  } catch (e) { log.debug('body', 'bad JSON', { url: req.url.split('?')[0], err: e }); throw Object.assign(new Error('bad JSON'), { code: 400 }) }
+}
 
 let port
 const rawUrl = (hash, idx) => `http://127.0.0.1:${port}/raw/${hash}/${idx}`
@@ -79,7 +91,7 @@ async function repairNames (id) {
   const seen = new Map()
   for (const it of [...p.list, ...Object.values(p.recent)]) seen.set(`${it.type}:${it.id}`, it)
   for (const it of seen.values()) {
-    try { const m = await meta(it.type, it.id); if (m.name && m.name !== it.name) state.renameTitle(id, it.type, it.id, m.name) } catch {}
+    try { const m = await meta(it.type, it.id); if (m.name && m.name !== it.name) state.renameTitle(id, it.type, it.id, m.name) } catch (e) { log.debug('server', 'title name repair failed', { type: it.type, id: it.id, err: e }) }
   }
   state.markNamesFixed(id)
 }
@@ -115,6 +127,7 @@ const sublangOf = req => state.profile(pid(req))?.settings.sublang
 const wrong = new Set() // ponytail: forgotten on restart, which costs one more wrong download; persist if that bites
 const notAired = date => !!date && new Date(date) > new Date()
 async function play (b) {
+  log.info('play', 'request', { type: b.type, id: b.id, season: b.season, episode: b.episode, hash: b.infoHash, pin: b.pin, mode: b.mode, exclude: (b.exclude || []).length })
   const m = await meta(b.type, b.id)
   const flat = b.type === 'movie' || m.movie
   const item = { type: b.type, id: b.id, title: m.name, altTitles: m.altTitles, year: m.year, movie: m.movie, runtimeMin: runtimeOf(m), adult: isAdult(m, b.safe), season: flat ? null : +b.season, episode: flat ? null : +b.episode }
@@ -122,12 +135,14 @@ async function play (b) {
   for (const h of exclude) { const x = engine.status(h, true); if (x && x.phase !== 'done' && !x.pinned) await engine.remove(h) }
   if (!b.infoHash) {
     const loc = local.find(item)
-    if (loc) return local.status(loc.id)
+    if (loc) { log.info('play', 'local file', { id: loc.id, name: loc.name }); return local.status(loc.id) }
     const ctx0 = { type: item.type, id: item.id, season: item.season, episode: item.episode }
     let have = engine.findEntry(ctx0)
     // An earlier search could pick another show's release for an anime episode ("One Piece Log" for "One Piece"); such a download is dropped.
     if (have && item.type === 'anime' && titleVerdict(engine.status(have.hash, true, have.file)?.name || '', [item.title, ...(item.altTitles || [])]) === 'other') { await engine.remove(have.hash, have.file); have = null }
-    if (have && !exclude.includes(have.hash)) { if (b.pin) engine.pin(have.hash); return engine.status(have.hash, false, have.file) }
+    if (have && !exclude.includes(have.hash)) {
+      log.info('play', 'reusing download', { hash: have.hash, file: have.file })
+      if (b.pin) engine.pin(have.hash); return engine.status(have.hash, false, have.file) }
   }
   // Cancelled, unreleased, or an episode that has not aired: say so instead of searching for something that does not exist.
   const aired = flat ? null : m.videos?.find(v => v.season === item.season && v.episode === item.episode)
@@ -135,9 +150,10 @@ async function play (b) {
   const list = (await findSources(item, ctxOf(b))).filter(s => !exclude.includes(s.infoHash) && !wrong.has(`${b.type}:${b.id}:${s.infoHash}`))
   // A version this server did not find itself (a watch party member can name any) is never fetched; the best listed one plays instead.
   const first = (b.infoHash && list.find(s => s.infoHash === b.infoHash)) || list[0]
+  log.info('play', 'sources', { title: m.name, found: list.length, first: first && { hash: first.infoHash, name: first.title, seeders: first.seeders, size: first.size }, asked: b.infoHash })
   if (!first) throw Object.assign(new Error('Nothing playable found for this title right now'), { code: 404 })
   // A download that failed earlier (no playable file, bad torrent) is dropped so the version gets a fresh try instead of failing again at once.
-  for (const r of [first, ...list.slice(0, 3)]) if (engine.status(r.infoHash, true)?.phase === 'error') await engine.remove(r.infoHash).catch(() => {})
+  for (const r of [first, ...list.slice(0, 3)]) if (engine.status(r.infoHash, true)?.phase === 'error') await engine.remove(r.infoHash).catch(swallow('dropping a failed download'))
   // A pack may number its files by TVDB season or absolutely; the engine needs those numbers to open the right file.
   const numbers = item.type === 'anime' && !item.movie ? await episodeNumbers(+String(item.id).replace('al:', ''), item.episode) : null
   const start = pick => engine.add({ hash: pick.infoHash, magnet: pick.magnet, ctx: { type: item.type, id: item.id, title: m.name, poster: m.poster, season: item.season, episode: item.episode, release: pick.release, provider: pick.provider, seeders: pick.seeders, ...numbers && { tvdbSeason: numbers.tvdbSeason, tvdbEpisode: numbers.tvdbEpisode, abs: numbers.abs } }, fileIdx: pick.fileIdx, pinned: !!b.pin })
@@ -145,9 +161,10 @@ async function play (b) {
   const rivals = b.infoHash || b.pin ? [first] : list.filter(s => s.seeders > 0 && !s.wrongSeason && score(s, ctxOf(b)) >= score(first, ctxOf(b)) - 45).slice(0, 3)
   const pick = rivals.length > 1 ? await race(rivals, start) : first
   const e = start(pick)
+  log.info('play', 'chosen', { hash: pick.infoHash, name: pick.title, seeders: pick.seeders, raced: rivals.length > 1 ? rivals.length : undefined })
   // The next episode is usually what is watched next: its list is ready by then.
-  if (!flat && !b.infoHash) findSources({ ...item, episode: item.episode + 1 }, ctxOf(b)).catch(() => {})
-  engine.evict(state.settings().maxStorageGB * 1e9).catch(() => {})
+  if (!flat && !b.infoHash) findSources({ ...item, episode: item.episode + 1 }, ctxOf(b)).catch(swallow('looking ahead to the next episode'))
+  engine.evict(state.settings().maxStorageGB * 1e9).catch(swallow('evicting old downloads'))
   return engine.status(e.hash, false)
 }
 
@@ -165,8 +182,9 @@ async function race (rivals, start) {
   }
   const seen = rivals.map(r => ({ r, ...speedOf(r) }))
   for (const x of seen) measured.set(x.r.infoHash, { bps: x.bps, at: Date.now() })
+  log.debug('race', 'result', { ms: Date.now() - t0, rivals: seen.map(x => `${x.r.infoHash.slice(0, 8)}:${Math.round(x.bps / 1e3)}kB/s:${Math.round(x.got / 1e3)}kB`).join(' ') })
   winner ||= seen.sort((a, b) => (b.got + b.bps * 3) - (a.got + a.bps * 3))[0].bps ? seen[0].r : rivals[0]
-  for (const r of rivals) if (r !== winner && engine.status(r.infoHash, true)?.phase !== 'done') await engine.remove(r.infoHash).catch(() => {})
+  for (const r of rivals) if (r !== winner && engine.status(r.infoHash, true)?.phase !== 'done') await engine.remove(r.infoHash).catch(swallow('dropping a losing version'))
   return winner
 }
 
@@ -182,7 +200,7 @@ async function picksFor (id, lang, safe) {
   let failed = false
   for (const r of liked) {
     const g = (r.genres || [])[0]; if (!g) continue
-    const items = await catalog({ type: r.type, genre: g, page: 1, safe }).catch(() => { failed = true; return [] })
+    const items = await catalog({ type: r.type, genre: g, page: 1, safe }).catch(e => { log.debug('server', 'picks catalog failed', { genre: g, err: e }); failed = true; return [] })
     const fresh = items.filter(i => !seen.has(`${i.type}:${i.id}`)).slice(0, 18)
     if (fresh.length < 6) continue
     fresh.forEach(i => seen.add(`${i.type}:${i.id}`))
@@ -226,9 +244,9 @@ async function warmCatalog () {
   for (const type of TYPES) {
     try {
       const popular = await catalog({ type, q: null, genre: null })
-      for (const id of [`top:${type}`, `new:${type}`, `rated:${type}`]) await shelfItems(id, 'en', false).catch(() => {})
-      for (const i of popular.slice(0, 8)) await meta(type, i.id).catch(() => {})
-    } catch {}
+      for (const id of [`top:${type}`, `new:${type}`, `rated:${type}`]) await shelfItems(id, 'en', false).catch(swallow(`warming ${id}`))
+      for (const i of popular.slice(0, 8)) await meta(type, i.id).catch(swallow('warming a title'))
+    } catch (e) { log.warn('server', 'warming the catalog failed', { type, err: e }) }
   }
 }
 async function shelfItems (id, lang, safe) {
@@ -236,7 +254,7 @@ async function shelfItems (id, lang, safe) {
   if (!TYPES.includes(a) || (kind === 'country' && !/^[A-Z]{2}$/.test(b)) || (kind === 'genre' && !/^[\w -]{2,24}$/.test(b || ''))) throw Object.assign(new Error('unknown shelf'), { code: 404 })
   let items = []
   if (kind === 'top') {
-    if (a !== 'anime') items = await chartItems(a).catch(() => [])
+    if (a !== 'anime') items = await chartItems(a).catch(swallow('chart', []))
     if (items.length < 5) items = (await catalog({ type: a, safe })).slice(0, 10)
   } else if (kind === 'country') items = await chartItems(a, b) // a failure is an error, not an empty shelf
   else if (kind === 'new') items = await catalog({ type: a, sort: 'new', safe })
@@ -284,7 +302,9 @@ async function subtitleSync (h, i, src) {
   const fresh = hit && (done ? !hit.partial : !hit.partial || available < hit.available * 1.6)
   if (fresh) return hit.res ? { ...hit.res, partial: hit.partial } : { none: true }
   return once('sync:' + key, () => (syncChain = syncChain.catch(() => {}).then(async () => {
+    const t0 = Date.now()
     const res = await syncInWorker({ url: file, duration: available, cues: await cuesOf(src) })
+    log.info('sync', res ? 'subtitle aligned' : 'no alignment found', { key: `${h}:${i}`, ms: Date.now() - t0, partial: !done, availableSec: Math.round(available), ratio: res?.ratio, anchors: res?.anchors?.length, confidence: res?.confidence })
     syncCache.set(key, { res, partial: !done, available })
     if (syncCache.size > 100) syncCache.delete(syncCache.keys().next().value)
     return res ? { ...res, partial: !done } : { none: true }
@@ -299,7 +319,15 @@ async function subtitleProbe (h, i, src, { at, ratio, expected }) {
   }))))
 }
 let converting = 0
+let clientLogs = 0
+setInterval(() => { clientLogs = 0 }, 60e3).unref()
 const routes = [
+  // Errors from the page (player, scripts) so a report holds both sides. Capped per minute: a loop in the page must not fill the disk.
+  ['POST', /^\/api\/log$/, async (req, res) => {
+    const b = await jbody(req)
+    if (clientLogs++ < 300) log[['error', 'warn', 'info', 'debug'].includes(b.level) ? b.level : 'info']('client', String(b.msg ?? '').slice(0, 500), { ...Object.fromEntries(Object.entries(b.f || {}).slice(0, 12).map(([k, v]) => [k, String(v).slice(0, 400)])), ip: req.socket.remoteAddress?.replace(/^::ffff:/, ''), profile: req.headers['x-profile'] })
+    json(req, res, { ok: true })
+  }],
   ['GET', /^\/api\/health$/, (req, res) => json(req, res, { app: 'dodobox', version: VERSION })],
   ['GET', /^\/api\/server$/, async (req, res) => json(req, res, {
     version: VERSION, port, urls: lanAddresses().map(a => `http://${a}:${port}`), mdns: `http://dodobox.local:${port}`,
@@ -309,7 +337,7 @@ const routes = [
   ['GET', /^\/api\/update$/, (req, res) => json(req, res, updates.view(VERSION, isLocal(req)))],
   ['POST', /^\/api\/update\/(download|install|check)$/, async (req, res, [, what]) => {
     if (!isLocal(req)) return fail(req, res, 403, 'Update from the computer Dodobox runs on')
-    if (what === 'download') updates.download().catch(() => {})
+    if (what === 'download') updates.download().catch(e => log.warn('update', 'download failed', { err: e }))
     else if (what === 'install') updates.install()
     else updates.check()
     json(req, res, updates.view(VERSION, true))
@@ -377,7 +405,7 @@ const routes = [
   ['GET', /^\/api\/settings$/, (req, res) => json(req, res, state.settings())],
   ['PUT', /^\/api\/settings$/, async (req, res) => {
     const s = state.setSettings(await jbody(req))
-    local.rescan().catch(() => {})
+    local.rescan().catch(swallow('rescan'))
     json(req, res, s)
   }],
   ['GET', /^\/api\/storage$/, (req, res) => json(req, res, { ...engine.storage(), cap: state.settings().maxStorageGB * 1e9 })],
@@ -421,7 +449,7 @@ const routes = [
     const info = await probe(rawUrl(h, s.fileIdx), `${h}:${s.fileIdx}`, s.name || '')
     const c = s.ctx
     if (c && c.type !== 'anime' && !local.isLocal(h)) {
-      const m = await meta(c.type, c.id).catch(() => null)
+      const m = await meta(c.type, c.id).catch(swallow('meta lookup', null))
       if (m && !lengthFits(info.duration, runtimeOf(m))) {
         wrong.add(`${c.type}:${c.id}:${h}`); engine.reject(h, s.fileIdx, 'This video is a different title')
         return fail(req, res, 409, 'This video is a different title')
@@ -435,7 +463,7 @@ const routes = [
     const c = s?.ctx
     if (!s || s.fileIdx == null || !c || c.season == null || (c.type !== 'series' && c.type !== 'anime')) return json(req, res, {})
     const info = await probe(rawUrl(h, s.fileIdx), `${h}:${s.fileIdx}`, s.name || '')
-    const m = c.type === 'anime' ? await meta(c.type, c.id).catch(() => null) : null
+    const m = c.type === 'anime' ? await meta(c.type, c.id).catch(swallow('meta lookup', null)) : null
     if (m?.movie) return json(req, res, {})
     json(req, res, await skipsFor({ type: c.type, id: c.id, season: c.season, episode: c.episode, mal: m?.mal }, { chapters: info.chapters, duration: info.duration }))
   }],
@@ -476,7 +504,7 @@ const routes = [
     } else {
       const lang = q.get('sl'); const type = q.get('t'); const id = q.get('mid')
       if (!/^[a-z]{3}$/.test(lang || '') || !type || !id) return fail(req, res, 400, 'bad subtitle')
-      const m = await meta(type, id).catch(() => null)
+      const m = await meta(type, id).catch(swallow('meta lookup', null))
       const list = await listSubtitles({ type, id, season: q.get('s'), episode: q.get('e'), titles: m ? [m.name, ...(m.altTitles || [])] : [] }, [lang], statusOf(h, true)?.name || '')
       const pick = list.find(x => x.lang === lang && !x.forced)
       if (!pick) return fail(req, res, 404, 'no subtitle')
@@ -492,19 +520,21 @@ const routes = [
     const audio = +q.get('a') || 0; const maxH = Math.min(2160, Math.max(240, +q.get('h') || 1080))
     await probe(rawUrl(h, i), `${h}:${i}`) // refuses a file that is not a video before ffmpeg reads it
     const data = await segment(rawUrl(h, i), `${h}:${i}`, +n, audio, maxH)
-    probe(rawUrl(h, i), `${h}:${i}`).then(info => warm(rawUrl(h, i), `${h}:${i}`, +n, Math.ceil(info.duration / SEG) - 1, audio, maxH)).catch(() => {})
+    probe(rawUrl(h, i), `${h}:${i}`).then(info => warm(rawUrl(h, i), `${h}:${i}`, +n, Math.ceil(info.duration / SEG) - 1, audio, maxH)).catch(swallow('warming segments'))
     res.writeHead(200, { 'content-type': 'video/mp2t', 'content-length': data.length, 'cache-control': 'max-age=3600' }).end(data)
   }],
 
   ['GET', /^\/api\/subs$/, async (req, res, _, q) => {
-    const type = q.get('type'); const m = await meta(type, q.get('id')).catch(() => null)
+    const type = q.get('type'); const m = await meta(type, q.get('id')).catch(swallow('meta lookup', null))
     const titles = m ? [m.name, ...(m.altTitles || [])] : []
     const langs = (q.get('langs') || '').split(',').filter(l => /^[a-z]{3}$/.test(l))
     // Most subtitle files are filed under the series' catalog id; anime episodes map onto it when it is the first season.
     const imdb = type === 'anime' && m && !m.movie ? await animeImdb(m) : null
-    json(req, res, await listSubtitles({ type, id: q.get('id'), season: q.get('season'), episode: q.get('episode'), titles, imdb: imdb && !imdb.later ? imdb.id : null }, langs, q.get('release') || '').catch(() => []))
+    const subs = await listSubtitles({ type, id: q.get('id'), season: q.get('season'), episode: q.get('episode'), titles, imdb: imdb && !imdb.later ? imdb.id : null }, langs, q.get('release') || '').catch(e => { log.warn('subs', 'listing failed', { id: q.get('id'), err: e }); return [] })
+    log.info('subs', 'listed', { id: q.get('id'), season: q.get('season'), episode: q.get('episode'), langs: langs.join(','), found: subs.length, incomplete: subs.incomplete })
+    json(req, res, subs)
   }],
-  ['GET', /^\/api\/translate\/langs$/, async (req, res) => { const t = await translateTargets().catch(() => []); json(req, res, UI_LANGS.filter(c => t.includes(modelLang(c)))) }],
+  ['GET', /^\/api\/translate\/langs$/, async (req, res) => { const t = await translateTargets().catch(swallow('translate targets', [])); json(req, res, UI_LANGS.filter(c => t.includes(modelLang(c)))) }],
   ['GET', /^\/api\/sub\/translate$/, async (req, res, _, q) => {
     const to = q.get('to') || ''
     if (!UI_LANGS.includes(to)) return fail(req, res, 400, 'unsupported language')
@@ -628,8 +658,25 @@ const crossSite = req => {
 }
 const rebound = req => { const host = (req.headers.host || '').replace(/:\d+$/, ''); return !!host && !LOCAL_HOST.test(host) && !ALLOWED_HOSTS.includes(host.toLowerCase()) }
 
+const SECRET_PARAM = /^(pin|code|password|token|key)$/i
+const seenClients = new Set()
+// One line per request, written when it ends. Static files that went fine are left out; bodies are never logged (PINs, party codes).
+function accessLog (req, res, url, t0, routed) {
+  res.once('close', () => {
+    const code = res.statusCode
+    if (!routed() && code < 400) return
+    const ip = (req.socket.remoteAddress || '').replace(/^::ffff:/, '')
+    const q = [...url.searchParams].map(([k, v]) => `${k}=${SECRET_PARAM.test(k) ? '***' : v}`).join('&')
+    const f = { ip, status: code, ms: Date.now() - t0, bytes: res.getHeader('content-length'), range: req.headers.range, profile: req.headers['x-profile'], q: q || undefined, err: res.logErr, aborted: res.writableFinished ? undefined : true }
+    log[code >= 500 ? 'error' : 'debug']('http', `${req.method} ${url.pathname}`, f)
+    if (!seenClients.has(ip)) { seenClients.add(ip); log.info('client', 'first request from this address', { ip, ua: req.headers['user-agent'] }) }
+  })
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x')
+  const t0 = Date.now(); let routed = false
+  accessLog(req, res, url, t0, () => routed)
   res.setHeader('x-content-type-options', 'nosniff')
   res.setHeader('x-frame-options', 'SAMEORIGIN')
   if (rebound(req)) return fail(req, res, 421, 'unknown host (add it to ALLOWED_HOSTS)')
@@ -646,18 +693,27 @@ const server = http.createServer(async (req, res) => {
     if (h && !statusOf(h[1], true)) return fail(req, res, 404, 'unknown source')
     for (const [method, re, fn] of routes) {
       const m = req.method === method && re.exec(url.pathname)
-      if (m) return await fn(req, res, m, url.searchParams)
+      if (m) { routed = true; return await fn(req, res, m, url.searchParams) }
     }
     serveStatic(req, res, url.pathname)
   } catch (e) {
     // A title the catalog does not know is the viewer's 404, not a server fault.
     const code = e.code >= 400 && e.code < 600 ? e.code : e.status >= 400 && e.status < 500 ? 404 : 500
+    res.logErr = String(e.message).trim().split('\n').pop()
     if (!res.headersSent) fail(req, res, code, code === 404 && !(e.code >= 400) ? 'not found' : e.message)
     else res.destroy()
-    if (code >= 500) console.error(`[${req.method} ${url.pathname}]`, e.message.trim().split('\n').pop())
+    if (code >= 500) log.error('http', `${req.method} ${url.pathname} failed`, { err: e })
   }
 })
 
+const loop = monitorEventLoopDelay()
+loop.enable()
+const heartbeat = () => {
+  const m = process.memoryUsage()
+  log.debug('heartbeat', 'status', { rssMB: Math.round(m.rss / 1e6), heapMB: Math.round(m.heapUsed / 1e6), up: Math.round(process.uptime()), loopMeanMs: Math.round(loop.mean / 1e6), loopMaxMs: Math.round(loop.max / 1e6), ...engine.stats(), encodes: encodes(), party: party.phase, members: party.phase === 'idle' ? undefined : party.members.size })
+  loop.reset()
+  for (const t of engine.details()) log.debug('heartbeat', 'torrent', t)
+}
 let bonjour
 export function start (listenPort = process.env.PORT === undefined ? 3000 : +process.env.PORT, host = process.env.HOST || '0.0.0.0') {
   return new Promise((resolve, reject) => {
@@ -665,12 +721,18 @@ export function start (listenPort = process.env.PORT === undefined ? 3000 : +pro
     server.listen(listenPort, host, () => {
       port = server.address().port
       const lan = lanAddresses()
+      console.log(`[start] Dodobox ${VERSION}, ${process.platform} ${process.arch}, ${process.versions.electron ? `electron ${process.versions.electron}` : `node ${process.version}`}`)
       console.log(`\n  Dodobox is running\n\n  This computer:  http://localhost:${port}`)
       for (const a of lan) console.log(`  Phones, TVs:    http://${a}:${port}`)
       console.log(`  Or:             http://dodobox.local:${port}\n`)
       if (!process.env.NO_MDNS) {
-        try { bonjour = new Bonjour(); bonjour.publish({ name: 'dodobox', type: 'http', port, host: 'dodobox.local' }) } catch {}
+        try { bonjour = new Bonjour(); bonjour.publish({ name: 'dodobox', type: 'http', port, host: 'dodobox.local' }); log.info('start', 'mDNS published', { name: 'dodobox.local', port }) } catch (e) { log.warn('start', 'mDNS could not be published, dodobox.local will not resolve', { err: e }) }
       }
+      log.info('start', 'listening', { port, host, lan: lan.join(','), data: DATA, node: process.version, ffmpeg: FFMPEG })
+      log.info('start', 'environment', { ...Object.fromEntries(['PORT', 'HOST', 'NO_MDNS', 'NO_DHT', 'MAX_TRANSCODES', 'ALLOWED_HOSTS', 'LOG_LEVEL', 'DODOBOX_DESKTOP'].map(k => [k, process.env[k]])), docker: fs.existsSync('/.dockerenv') || undefined })
+      log.info('start', 'settings', state.settings())
+      try { const d = fs.statfsSync(DATA); log.info('start', 'disk', { freeGB: Math.round(d.bavail * d.bsize / 1e8) / 10 }) } catch (e) { log.debug('start', 'disk space unknown', { err: e }) }
+      setInterval(heartbeat, 60e3).unref()
       local.watch()
       downloads.init(play)
       refreshTrackers(); setInterval(refreshTrackers, 12 * 3600e3).unref()
@@ -685,6 +747,7 @@ export function start (listenPort = process.env.PORT === undefined ? 3000 : +pro
 }
 
 export async function stop () {
+  log.info('start', 'stopping')
   try { bonjour?.unpublishAll(); bonjour?.destroy() } catch {}
   party.leave()
   state.flush()
@@ -694,11 +757,11 @@ export async function stop () {
 }
 
 // A bad torrent peer or a dead API must never take the server down.
-process.on('unhandledRejection', e => console.error('[unhandled]', e?.message || e))
-process.on('uncaughtException', e => console.error('[uncaught]', e?.message || e))
+process.on('unhandledRejection', e => console.error('[unhandled]', e?.stack || e))
+process.on('uncaughtException', e => console.error('[uncaught]', e?.stack || e))
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const s = await start().catch(e => { console.error(e.code === 'EADDRINUSE' ? `Port ${process.env.PORT || 3000} is busy. Is Dodobox already running?` : e.message); process.exit(1) })
   openBrowser(`http://localhost:${s.address().port}`)
-  for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => stop().then(() => process.exit(0)))
+  for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { log.info('start', `received ${sig}`); stop().then(() => process.exit(0)) })
 }

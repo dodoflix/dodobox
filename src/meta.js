@@ -5,6 +5,7 @@ import { DATA } from './paths.js'
 import { proxied } from './images.js'
 import { getJSON, fetchRetry } from './http.js'
 import { animeIds } from './ids.js'
+import { log } from './log.js'
 
 // Metadata: a catalog service for movies and series, a separate one for anime.
 const CINEMETA = 'https://v3-cinemeta.strem.io'
@@ -42,7 +43,7 @@ export async function cached (key, maxAge, fn) {
     if (!refreshing.has(key)) { refreshing.add(key); load().catch(() => {}).finally(() => refreshing.delete(key)) }
     return hit.v
   }
-  try { return await load() } catch (e) { if (hit) return hit.v; throw e }
+  try { return await load() } catch (e) { log.warn('meta', hit ? 'refresh failed, using the saved copy' : 'load failed', { key, err: e }); if (hit) return hit.v; throw e }
 }
 
 // Original spoken language (ISO 639-2) from the first production country; unknown countries give none.
