@@ -282,8 +282,9 @@ async function cuesOf (src) {
   if (!cuesCache.has(src)) { cuesCache.set(src, parseCues(await localText(src))); if (cuesCache.size > 20) cuesCache.delete(cuesCache.keys().next().value) }
   return cuesCache.get(src)
 }
-async function subtitleSync (h, i, src, near) {
+async function subtitleSync (h, i, src, near, redo) {
   const key = `${h}:${i}:${src}`
+  if (redo) syncCache.delete(key)
   const r = await readable(h, i)
   if (!r || !usable(r.ranges).length) return { pending: true }
   const { file, done, available, ranges, duration } = r
@@ -548,7 +549,7 @@ const routes = [
     const h = q.get('hash') || ''; const i = +q.get('file') || 0; const src = q.get('src') || ''
     json(req, res, q.get('at') != null
       ? await subtitleProbe(h, i, src, { at: +q.get('at') || 0, ratio: +q.get('ratio') || 1, expected: +q.get('expected') || 0 })
-      : await subtitleSync(h, i, src, q.get('near') != null ? +q.get('near') || 0 : undefined))
+      : await subtitleSync(h, i, src, q.get('near') != null ? +q.get('near') || 0 : undefined, q.get('fresh') === '1'))
   }],
   ['GET', /^\/api\/sub$/, async (req, res, _, q) => {
     const url = q.get('url')
