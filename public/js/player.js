@@ -372,7 +372,7 @@ export async function watch (type, id, season, episode) {
       <div class="sm-foot">
         ${missing ? `<div class="adj"><span class="dim">No ${esc(name(pref))} subtitles found</span></div>` : ''}
         <button data-s="upload"><span>Load from file...</span></button>
-        ${subSel && !subSel.embedded ? `<div class="adj"><span>Auto sync <small class="dim">${!autoOn() ? '' : syncState === 'checking' ? 'Syncing...' : syncState === 'waiting' ? 'Needs more download' : syncState === 'insync' ? 'In sync' : syncState === 'synced' ? 'Synced' : ''}</small></span><button class="switch" role="switch" data-as aria-checked="${autoOn()}" aria-label="Auto sync"></button></div>` : ''}
+        ${subSel && !subSel.embedded ? `<div class="adj"><span>Auto sync <small class="dim">${!autoOn() ? '' : syncState === 'checking' ? 'Syncing...' : syncState === 'waiting' ? 'Needs more download' : syncState === 'insync' ? 'In sync' : syncState === 'synced' ? 'Synced' : ''}</small></span><div>${autoOn() ? `<button class="btn btn-ghost sm" data-rs${syncState === 'checking' ? ' disabled' : ''}>Re-sync</button>` : ''}<button class="switch" role="switch" data-as aria-checked="${autoOn()}" aria-label="Auto sync"></button></div></div>` : ''}
         <div class="adj"><span><span>Timing</span> ${sgn(autoNow + delay)}s${autoNow || (syncRes && autoOn()) ? `<small class="dim"><span>Auto</span> ${sgn(autoNow)}s · <span>Manual</span> ${sgn(delay)}s</small>` : ''}</span><div><button class="btn btn-ghost sm" data-d="-0.5">−0.5</button><button class="btn btn-ghost sm" data-d="0.5">+0.5</button></div></div>
         <div class="adj"><span>Size</span><div><button class="btn btn-ghost sm" data-z="-1">A−</button><button class="btn btn-ghost sm" data-z="1">A+</button></div></div>
       </div>`
@@ -400,6 +400,7 @@ export async function watch (type, id, season, episode) {
     if (d.es != null) { epSeason = +d.es; epPage = pageOf(epSeason); menu.scrollTop = 0; drawMenu(); return }
     if (d.ep != null) { epPage = +d.ep; menu.scrollTop = 0; drawMenu(); return }
     if (d.d) { delay += +d.d; rememberDelay(); renderCue(); drawMenu() }
+    if (b.hasAttribute('data-rs')) { resync(); drawMenu() }
     if (b.hasAttribute('data-as')) { const on = !autoOn(); store.set('autosync', on); keep('autosync', on); if (on) runSync(subSel); else { syncState = ''; syncGen++; clearTimeout(syncTimer); clearTimeout(probeTimer); applyCues() } drawMenu() }
     if (d.z) { const z = Math.max(0.6, Math.min(2.2, +((P.size ?? store.get('subsize', 1)) + 0.15 * +d.z).toFixed(2))); store.set('subsize', z); keep('size', z); applySize() }
     if (d.l) {
@@ -449,19 +450,27 @@ export async function watch (type, id, season, episode) {
   let baseCues = []; let syncRes = null; let syncGen = 0; let syncTimer; let syncState = ''
   const autoOn = () => P.autosync ?? store.get('autosync', true)
   const applyCues = () => { cues = syncRes && autoOn() ? baseCues.map(c => ({ ...c, s: mapTime(syncRes, c.s), e: mapTime(syncRes, c.e) })) : baseCues; subsEl._last = null; renderCue() }
-  async function runSync (entry, attempt = 0, quiet = false) {
+  async function runSync (entry, attempt = 0, quiet = false, fresh = false) {
     clearTimeout(syncTimer)
     const gen = ++syncGen
     if (!entry || entry.embedded || entry.src.startsWith('blob:') || !autoOn() || !info || !st) { syncState = ''; return }
     if (!quiet) { syncState = 'checking'; if (menuKind === 'subs') drawMenu() }
     let r = null
-    try { r = await api(`/api/sub/sync?${new URLSearchParams({ hash, file: st.fileIdx, src: entry.src, near: v.currentTime || startAt || 0 })}`) } catch { /* retried below */ }
+    try { r = await api(`/api/sub/sync?${new URLSearchParams({ hash, file: st.fileIdx, src: entry.src, near: v.currentTime || startAt || 0, ...(fresh && { fresh: 1 }) })}`) } catch { /* retried below */ }
     if (gen !== syncGen || dead) return
     if (!r || r.pending) { if (!quiet) syncState = 'waiting'; if (attempt < 60) syncTimer = setTimeout(() => runSync(entry, attempt + 1, quiet), 12000) } else if (r.anchors && r.confidence >= 0.35) {
       syncRes = r; candidate = null; syncState = Math.abs(r.anchors[0].d) < 0.15 && r.ratio === 1 && r.model === 'constant' ? 'insync' : 'synced'; applyCues(); rememberFix({ h: fixKey(), sync: syncOf(r) }); scheduleProbe()
       if (r.partial && attempt < 40) syncTimer = setTimeout(() => runSync(entry, attempt + 1, quiet), 90000)
     } else { if (!quiet) syncState = ''; if (r.none && r.partial && attempt < 40) syncTimer = setTimeout(() => runSync(entry, attempt + 1, quiet), 90000) }
     if (menuKind === 'subs') drawMenu()
+  }
+
+  // Starts over: forgets the saved and the server's answer for this subtitle and measures again around where the viewer is.
+  function resync () {
+    if (!subSel || subSel.embedded || syncState === 'checking') return
+    clearTimeout(probeTimer); syncRes = null; candidate = null
+    rememberFix({ h: undefined, sync: undefined })
+    applyCues(); runSync(subSel, 0, false, true)
   }
 
   const PROBE_MS = 75000
