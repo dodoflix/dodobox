@@ -275,12 +275,28 @@ async function readable (h, i) {
     return [a === 0 ? 0 : ta + cut, b >= s.length ? D : tb - cut]
   })
   const lead = done ? D : D * (s.length ? engine.readablePrefix(h, i) / s.length : 0) * 0.85 // the start of the file only: what built-in tracks can be read from
-  return { file, done, duration: D, ranges, lead, available: ranges.reduce((n, [a, b]) => n + Math.max(0, b - a), 0) }
+  return { file, done, duration: D, info, ranges, lead, available: ranges.reduce((n, [a, b]) => n + Math.max(0, b - a), 0) }
 }
 const cuesCache = new Map()
 async function cuesOf (src) {
   if (!cuesCache.has(src)) { cuesCache.set(src, parseCues(await localText(src))); if (cuesCache.size > 20) cuesCache.delete(cuesCache.keys().next().value) }
   return cuesCache.get(src)
+}
+// A text track built into the video is timed to its audio: its cue times, for as much of the start as can be read, show what a downloaded subtitle should line up with.
+const IMAGE_SUB = /pgs|dvd_sub|dvb_sub|xsub|vobsub/i
+const refCache = new Map()
+async function trackReference (h, i, r) {
+  const to = Math.floor(Math.min(r.lead, 480))
+  if (to < 120) return null
+  const tracks = (r.info.subs || []).filter(t => !IMAGE_SUB.test(t.codec || '') && !/forced|sdh|commentary|signs/i.test(t.title || ''))
+  const t = tracks.find(x => x.lang === 'eng') ?? tracks[0]
+  if (!t) return null
+  const key = `${h}:${i}:${t.i}:${Math.floor(to / 60)}`
+  if (!refCache.has(key)) {
+    refCache.set(key, once('ref:' + key, async () => { const cues = parseCues(await embeddedSub(r.file, t.i, to)); return cues.length >= 40 ? { cues, to } : null }).catch(() => null))
+    if (refCache.size > 20) refCache.delete(refCache.keys().next().value)
+  }
+  return refCache.get(key)
 }
 async function subtitleSync (h, i, src, near, redo) {
   const key = `${h}:${i}:${src}`
@@ -296,7 +312,7 @@ async function subtitleSync (h, i, src, near, redo) {
   return once('sync:' + key, () => (syncChain = syncChain.catch(() => {}).then(async () => {
     const t0 = Date.now()
     // Each pass adds to what the last one measured instead of starting over.
-    const res = await syncInWorker({ url: file, duration, ranges, near, cues: await cuesOf(src), prior: hit?.res })
+    const res = await syncInWorker({ url: file, duration, ranges, near, cues: await cuesOf(src), prior: hit?.res, reference: await trackReference(h, i, r) })
     log.info('sync', res && !res.none ? 'subtitle aligned' : 'no alignment found', { key: `${h}:${i}`, ms: Date.now() - t0, partial: !done, readableSec: Math.round(available), at: near && Math.round(near), ratio: res?.ratio, anchors: res?.anchors?.length, windows: res?.windows, rough: res?.rough, seen: res?.evidence?.length, confidence: res?.confidence })
     syncCache.set(key, { res: res ?? hit?.res, partial: !done, available })
     if (syncCache.size > 100) syncCache.delete(syncCache.keys().next().value)

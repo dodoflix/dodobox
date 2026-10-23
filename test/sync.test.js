@@ -89,6 +89,28 @@ test('a later pass keeps what the earlier one measured and reads only stretches 
   assert.ok(Math.abs(third.anchors[0].d - 5.2) < 0.05)
 })
 
+test('a track built into the video settles offset and frame rate from cue times alone', async () => {
+  const media = dialogue(3000, 71)
+  const rng2 = rng(5)
+  // the release's own track: same speech, cut a little differently from the downloaded subtitle
+  const track = media.filter(() => rng2() > 0.04).map(b => ({ s: b.s + (rng2() - 0.5) * 0.4, e: b.e + (rng2() - 0.5) * 0.4, t: 'x' }))
+  const reference = { cues: track, to: 420 }
+  let reads = 0
+  const signalAt = () => { reads++; throw new Error('no audio needed') }
+  let r = await syncSubtitle({ url: 'unused', duration: 3000, ranges: [[0, 420]], near: 100, cues: media.map(b => ({ s: b.s - 7.3, e: b.e - 7.3, t: 'x' })), signalAt, reference })
+  assert.ok(r && !r.none && Math.abs(r.anchors[0].d - 7.3) < 0.3, `offset ${r?.anchors?.[0]?.d}`)
+  assert.ok(r.evidence.some(e => e.ref), 'the track was not used')
+  const k = 25 / 23.976
+  r = await syncSubtitle({ url: 'unused', duration: 3000, ranges: [[0, 420]], near: 100, cues: media.map(b => ({ s: (b.s - 2) / k, e: (b.e - 2) / k, t: 'x' })), signalAt, reference })
+  assert.ok(Math.abs(r.ratio - k) < 0.002, `ratio ${r.ratio}`)
+  assert.ok(Math.abs(mapTime(r, (media[40].s - 2) / k) - media[40].s) < 0.4)
+  assert.ok(reads <= 4, `read audio ${reads} times`)
+  // another episode's subtitle: nothing lines up with the track, and audio alone is not trusted to say otherwise
+  const other = dialogue(3000, 999).map(b => ({ s: b.s, e: b.e, t: 'x' }))
+  const none = await syncSubtitle({ url: 'unused', duration: 3000, ranges: [[0, 420]], near: 100, cues: other, signalAt: audioOf(media), reference })
+  assert.ok(!none || none.none || none.windows >= 2, 'a lone weak window was trusted against the track')
+})
+
 test('syncSubtitle works from real audio read through ffmpeg', async () => {
   const seconds = 600; const media = dialogue(seconds, 21)
   const rate = 16000; const data = new Int16Array(seconds * rate); const r = rng(1)
