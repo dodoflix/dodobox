@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { align, syncSubtitle, usable, offsetAt, mapTime, shiftVtt, parseCues, isAd, withoutAds } from '../src/sync.js'
+import { align, syncSubtitle, syncInWorker, usable, offsetAt, mapTime, shiftVtt, parseCues, isAd, withoutAds } from '../src/sync.js'
 
 const rng = seed => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32
 function dialogue (seconds, seed = 7) {
@@ -63,10 +63,10 @@ test('syncSubtitle syncs from a stretch around the playhead when the start of th
   const signalAt = (ws, len) => { read.push([ws, ws + len]); return audioOf(media)(ws, len) }
   // resumed at 40 min: only 3 min before and 5 min after it are on disk
   const ranges = [[2220, 2700]]
-  const r = await syncSubtitle({ url: 'unused', duration: 7000, ranges, at: 2400, cues: media.map(b => ({ s: b.s - 3.4, e: b.e - 3.4 })), signalAt })
+  const r = await syncSubtitle({ url: 'unused', duration: 7000, ranges, near: 2400, cues: media.map(b => ({ s: b.s - 3.4, e: b.e - 3.4 })), signalAt })
   assert.ok(r && Math.abs(r.anchors[0].d - 3.4) < 0.05, `offset ${r?.anchors?.[0]?.d}`)
   assert.ok(read.length && read.every(([a, b]) => a >= 2220 && b <= 2700), `read outside the downloaded stretch: ${JSON.stringify(read)}`)
-  assert.equal(await syncSubtitle({ url: 'unused', duration: 7000, ranges: [[2400, 2440]], at: 2420, cues: media, signalAt }), null, 'a stretch too short to measure is not measured')
+  assert.equal(await syncSubtitle({ url: 'unused', duration: 7000, ranges: [[2400, 2440]], near: 2420, cues: media, signalAt }), null, 'a stretch too short to measure is not measured')
   assert.deepEqual(usable([[0, 30], [100, 400]]), [[100, 400]])
 })
 
@@ -79,9 +79,12 @@ test('syncSubtitle works from real audio read through ffmpeg', async () => {
   const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-sync-')), 'a.wav')
   fs.writeFileSync(file, Buffer.concat([hdr, Buffer.from(data.buffer)]))
   const res = await syncSubtitle({ url: file, duration: seconds, cues: media.map(b => ({ s: b.s - 8.25, e: b.e - 8.25 })) })
+  // The server runs it in a worker, which treats a request with `at` as a single-window probe: `near` must not be taken for it.
+  const viaWorker = await syncInWorker({ url: file, duration: seconds, ranges: [[0, seconds]], near: 300, cues: media.map(b => ({ s: b.s - 8.25, e: b.e - 8.25 })) })
   fs.rmSync(path.dirname(file), { recursive: true })
   assert.ok(res, 'no result')
   assert.ok(Math.abs(res.anchors[0].d - 8.25) < 0.06, `offset ${res.anchors[0].d}`)
+  assert.ok(viaWorker?.anchors && Math.abs(viaWorker.anchors[0].d - 8.25) < 0.06, `worker answered ${JSON.stringify(viaWorker)}`)
 })
 
 test('shiftVtt rewrites cue times and parseCues reads them back', () => {

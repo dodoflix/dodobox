@@ -292,7 +292,7 @@ async function subtitleSync (h, i, src, near) {
   if (fresh) return hit.res ? { ...hit.res, partial: hit.partial } : { none: true }
   return once('sync:' + key, () => (syncChain = syncChain.catch(() => {}).then(async () => {
     const t0 = Date.now()
-    const res = await syncInWorker({ url: file, duration, ranges, at: near, cues: await cuesOf(src) })
+    const res = await syncInWorker({ url: file, duration, ranges, near, cues: await cuesOf(src) })
     log.info('sync', res ? 'subtitle aligned' : 'no alignment found', { key: `${h}:${i}`, ms: Date.now() - t0, partial: !done, readableSec: Math.round(available), at: near && Math.round(near), ratio: res?.ratio, anchors: res?.anchors?.length, confidence: res?.confidence })
     syncCache.set(key, { res, partial: !done, available })
     if (syncCache.size > 100) syncCache.delete(syncCache.keys().next().value)

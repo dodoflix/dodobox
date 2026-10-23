@@ -101,7 +101,7 @@ export default async function (args) {
       const { ranges, at } = places(film, seed)[place]
       let secs = 0; const t0 = performance.now()
       const signalAt = real ? async (ws, len) => { secs += len; return speechStrength(await pcm(f.url, ws, len)) } : (ws, len) => { secs += len; return speechStrength(audio(voiced, ws, len, kind, seed + Math.round(ws))) }
-      const res = await syncSubtitle({ url: 'unused', duration: film, ranges, at, cues, win, count, signalAt }).catch(() => null)
+      const res = await syncSubtitle({ url: 'unused', duration: film, ranges, near: at, cues, win, count, signalAt }).catch(() => null)
       ms += performance.now() - t0; read += secs; n++
       if (!res || res.confidence < 0.35) { none++; continue }
       let worst = 0
