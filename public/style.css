@@ -926,6 +926,12 @@ html.tv .pp-now .pp-poster { display: none; }
 .pin-pad button.ok { background: var(--ink); color: var(--on-ink); }
 .pin-pad .i { width: 1.3rem; height: 1.3rem; }
 .pin-box .actions { margin: 0; }
+.acct-box { justify-items: stretch; width: min(24rem, 100%); max-height: calc(100dvh - 2rem); overflow-y: auto; text-align: left; } /* a phone held sideways is shorter than the dialog */
+.acct-box label { display: grid; gap: .3rem; font-size: var(--fs-s); font-weight: 650; color: var(--ink2); }
+.acct-box .field { height: 3rem; font: 500 1rem/1 var(--text); color: var(--ink); }
+.acct-box .pin-err { min-height: 1.3em; }
+.acct-box .actions { justify-content: flex-end; }
+.acct-box a { color: var(--ink); text-decoration-thickness: 1px; text-underline-offset: .15em; }
 .pin-box.shake { animation: pin-shake .35s var(--ease); }
 @keyframes pin-shake { 20%, 60% { transform: translateX(-.5rem); } 40%, 80% { transform: translateX(.5rem); } }
 .pin-actions { display: flex; gap: .5rem; }

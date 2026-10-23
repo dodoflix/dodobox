@@ -7,6 +7,7 @@ import { DATA } from './paths.js'
 import { fetchRetry, once } from './http.js'
 import { yifyList, unzipFirst, yifyHeaders } from './yify.js'
 import { log } from './log.js'
+import * as account from './osaccount.js'
 
 const LEGACY = { tur: 'windows-1254', ara: 'windows-1256', per: 'windows-1256', rus: 'windows-1251', ukr: 'windows-1251', bul: 'windows-1251', srp: 'windows-1251', ell: 'windows-1253', heb: 'windows-1255', pol: 'windows-1250', cze: 'windows-1250', hun: 'windows-1250', rum: 'windows-1250', hrv: 'windows-1250', slv: 'windows-1250', tha: 'windows-874', vie: 'windows-1258' }
 
@@ -99,7 +100,7 @@ let quotaUntil = 0
 const quotaHit = () => Date.now() < quotaUntil
 const fromOpensubtitles = u => new URL(u).hostname === 'dl.opensubtitles.org'
 const quotaError = () => Object.assign(new Error('opensubtitles download limit reached for now'), { code: 429 })
-const usable = list => (quotaHit() ? list.map(s => (fromOpensubtitles(s.url) ? { ...s, limited: true } : s)) : list)
+const usable = (list, profile) => (quotaHit() && !account.ready(profile) ? list.map(s => (fromOpensubtitles(s.url) ? { ...s, limited: true } : s)) : list)
 
 const listCache = new Map()
 const jobs = new Map()
@@ -108,10 +109,10 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
 const mark = (list, partial) => (partial ? list.map(s => ({ ...s, partial: true })) : list)
 // The addon answers in a fraction of a second, the other providers can take many seconds (or fail). When they are not done within
 // QUICK_MS the addon's list is returned flagged `partial`, the rest keeps working, and the complete list is kept for the next ask.
-export async function listSubtitles (q, langs = [], release = '') {
+export async function listSubtitles (q, langs = [], release = '', profile = '') {
   const key = JSON.stringify([q.type, q.id, q.season, q.episode, langs, release])
   const hit = listCache.get(key)
-  if (hit && Date.now() - hit.at < hit.ttl) return usable(hit.list)
+  if (hit && Date.now() - hit.at < hit.ttl) return usable(hit.list, profile)
   let job = jobs.get(key)
   if (!job) {
     job = lookup(q, langs, release)
@@ -123,8 +124,8 @@ export async function listSubtitles (q, langs = [], release = '') {
     jobs.set(key, job)
   }
   const done = await Promise.race([job.full, wait(timing.quickMs)])
-  if (done) return usable(mark(done.list, !done.complete))
-  return usable(mark(await job.quick, true))
+  if (done) return usable(mark(done.list, !done.complete), profile)
+  return usable(mark(await job.quick, true), profile)
 }
 // The addon's answers carry only a release name: drop ones naming a sequel the title is not, or another episode.
 const SEQUEL = /shipp?uu?den|boruto|next generations/i
@@ -179,21 +180,32 @@ export const allowedSubUrl = u => {
   try { const { protocol, hostname } = new URL(u); return protocol === 'https:' && /(^|\.)(strem\.io|opensubtitles\.org|yifysubtitles\.ch)$/.test(hostname) } catch { return false }
 }
 
-export async function fetchSubtitle (url, enc) {
+export async function fetchSubtitle (url, enc, profile = '') {
   const f = path.join(CACHE, crypto.createHash('sha1').update(url + (enc || '')).digest('hex') + '.vtt')
   try { return fs.readFileSync(f, 'utf8') } catch {}
   return once('sub:' + f, async () => {
-    if (fromOpensubtitles(url) && quotaHit()) throw quotaError()
-    const r = await fetchRetry(url, { timeout: 15000, tries: 3, headers: /yifysubtitles/.test(url) ? yifyHeaders : undefined }).catch(e => {
-      if (e.status !== 404 || !fromOpensubtitles(url)) throw e
-      quotaUntil = Date.now() + 3600e3
-      log.warn('subs', 'opensubtitles download quota exceeded, skipping its files for 1h')
-      throw quotaError()
-    })
-    let buf = Buffer.from(await r.arrayBuffer())
+    // Anonymous downloads first; the household's account only takes over once this IP's quota is used up.
+    let viaAcct = false
+    const viaAccount = () => { if (!account.ready(profile)) throw quotaError(); viaAcct = true; return account.download(profile, url).catch(e => { throw e.code === 401 ? quotaError() : e }) }
+    let buf
+    if (fromOpensubtitles(url) && quotaHit()) buf = await viaAccount()
+    else {
+      const r = await fetchRetry(url, { timeout: 15000, tries: 3, headers: /yifysubtitles/.test(url) ? yifyHeaders : undefined }).catch(e => {
+        if (e.status !== 404 || !fromOpensubtitles(url)) throw e
+        quotaUntil = Date.now() + 3600e3
+        log.warn('subs', 'opensubtitles download quota exceeded, skipping its files for 1h')
+        return null
+      })
+      buf = r ? Buffer.from(await r.arrayBuffer()) : await viaAccount()
+    }
     if (buf[0] === 0x50 && buf[1] === 0x4b) buf = unzipFirst(buf)
     if (buf[0] === 0x1f && buf[1] === 0x8b) buf = zlib.gunzipSync(buf)
     const vtt = await toVtt(buf, enc)
+    // Downloads OpenSubtitles refuses (VIP-only) come back as one four-hour cue selling VIP: not a subtitle, and not worth keeping.
+    if (/osdb\.link\/vip/i.test(vtt) && vtt.length < 300) {
+      if (viaAcct) account.refuse(profile); else quotaUntil = Date.now() + 3600e3
+      throw quotaError()
+    }
     fs.mkdirSync(CACHE, { recursive: true })
     fs.writeFileSync(f, vtt)
     return vtt

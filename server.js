@@ -14,6 +14,7 @@ import { findSources, measured, refreshTrackers, lengthFits } from './src/source
 import { titleVerdict } from './src/release.js'
 import { episodeNumbers, warm as warmIds } from './src/ids.js'
 import { party, newCode, cleanItem, LIMITS } from './src/party.js'
+import * as osaccount from './src/osaccount.js'
 import { listSubtitles, allowedSubUrl, fetchSubtitle, srtToVtt, decode, toVtt, legacyEncoding } from './src/subs.js'
 import * as engine from './src/engine.js'
 import * as local from './src/local.js'
@@ -251,9 +252,10 @@ let syncChain = Promise.resolve()
 const SUB_PATH = /^\/api\/sub(\?|\/embedded\/|\/file\/|\/translate\?)/
 const translating = new Map() // translations being made: where each one is, for the progress display
 const UI_LANGS = ['tr', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'nl', 'pl', 'ja', 'ko', 'zh', 'ar', 'id', 'sv', 'hi', 'vi', 'el', 'he']
-async function localText (srcPath) {
+// `req` hands the caller's profile on to the inner request: a download through a profile's own OpenSubtitles account needs it.
+async function localText (srcPath, req) {
   if (!SUB_PATH.test(srcPath)) throw Object.assign(new Error('bad subtitle'), { code: 400 })
-  const r = await fetch(`http://127.0.0.1:${port}${srcPath}`)
+  const r = await fetch(`http://127.0.0.1:${port}${srcPath}`, req && { headers: { 'x-profile': req.headers['x-profile'] || '', 'x-token': req.headers['x-token'] || '' } })
   if (!r.ok) throw Object.assign(new Error('subtitle not ready'), { code: 409 })
   return r.text()
 }
@@ -345,7 +347,7 @@ const routes = [
   ['GET', /^\/api\/profiles$/, (req, res) => json(req, res, state.profiles())],
   ['POST', /^\/api\/profiles$/, async (req, res) => { const b = await jbody(req); json(req, res, state.createProfile(b.name, b.color), 201) }],
   ['PATCH', /^\/api\/profiles\/(\w+)$/, async (req, res, [, id]) => { needUnlocked(id, req); const p = state.updateProfile(id, await jbody(req)); json(req, res, p ? { id: p.id, name: p.name, color: p.color } : {}) }],
-  ['DELETE', /^\/api\/profiles\/(\w+)$/, (req, res, [, id]) => { needUnlocked(id, req); lock.revokeAll(id); json(req, res, { ok: state.deleteProfile(id) }) }],
+  ['DELETE', /^\/api\/profiles\/(\w+)$/, (req, res, [, id]) => { needUnlocked(id, req); lock.revokeAll(id); osaccount.disconnect(id); json(req, res, { ok: state.deleteProfile(id) }) }],
   // The PIN is checked here and a session token comes back; the page sends it with every request.
   ['POST', /^\/api\/profiles\/(\w+)\/unlock$/, async (req, res, [, id]) => {
     const rec = state.pinOf(id)
@@ -388,6 +390,9 @@ const routes = [
     local.rescan().catch(swallow('rescan'))
     json(req, res, s)
   }],
+  ['GET', /^\/api\/opensubtitles$/, (req, res) => json(req, res, osaccount.status(needProfile(req).id))],
+  ['PUT', /^\/api\/opensubtitles$/, async (req, res) => { const id = needProfile(req).id; const b = await jbody(req); await osaccount.connect(id, b.user, b.pass); json(req, res, osaccount.status(id)) }],
+  ['DELETE', /^\/api\/opensubtitles$/, (req, res) => { const id = needProfile(req).id; osaccount.disconnect(id); json(req, res, osaccount.status(id)) }],
   ['GET', /^\/api\/storage$/, (req, res) => json(req, res, { ...engine.storage(), cap: state.settings().maxStorageGB * 1e9 })],
   ['GET', /^\/api\/local$/, async (req, res) => json(req, res, (await hideAdult(local.all(), safeOf(req), e => ({ type: e.type, id: e.mid }))).map(({ path: _p, ...e }) => e))],
   ['POST', /^\/api\/local\/rescan$/, async (req, res) => json(req, res, { count: await local.rescan() })],
@@ -478,17 +483,17 @@ const routes = [
     const explicit = q.get('sub')
     if (explicit) {
       if (!SUB_PATH.test(explicit)) return fail(req, res, 400, 'bad subtitle')
-      const r = await fetch(`http://127.0.0.1:${port}${explicit}`)
+      const r = await fetch(`http://127.0.0.1:${port}${explicit}`, { headers: { 'x-profile': req.headers['x-profile'] || '', 'x-token': req.headers['x-token'] || '' } })
       if (!r.ok) return fail(req, res, r.status, 'subtitle not ready')
       text = await r.text()
     } else {
       const lang = q.get('sl'); const type = q.get('t'); const id = q.get('mid')
       if (!/^[a-z]{3}$/.test(lang || '') || !type || !id) return fail(req, res, 400, 'bad subtitle')
       const m = await meta(type, id).catch(swallow('meta lookup', null))
-      const list = await listSubtitles({ type, id, season: q.get('s'), episode: q.get('e'), titles: m ? [m.name, ...(m.altTitles || [])] : [] }, [lang], statusOf(h, true)?.name || '')
+      const list = await listSubtitles({ type, id, season: q.get('s'), episode: q.get('e'), titles: m ? [m.name, ...(m.altTitles || [])] : [] }, [lang], statusOf(h, true)?.name || '', pid(req))
       const pick = list.find(x => x.lang === lang && !x.forced)
       if (!pick) return fail(req, res, 404, 'no subtitle')
-      text = await fetchSubtitle(pick.url, pick.enc)
+      text = await fetchSubtitle(pick.url, pick.enc, pid(req))
     }
     const known = syncCache.get(`${h}:${i}:${explicit || ''}`)?.res
     if (known && known.confidence >= 0.35) text = shiftVtt(text, known)
@@ -510,7 +515,7 @@ const routes = [
     const langs = (q.get('langs') || '').split(',').filter(l => /^[a-z]{3}$/.test(l))
     // Most subtitle files are filed under the series' catalog id; anime episodes map onto it when it is the first season.
     const imdb = type === 'anime' && m && !m.movie ? await animeImdb(m) : null
-    const subs = await listSubtitles({ type, id: q.get('id'), season: q.get('season'), episode: q.get('episode'), titles, imdb: imdb && !imdb.later ? imdb.id : null }, langs, q.get('release') || '').catch(e => { log.warn('subs', 'listing failed', { id: q.get('id'), err: e }); return [] })
+    const subs = await listSubtitles({ type, id: q.get('id'), season: q.get('season'), episode: q.get('episode'), titles, imdb: imdb && !imdb.later ? imdb.id : null }, langs, q.get('release') || '', pid(req)).catch(e => { log.warn('subs', 'listing failed', { id: q.get('id'), err: e }); return [] })
     log.info('subs', 'listed', { id: q.get('id'), season: q.get('season'), episode: q.get('episode'), langs: langs.join(','), found: subs.length, incomplete: subs.incomplete })
     json(req, res, subs)
   }],
@@ -523,13 +528,13 @@ const routes = [
     const gone = new AbortController()
     res.on('close', () => { if (!res.writableEnded) gone.abort() })
     try {
-      const vtt = await localText(q.get('src') || ''); const report = p => translating.set(key, p)
+      const vtt = await localText(q.get('src') || '', req); const report = p => translating.set(key, p)
       if (q.get('hq') !== '1') return send(req, res, 200, 'text/vtt; charset=utf-8', await translateSubtitle(vtt, to, report, gone.signal), { 'cache-control': 'max-age=86400' })
       const r = await translateBetter(vtt, to, +q.get('at') || 0, report, gone.signal)
       send(req, res, 200, 'text/vtt; charset=utf-8', r.vtt, { 'cache-control': 'no-store', 'x-hq-done': r.done.toFixed(3), ...(r.prep != null && { 'x-hq-prep': r.prep.toFixed(3) }) })
     } catch (e) { if (!gone.signal.aborted) throw e } finally { setTimeout(() => translating.delete(key), 3000).unref() }
   }],
-  ['POST', /^\/api\/sub\/translate\/stop$/, async (req, res) => { const b = await jbody(req); if (UI_LANGS.includes(b.to)) stopBetter(await localText(b.src || ''), b.to); json(req, res, { ok: true }) }],
+  ['POST', /^\/api\/sub\/translate\/stop$/, async (req, res) => { const b = await jbody(req); if (UI_LANGS.includes(b.to)) stopBetter(await localText(b.src || '', req), b.to); json(req, res, { ok: true }) }],
   ['GET', /^\/api\/translate\/better$/, (req, res) => json(req, res, better.status())],
   ['POST', /^\/api\/translate\/better$/, (req, res) => { better.ensure(true); json(req, res, better.status()) }],
   ['GET', /^\/api\/sub\/translate\/status$/, (req, res, _, q) => json(req, res, translating.get(`${q.get('src')}|${q.get('to')}`) || { stage: 'idle', pct: 0 })],
@@ -542,7 +547,7 @@ const routes = [
   ['GET', /^\/api\/sub$/, async (req, res, _, q) => {
     const url = q.get('url')
     if (!allowedSubUrl(url)) return fail(req, res, 400, 'subtitle host not allowed')
-    send(req, res, 200, 'text/vtt; charset=utf-8', await fetchSubtitle(url, q.get('enc')), { 'cache-control': 'max-age=86400' })
+    send(req, res, 200, 'text/vtt; charset=utf-8', await fetchSubtitle(url, q.get('enc'), pid(req)), { 'cache-control': 'max-age=86400' })
   }],
   ['GET', /^\/api\/sub\/embedded\/(\w+)\/(\d+)\/(\d+)$/, async (req, res, [, h, i, n]) => {
     const s = statusOf(h, true)

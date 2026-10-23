@@ -1,6 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { listSubtitles, fetchSubtitle, resetQuota, timing, scoreSub } from '../src/subs.js'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+
+process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-subs-')) // not the real data folder: a connected account there would change the answers
+const { listSubtitles, fetchSubtitle, resetQuota, timing, scoreSub } = await import('../src/subs.js')
 
 const json = body => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } })
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))

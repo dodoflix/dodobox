@@ -67,6 +67,8 @@ Subtitles are searched in your language and English and ranked by how closely ea
 
 **Auto-translated** appears in the subtitle menu for every interface language: the English subtitle translated by the server with an open-source engine (about 20 MB per language, downloaded the first time, then stored in `data/translate`). Quality suits everyday dialogue and is rougher for slang and names. The entry shows "Preparing the language... 40%" while the model downloads, then "Translating... 60%".
 
+OpenSubtitles limits how many files one connection may download per day. When that runs out, the player offers **Connect**, and Settings has an **OpenSubtitles account** row: sign in once (per profile) with an [opensubtitles.org](https://www.opensubtitles.org) account that has a VIP membership and that profile's downloads continue under it. Accounts without VIP get no downloads from OpenSubtitles this way; Settings and the player say so.
+
 Settings has **Best translation quality** (off by default). It installs a larger translator the first time (about 2 GB in `data/translate/hq`), then improves the subtitle in the background from where you are watching. It uses the graphics card if there is a working one, otherwise the processor, which is much slower.
 
 ## Profile PIN
