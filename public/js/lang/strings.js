@@ -444,7 +444,9 @@ export const ROWS = [
   ['Stats copied', 'İstatistikler kopyalandı', 'Estadísticas copiadas', 'Statistiques copiées', 'Statistik kopiert'],
   ['Could not copy', 'Kopyalanamadı', 'No se pudo copiar', 'Copie impossible', 'Kopieren nicht möglich'],
   ['1 episode', '1 bölüm', '1 episodio', '1 épisode', '1 Folge'],
-  ['Re-sync', 'Yeniden eşitle', 'Volver a sincronizar', 'Resynchroniser', 'Neu synchronisieren']
+  ['Re-sync', 'Yeniden eşitle', 'Volver a sincronizar', 'Resynchroniser', 'Neu synchronisieren'],
+  ['Looking for a match...', 'Eşleşme aranıyor...', 'Buscando coincidencia...', 'Recherche de correspondance...', 'Suche nach Übereinstimmung...'],
+  ['Does not match this video', 'Bu videoyla eşleşmiyor', 'No coincide con este vídeo', 'Ne correspond pas à cette vidéo', 'Passt nicht zu diesem Video']
 ]
 
 // Patterns for text that carries numbers or names. $1, $2 refer to captured groups; the same order for every language.

@@ -372,7 +372,7 @@ export async function watch (type, id, season, episode) {
       <div class="sm-foot">
         ${missing ? `<div class="adj"><span class="dim">No ${esc(name(pref))} subtitles found</span></div>` : ''}
         <button data-s="upload"><span>Load from file...</span></button>
-        ${subSel && !subSel.embedded ? `<div class="adj"><span>Auto sync <small class="dim">${!autoOn() ? '' : syncState === 'checking' ? 'Syncing...' : syncState === 'waiting' ? 'Needs more download' : syncState === 'insync' ? 'In sync' : syncState === 'synced' ? 'Synced' : ''}</small></span><div>${autoOn() ? `<button class="btn btn-ghost sm" data-rs${syncState === 'checking' ? ' disabled' : ''}>Re-sync</button>` : ''}<button class="switch" role="switch" data-as aria-checked="${autoOn()}" aria-label="Auto sync"></button></div></div>` : ''}
+        ${subSel && !subSel.embedded ? `<div class="adj"><span>Auto sync <small class="dim">${!autoOn() ? '' : syncState === 'checking' ? 'Syncing...' : syncState === 'waiting' ? 'Needs more download' : syncState === 'insync' ? 'In sync' : syncState === 'looking' ? 'Looking for a match...' : syncState === 'nomatch' ? 'Does not match this video' : syncState === 'synced' ? 'Synced' : ''}</small></span><div>${autoOn() ? `<button class="btn btn-ghost sm" data-rs${syncState === 'checking' ? ' disabled' : ''}>Re-sync</button>` : ''}<button class="switch" role="switch" data-as aria-checked="${autoOn()}" aria-label="Auto sync"></button></div></div>` : ''}
         <div class="adj"><span><span>Timing</span> ${sgn(autoNow + delay)}s${autoNow || (syncRes && autoOn()) ? `<small class="dim"><span>Auto</span> ${sgn(autoNow)}s · <span>Manual</span> ${sgn(delay)}s</small>` : ''}</span><div><button class="btn btn-ghost sm" data-d="-0.5">−0.5</button><button class="btn btn-ghost sm" data-d="0.5">+0.5</button></div></div>
         <div class="adj"><span>Size</span><div><button class="btn btn-ghost sm" data-z="-1">A−</button><button class="btn btn-ghost sm" data-z="1">A+</button></div></div>
       </div>`
@@ -460,8 +460,9 @@ export async function watch (type, id, season, episode) {
     if (gen !== syncGen || dead) return
     if (!r || r.pending) { if (!quiet) syncState = 'waiting'; if (attempt < 60) syncTimer = setTimeout(() => runSync(entry, attempt + 1, quiet), 12000) } else if (r.anchors && r.confidence >= 0.35) {
       syncRes = r; candidate = null; syncState = Math.abs(r.anchors[0].d) < 0.15 && r.ratio === 1 && r.model === 'constant' ? 'insync' : 'synced'; applyCues(); rememberFix({ h: fixKey(), sync: syncOf(r) }); scheduleProbe()
-      if (r.partial && attempt < 40) syncTimer = setTimeout(() => runSync(entry, attempt + 1, quiet), 90000)
-    } else { if (!quiet) syncState = ''; if (r.none && r.partial && attempt < 40) syncTimer = setTimeout(() => runSync(entry, attempt + 1, quiet), 90000) }
+      // More of the file arrives meanwhile: each pass adds windows to the answer.
+      if (r.partial && attempt < 60) syncTimer = setTimeout(() => runSync(entry, attempt + 1, quiet), 60000)
+    } else { if (!quiet) syncState = r.none ? (r.partial ? 'looking' : 'nomatch') : ''; if (r.none && r.partial && attempt < 60) syncTimer = setTimeout(() => runSync(entry, attempt + 1, quiet), 20000) }
     if (menuKind === 'subs') drawMenu()
   }
 
