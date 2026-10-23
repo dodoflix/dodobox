@@ -24,6 +24,7 @@ command produces them.
 | `app` | yes | The app's own `findSources()` on the gold titles, cold: seeded results and time |
 | `scrape` | yes | Live tracker seeder counts against the numbers sources report |
 | `subs` | no (`--snapshot` needs network) | Subtitle ranking: does the top pick match the timing of the release being played; `--grid` fits the weights, `--weights` tries a set |
+| `sync` | no | Auto sync: window length, window count and where in the file the audio comes from; right, wrong or no answer, and audio read. Synthetic audio on real cue times, or your own videos with `--media a.mkv,b.mkv` (`--win`, `--count`, `--place start,resume,full`, `--verbose`) |
 | `search` | yes | Title search relevance and latency |
 | `idmap` | yes | Anime id mapping coverage and agreement |
 | `skips` | yes | Skip markers (intro, recap, ending): AniSkip and IntroDB coverage by popularity; with `--server url`, chapter marks and file lengths of real releases through a running app (use a throwaway `DATA_DIR`) |
@@ -286,6 +287,50 @@ Limits: films only (the download host stopped answering after about 220 files, a
 `--snapshot` resumes), and the oracle shares the ranker's idea that a similar release name means a similar cut and treats
 sound-effect lines as a defect, which is also what the hearing-impaired penalty encodes. The film frame-rate penalty is
 untested on TV releases, where 25 fps is common.
+
+### Auto sync (`sync`)
+
+Question: how much audio, in how many windows and from which part of the file does it take to fix a subtitle, and does it
+still work when the viewer resumed in the middle and the start of the file was never downloaded?
+
+Two corpora. Synthetic: the cue times of 6 real feature-length subtitle files from `subs.json.gz` drive speech bursts over
+a music bed and sound effects (clean, music, action), 36 trials per row. Real: the audio of 3 of the maintainer's own
+downloads (one live-action film, two anime episodes), with the film's embedded subtitle track as the subtitle, 18 trials
+per row. A trial shifts the subtitle by 0.7 to 25 s, half of them also converted from 23.976 to 25 fps, and the answer is
+right when the corrected times are within 0.5 s across the film, wrong when it is off by more with confidence 0.35 or
+more (what the player accepts), none when it gives up. The real films are judged against the offset each track measures at
+full strength, since a release is never timed to the frame (the live-action track is about 1 s late on its own audio).
+"Place" is what is on disk: `start` the first 10 minutes, `resume` 5 minutes around the playhead, `full` everything.
+
+| place | window | windows | real: right / wrong / none | synthetic: right / wrong / none | audio read (real) |
+|---|---|---|---|---|---|
+| full | 60 s | 3 | 61 / 22 / 17 % | 69 / 3 / 28 % | 290 s |
+| full | 90 s | 2 | 100 / 0 / 0 % | 86 / 3 / 11 % | 240 s |
+| full | 120 s | 1 | 67 / 0 / 33 % | 72 / 0 / 28 % | 120 s |
+| full | 120 s | 2 | 100 / 0 / 0 % | 92 / 0 / 8 % | 280 s |
+| full | 120 s | 3 | 100 / 0 / 0 % | 92 / 0 / 8 % | 400 s |
+| full | 180 s | 3 (previous) | not run | 92 / 0 / 8 % | 540 s |
+| resume | 60 s | 3 | 78 / 6 / 17 % | 64 / 6 / 31 % | 180 s |
+| resume | 90 s | 2 | 89 / 0 / 11 % | 67 / 0 / 33 % | 180 s |
+| resume | 120 s | 3 | 100 / 0 / 0 % | 78 / 0 / 22 % | 240 s |
+| resume | 180 s | 3 | 100 / 0 / 0 % | 83 / 3 / 14 % | 273 s |
+| start | 120 s | 3 | 67 / 0 / 33 % | 75 / 0 / 25 % | 360 s |
+
+- Window length: 60 s is unreliable on real audio, 120 s is where the answer stops improving (180 s reads half as much again
+  for the same result), so the default went from 180 s to 120 s and a stretch under 90 s is not measured.
+- Windows: one is a coin flip on real audio; two agree on the constant cases; three also tell drift and splices apart, so
+  three stay.
+- Where: the stretch around the playhead works as well as the whole file (100% at 120 s and up on the real films), while the
+  first 10 minutes alone give 67% at best (openings and theme songs carry little speech). Before, a resume had nothing to
+  read: the start of the file was missing, so the sync waited for a download that never came.
+- A defect the real films exposed: with two windows the answer was a straight line through two noisy points (0.4 s apart,
+  480 s apart), and extrapolating its slope over the film gave confident answers 1 to 3 s off (33% right at 120 s x 2). Two
+  windows that differ by noise are now one constant offset.
+- Cost: a sync of three 120 s windows takes 2 to 4 s of low-priority CPU per subtitle on the real films, mostly ffmpeg decoding.
+
+Limits: the synthetic audio is not a film (its music case is the hard one and causes most of the 'none' answers), the real
+set is three films, so a row moves by 6 points per trial, and the real files are not in the repository: pass your own with
+`--media`. Dubbed audio against the original-language subtitle still correlates, as the two anime show.
 
 ### Not pursued
 

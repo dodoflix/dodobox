@@ -449,24 +449,24 @@ export async function watch (type, id, season, episode) {
   let baseCues = []; let syncRes = null; let syncGen = 0; let syncTimer; let syncState = ''
   const autoOn = () => P.autosync ?? store.get('autosync', true)
   const applyCues = () => { cues = syncRes && autoOn() ? baseCues.map(c => ({ ...c, s: mapTime(syncRes, c.s), e: mapTime(syncRes, c.e) })) : baseCues; subsEl._last = null; renderCue() }
-  async function runSync (entry, attempt = 0) {
+  async function runSync (entry, attempt = 0, quiet = false) {
     clearTimeout(syncTimer)
     const gen = ++syncGen
     if (!entry || entry.embedded || entry.src.startsWith('blob:') || !autoOn() || !info || !st) { syncState = ''; return }
-    syncState = 'checking'; if (menuKind === 'subs') drawMenu()
+    if (!quiet) { syncState = 'checking'; if (menuKind === 'subs') drawMenu() }
     let r = null
-    try { r = await api(`/api/sub/sync?${new URLSearchParams({ hash, file: st.fileIdx, src: entry.src })}`) } catch { /* retried below */ }
+    try { r = await api(`/api/sub/sync?${new URLSearchParams({ hash, file: st.fileIdx, src: entry.src, near: v.currentTime || startAt || 0 })}`) } catch { /* retried below */ }
     if (gen !== syncGen || dead) return
-    if (!r || r.pending) { syncState = 'waiting'; if (attempt < 60) syncTimer = setTimeout(() => runSync(entry, attempt + 1), 12000) } else if (r.anchors && r.confidence >= 0.35) {
-      syncRes = r; candidate = null; syncState = Math.abs(r.anchors[0].d) < 0.15 && r.ratio === 1 && r.model === 'constant' ? 'insync' : 'synced'; applyCues(); scheduleProbe()
-      if (r.partial && attempt < 40) syncTimer = setTimeout(() => runSync(entry, attempt + 1), 90000)
-    } else { syncState = ''; if (r.none && r.partial && attempt < 40) syncTimer = setTimeout(() => runSync(entry, attempt + 1), 90000) }
+    if (!r || r.pending) { if (!quiet) syncState = 'waiting'; if (attempt < 60) syncTimer = setTimeout(() => runSync(entry, attempt + 1, quiet), 12000) } else if (r.anchors && r.confidence >= 0.35) {
+      syncRes = r; candidate = null; syncState = Math.abs(r.anchors[0].d) < 0.15 && r.ratio === 1 && r.model === 'constant' ? 'insync' : 'synced'; applyCues(); rememberFix({ h: fixKey(), sync: syncOf(r) }); scheduleProbe()
+      if (r.partial && attempt < 40) syncTimer = setTimeout(() => runSync(entry, attempt + 1, quiet), 90000)
+    } else { if (!quiet) syncState = ''; if (r.none && r.partial && attempt < 40) syncTimer = setTimeout(() => runSync(entry, attempt + 1, quiet), 90000) }
     if (menuKind === 'subs') drawMenu()
   }
 
   const PROBE_MS = 75000
   let probeTimer; let candidate = null
-  function scheduleProbe () { clearTimeout(probeTimer); probeTimer = setTimeout(probeSync, PROBE_MS) }
+  function scheduleProbe (ms = PROBE_MS) { clearTimeout(probeTimer); probeTimer = setTimeout(probeSync, ms) }
   async function probeSync () {
     scheduleProbe()
     if (!syncRes || !autoOn() || !subSel || subSel.embedded || v.paused || document.hidden || castCtl || dead) return
@@ -486,7 +486,7 @@ export async function watch (type, id, season, episode) {
     const c = classify(pts, syncRes.ratio)
     syncRes = { ...syncRes, model: c.model, anchors: c.anchors, points: pts }
     syncState = Math.abs(mapTime(syncRes, t) - t) < 0.15 && syncRes.ratio === 1 ? 'insync' : 'synced'
-    applyCues(); if (menuKind === 'subs') drawMenu()
+    applyCues(); rememberFix({ h: fixKey(), sync: syncOf(syncRes) }); if (menuKind === 'subs') drawMenu()
   }
 
   async function loadEntry (entry, auto, again) {
@@ -531,7 +531,8 @@ export async function watch (type, id, season, episode) {
       } else if (better != null) entry.status = ''
       entry.retried = false
       baseCues = parseVtt(text); applyCues(); drawMenu()
-      if (!syncRes && syncState !== 'checking') runSync(entry)
+      if (!syncRes && restoreFix(entry)) runSync(entry, 0, true) // the server keeps its own result to shift the streams it serves; the saved one shows meanwhile
+      else if (!syncRes && syncState !== 'checking') runSync(entry)
       const dur = v.duration || info?.duration || 0; const last = cues.length ? cues.at(-1).e : 0
       if (entry.embedded) entry.status = covered && covered !== 'full' ? `Available up to ${clock(+covered)}, more as it downloads` : ''
       if (entry.embedded && covered && covered !== 'full') { drawMenu(); refreshT = setTimeout(() => subSel === entry && loadEntry(entry, auto), 45000); return }
@@ -553,8 +554,20 @@ export async function watch (type, id, season, episode) {
 
   const epKey = `${season}/${episode}`
   const remember = entry => keep('sub', entry ? { lang: entry.lang, label: entry.label, tr: entry.translated?.to || null, delays: P.sub?.delays } : { off: true, delays: P.sub?.delays })
-  const savedDelay = entry => { const r = P.sub?.delays?.[epKey]; return r && r.l === entry.label ? r.d : 0 }
-  const rememberDelay = () => { if (P.sub && subSel) keep('sub', { ...P.sub, delays: { ...P.sub.delays, [epKey]: { l: subSel.label, d: delay } } }) }
+  // Per episode and subtitle file: the manual timing and the last automatic sync, so reopening the film starts where it was left. `h` ties the sync to the release it was measured on.
+  const fixKey = () => `${hash}:${st?.fileIdx}`
+  const fixOf = entry => { const r = P.fix?.[epKey]; return r && r.l === entry.label ? r : null }
+  const savedDelay = entry => fixOf(entry)?.d ?? (P.sub?.delays?.[epKey]?.l === entry.label ? P.sub.delays[epKey].d : 0)
+  const syncOf = r => ({ ratio: r.ratio, model: r.model, anchors: r.anchors, points: r.points, confidence: r.confidence })
+  const rememberFix = patch => { if (subSel) keep('fix', { ...P.fix, [epKey]: { ...fixOf(subSel), l: subSel.label, ...patch } }) }
+  const rememberDelay = () => rememberFix({ d: delay })
+  const restoreFix = entry => {
+    const f = fixOf(entry)
+    if (!f?.sync || f.h !== fixKey() || !hash || !autoOn() || entry.embedded) return false
+    syncRes = f.sync; syncState = Math.abs(mapTime(syncRes, v.currentTime) - v.currentTime) < 0.15 && syncRes.ratio === 1 ? 'insync' : 'synced'
+    applyCues(); scheduleProbe(15000); drawMenu()
+    return true
+  }
   let loadCtl
   function stopTranslating (keep) {
     loadCtl?.abort(); loadCtl = null

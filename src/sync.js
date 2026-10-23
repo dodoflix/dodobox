@@ -97,7 +97,7 @@ export function align (sig, ws, cues, range) {
   return { d: (R - (best + frac)) * DT, z: (score[best] - m) / sd, peak: score[best] }
 }
 
-function pcm (url, start, len, timeoutMs = 60000) {
+export function pcm (url, start, len, timeoutMs = 60000) {
   return new Promise((resolve, reject) => {
     // Lowest priority: playback and transcoding always come first.
     const args = ['-v', 'error', '-nostdin', '-threads', '1', '-ss', String(Math.max(0, start)), '-t', String(len), '-i', url, '-vn', '-sn', '-dn', '-map', '0:a:0',
@@ -106,7 +106,12 @@ function pcm (url, start, len, timeoutMs = 60000) {
     const out = []; let err = ''
     const timer = setTimeout(() => { p.kill('SIGKILL'); reject(new Error('audio read timed out')) }, timeoutMs)
     p.stdout.on('data', d => out.push(d)); p.stderr.on('data', d => { err += d })
-    p.on('close', code => { clearTimeout(timer); code === 0 ? resolve(Buffer.concat(out)) : reject(new Error(err.trim() || `ffmpeg exit ${code}`)) })
+    p.on('close', code => {
+      clearTimeout(timer)
+      const buf = Buffer.concat(out)
+      // A stretch that is not downloaded yet reads as a short or empty stream rather than an error.
+      if (code === 0 && buf.length >= len * 32000 * 0.9) resolve(buf); else reject(new Error(err.trim() || `audio read too short (${buf.length} bytes, ffmpeg exit ${code})`))
+    })
   })
 }
 
@@ -134,7 +139,9 @@ export function speechStrength (buf) {
   return blur(level.map((x, i) => x * (0.35 + 0.65 * lively[i])), 5)
 }
 
-const WIN = 180 // seconds of audio per window
+const WIN = 120 // seconds of audio per window
+const COUNT = 3 // windows measured before the answer is given
+const MIN_SPAN = 90 // shortest readable stretch worth a window
 // Windows are accepted on a clear peak; the answer is trusted when windows agree with each other (real films give
 // modest z-scores even for a correct lock, because speech is itself repetitive).
 const MIN_PEAK = 0.18
@@ -143,45 +150,65 @@ const MIN_Z = 2.5
 const RATIOS = [1, 25 / 23.976, 23.976 / 25, 24 / 23.976, 23.976 / 24, 30 / 29.97, 29.97 / 30, 25 / 24, 24 / 25, 30 / 25, 25 / 30]
 const median = a => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)] }
 const warp = (cues, r) => (r === 1 ? cues : cues.map(c => ({ s: c.s * r, e: c.e * r })))
+export const usable = (ranges, min = MIN_SPAN) => ranges.filter(([a, b]) => b - a >= min)
+const spanAt = (spans, t) => spans.find(([a, b]) => t >= a && t <= b) ?? spans.reduce((x, y) => (Math.min(Math.abs(t - y[0]), Math.abs(t - y[1])) < Math.min(Math.abs(t - x[0]), Math.abs(t - x[1])) ? y : x))
 
-// opts: { url (a file on disk), duration, cues (the subtitle to fix), signalAt(ws, len) (speech strength frames for a
-//         stretch; reads the audio of `url` by default), isAborted }
+// opts: { url (a file on disk), duration (length of the film, or of what can be read when `ranges` is not given), ranges
+//         ([from, to] seconds that can be read; the film may be downloaded from anywhere), at (where the viewer is: that
+//         stretch is measured first), cues (the subtitle to fix), signalAt(ws, len) (speech strength frames for a stretch;
+//         reads the audio of `url` by default), isAborted, win, count }
 // Returns { ratio, anchors: [{ t, d, z }], model, confidence, windows } or null when nothing lined up.
 // A subtitle time t belongs at  t * ratio + offsetAt(anchors, model, t * ratio).
-export async function syncSubtitle ({ url, duration, cues, signalAt, isAborted = () => false }) {
+export async function syncSubtitle ({ url, duration, ranges, at, cues, signalAt, isAborted = () => false, win = WIN, count = COUNT }) {
   cues = withoutAds(cues)
-  if (!cues.length || !duration) return null
-  // `duration` is how much of the film can be read. A few minutes are enough: shorter windows and fewer of them.
-  const len = Math.min(WIN, duration, Math.max(70, duration / 2.2))
-  const lo = duration > 3 * len ? 0 : Math.min(30, duration - len) // skip the opening logos when there is room to
-  const window = center => Math.max(lo, Math.min(duration - len, center - len / 2))
-  const signal = signalAt || (async (ws, n) => speechStrength(await pcm(url, ws, n)))
-  const measure = async (center, range, ratio, sig) => {
-    const ws = window(center)
-    const r = align(sig ?? await signal(ws, len), ws, warp(cues, ratio), range)
-    return r && r.z >= MIN_Z && r.peak >= MIN_PEAK ? { t: ws + len / 2, d: r.d, z: r.z, peak: r.peak } : null
+  const spans = usable(ranges ?? [[0, duration]])
+  if (!cues.length || !duration || !spans.length) return null
+  const total = spans.reduce((n, [a, b]) => n + b - a, 0)
+  // A few minutes are enough: shorter windows and fewer of them when little can be read.
+  const len = Math.min(win, Math.max(MIN_SPAN, total / 2.2))
+  const window = center => {
+    const [a, b] = spanAt(spans, center); const l = Math.min(len, b - a)
+    const lo = a === 0 && b - a <= 3 * len ? Math.min(30, b - a - l) : a // skip the opening logos when there is room to
+    return { ws: Math.max(lo, Math.min(b - l, center - l / 2)), l }
   }
-  const spots = duration >= WIN * 3 ? [0.22, 0.5, 0.78].map(f => f * duration) : duration >= len * 2.2 ? [0.3, 0.75].map(f => f * duration) : [duration / 2]
+  const read = signalAt || (async (ws, n) => speechStrength(await pcm(url, ws, n)))
+  const heard = new Map() // a stretch is read once however many ranges it is tried at
+  const signal = async (ws, n) => { const k = `${ws}:${n}`; if (!heard.has(k)) heard.set(k, read(ws, n)); return heard.get(k) }
+  const measure = async (center, range, ratio) => {
+    const { ws, l } = window(center)
+    const r = align(await signal(ws, l), ws, warp(cues, ratio), range)
+    return r && r.z >= MIN_Z && r.peak >= MIN_PEAK ? { t: ws + l / 2, d: r.d, z: r.z, peak: r.peak } : null
+  }
+  // Window centres: the stretch the viewer is at first, then the ones farthest from those already taken (a drift or a splice shows between far-apart windows).
+  const cands = spans.flatMap(([a, b]) => { const l = Math.min(len, b - a); const o = []; for (let c = a + l / 2; c <= b - l / 2 + 1e-6; c += l) o.push(c); return o.length ? o : [(a + b) / 2] })
+  const inner = cands.filter(c => c >= 90 && c <= duration - 240)
+  const pool = inner.length ? inner : cands
+  const near = (c, t) => Math.abs(c - t)
+  const spots = [pool.reduce((x, y) => (near(y, at ?? duration / 2) < near(x, at ?? duration / 2) ? y : x))]
+  while (spots.length < Math.min(count, pool.length)) spots.push(pool.reduce((x, y) => (Math.min(...spots.map(s => near(y, s))) > Math.min(...spots.map(s => near(x, s))) ? y : x)))
 
   let ratio = 1; let first = null
   try {
-    const ws = window(spots[Math.floor(spots.length / 2)]); const sig = await signal(ws, len)
+    const { ws, l } = window(spots[0]); const sig = await signal(ws, l)
     let best = null
     for (const r of RATIOS) {
       const m = align(sig, ws, warp(cues, r), 200)
       if (m && m.peak >= MIN_PEAK && (!best || m.peak > best.peak * (r === 1 ? 1 : 1.12))) best = { peak: m.peak, ratio: r }
     }
     if (best) ratio = best.ratio
-    first = await measure(ws + len / 2, 200, ratio, sig)
+    first = await measure(ws + l / 2, 200, ratio)
   } catch { /* fall through to the per-window pass */ }
 
   const anchors = first ? [first] : []
   let wide = first ? Math.abs(first.d) + 25 : 150
   for (const c of spots) {
     if (isAborted()) return null
-    if (first && Math.abs(window(c) + len / 2 - first.t) < 1) continue
+    if (first && Math.abs(window(c).ws + window(c).l / 2 - first.t) < 1) continue
     try {
-      const m = await measure(c, wide, ratio) || (wide < 300 ? await measure(c, 300, ratio) : null)
+      // A weak lock in a narrow range may be noise hiding the real offset further out: look wider and keep the stronger.
+      const a = await measure(c, wide, ratio)
+      const b = !a || a.peak < 0.35 ? (wide < 300 ? await measure(c, 300, ratio) : null) : null
+      const m = a && b ? (b.peak > a.peak ? b : a) : a || b
       if (m) { anchors.push(m); if (anchors.length === 1) wide = Math.abs(m.d) + 25 }
     } catch { /* one unreadable stretch should not stop the rest */ }
   }
@@ -190,7 +217,10 @@ export async function syncSubtitle ({ url, duration, cues, signalAt, isAborted =
     anchors.sort((a, b) => a.t - b.t)
     const gap = anchors.map((a, i) => i && Math.abs(a.d - anchors[i - 1].d) > 0.6 && a.t - anchors[i - 1].t > 2 * len ? i : 0).filter(Boolean)[0]
     if (!gap || isAborted()) break
-    try { const m = await measure((anchors[gap].t + anchors[gap - 1].t) / 2, Math.abs(anchors[gap].d - anchors[gap - 1].d) + 20, ratio); if (m) anchors.push(m); else break } catch { break }
+    try {
+      const m = await measure((anchors[gap].t + anchors[gap - 1].t) / 2, Math.abs(anchors[gap].d - anchors[gap - 1].d) + 20, ratio)
+      if (m && !anchors.some(a => Math.abs(a.t - m.t) < 1)) anchors.push(m); else break
+    } catch { break }
   }
   anchors.sort((a, b) => a.t - b.t)
   const groups = anchors.map(a => anchors.filter(o => Math.abs(o.d - a.d) < 0.4))
@@ -205,7 +235,6 @@ export async function syncSubtitle ({ url, duration, cues, signalAt, isAborted =
   return { ratio, anchors: cls.anchors, model: cls.model, points: kept.map(({ t, d, z }) => ({ t, d, z })), windows: kept.length, confidence }
 }
 
-
 export function shiftVtt (text, res) {
   const fmt = t => { t = Math.max(0, t); const h = Math.floor(t / 3600); const m = Math.floor(t / 60) % 60; const sec = (t % 60).toFixed(3).padStart(6, '0'); return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${sec}` }
   return text.replace(/([\d:.,]+)(\s*-->\s*)([\d:.,]+)/g, (_, a, mid, b) => fmt(mapTime(res, toSec(a))) + mid + fmt(mapTime(res, toSec(b))))
@@ -213,11 +242,14 @@ export function shiftVtt (text, res) {
 
 // One window around `at` (seconds of film), looked at again and again while the film plays: has the offset changed since
 // the last answer? `expected` is what the current model says there, so only a small neighbourhood is searched.
-export async function syncProbe ({ url, duration, cues, at, ratio = 1, expected = 0, range = 30 }) {
+export async function syncProbe ({ url, duration, ranges, cues, at, ratio = 1, expected = 0, range = 30 }) {
   cues = withoutAds(cues)
-  if (!cues.length || !duration) return null
-  const len = Math.min(120, duration)
-  const ws = Math.max(0, Math.min(duration - len, at - len / 2))
+  const spans = usable(ranges ?? [[0, duration]], 60)
+  if (!cues.length || !duration || !spans.length) return null
+  const [a, b] = spans.find(([x, y]) => at >= x && at <= y) ?? []
+  if (a == null) return null // the playhead is outside what can be read
+  const len = Math.min(120, b - a)
+  const ws = Math.max(a, Math.min(b - len, at - len / 2))
   const sig = speechStrength(await pcm(url, ws, len))
   const r = align(sig, ws, warp(cues, ratio).map(c => ({ ...c, s: c.s + expected, e: c.e + expected })), range)
   return r && r.z >= MIN_Z && r.peak >= MIN_PEAK ? { t: ws + len / 2, d: expected + r.d, z: r.z, peak: r.peak } : null
