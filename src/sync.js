@@ -154,12 +154,12 @@ export const usable = (ranges, min = MIN_SPAN) => ranges.filter(([a, b]) => b - 
 const spanAt = (spans, t) => spans.find(([a, b]) => t >= a && t <= b) ?? spans.reduce((x, y) => (Math.min(Math.abs(t - y[0]), Math.abs(t - y[1])) < Math.min(Math.abs(t - x[0]), Math.abs(t - x[1])) ? y : x))
 
 // opts: { url (a file on disk), duration (length of the film, or of what can be read when `ranges` is not given), ranges
-//         ([from, to] seconds that can be read; the film may be downloaded from anywhere), at (where the viewer is: that
+//         ([from, to] seconds that can be read; the film may be downloaded from anywhere), near (where the viewer is: that
 //         stretch is measured first), cues (the subtitle to fix), signalAt(ws, len) (speech strength frames for a stretch;
 //         reads the audio of `url` by default), isAborted, win, count }
 // Returns { ratio, anchors: [{ t, d, z }], model, confidence, windows } or null when nothing lined up.
 // A subtitle time t belongs at  t * ratio + offsetAt(anchors, model, t * ratio).
-export async function syncSubtitle ({ url, duration, ranges, at, cues, signalAt, isAborted = () => false, win = WIN, count = COUNT }) {
+export async function syncSubtitle ({ url, duration, ranges, near, cues, signalAt, isAborted = () => false, win = WIN, count = COUNT }) {
   cues = withoutAds(cues)
   const spans = usable(ranges ?? [[0, duration]])
   if (!cues.length || !duration || !spans.length) return null
@@ -183,9 +183,9 @@ export async function syncSubtitle ({ url, duration, ranges, at, cues, signalAt,
   const cands = spans.flatMap(([a, b]) => { const l = Math.min(len, b - a); const o = []; for (let c = a + l / 2; c <= b - l / 2 + 1e-6; c += l) o.push(c); return o.length ? o : [(a + b) / 2] })
   const inner = cands.filter(c => c >= 90 && c <= duration - 240)
   const pool = inner.length ? inner : cands
-  const near = (c, t) => Math.abs(c - t)
-  const spots = [pool.reduce((x, y) => (near(y, at ?? duration / 2) < near(x, at ?? duration / 2) ? y : x))]
-  while (spots.length < Math.min(count, pool.length)) spots.push(pool.reduce((x, y) => (Math.min(...spots.map(s => near(y, s))) > Math.min(...spots.map(s => near(x, s))) ? y : x)))
+  const gap = (c, t) => Math.abs(c - t)
+  const spots = [pool.reduce((x, y) => (gap(y, near ?? duration / 2) < gap(x, near ?? duration / 2) ? y : x))]
+  while (spots.length < Math.min(count, pool.length)) spots.push(pool.reduce((x, y) => (Math.min(...spots.map(s => gap(y, s))) > Math.min(...spots.map(s => gap(x, s))) ? y : x)))
 
   let ratio = 1; let first = null
   try {
