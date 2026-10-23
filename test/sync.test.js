@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { align, syncSubtitle, offsetAt, mapTime, shiftVtt, parseCues, isAd, withoutAds } from '../src/sync.js'
+import { align, syncSubtitle, usable, offsetAt, mapTime, shiftVtt, parseCues, isAd, withoutAds } from '../src/sync.js'
 
 const rng = seed => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32
 function dialogue (seconds, seed = 7) {
@@ -57,6 +57,19 @@ test('syncSubtitle recovers offset, frame-rate drift and splices', async () => {
   assert.ok(Math.abs(mapTime(r, late.s - 92) - late.s) < 0.15)
 })
 
+test('syncSubtitle syncs from a stretch around the playhead when the start of the file is not downloaded', async () => {
+  const media = dialogue(7000, 51)
+  const read = []
+  const signalAt = (ws, len) => { read.push([ws, ws + len]); return audioOf(media)(ws, len) }
+  // resumed at 40 min: only 3 min before and 5 min after it are on disk
+  const ranges = [[2220, 2700]]
+  const r = await syncSubtitle({ url: 'unused', duration: 7000, ranges, at: 2400, cues: media.map(b => ({ s: b.s - 3.4, e: b.e - 3.4 })), signalAt })
+  assert.ok(r && Math.abs(r.anchors[0].d - 3.4) < 0.05, `offset ${r?.anchors?.[0]?.d}`)
+  assert.ok(read.length && read.every(([a, b]) => a >= 2220 && b <= 2700), `read outside the downloaded stretch: ${JSON.stringify(read)}`)
+  assert.equal(await syncSubtitle({ url: 'unused', duration: 7000, ranges: [[2400, 2440]], at: 2420, cues: media, signalAt }), null, 'a stretch too short to measure is not measured')
+  assert.deepEqual(usable([[0, 30], [100, 400]]), [[100, 400]])
+})
+
 test('syncSubtitle works from real audio read through ffmpeg', async () => {
   const seconds = 600; const media = dialogue(seconds, 21)
   const rate = 16000; const data = new Int16Array(seconds * rate); const r = rng(1)
@@ -100,6 +113,7 @@ test('classify turns measured points into a model, and a later point can change 
   const { classify, mapTime } = await import('../public/js/syncmap.js')
   assert.deepEqual(classify([{ t: 100, d: 3.1 }, { t: 900, d: 3.2 }, { t: 1500, d: 3.15 }]), { model: 'constant', anchors: [{ t: 0, d: 3.15 }] })
   assert.equal(classify([{ t: 100, d: 0.2 }, { t: 900, d: 0.15 }]).anchors[0].d, 0) // measurement noise is not an offset
+  assert.deepEqual(classify([{ t: 180, d: -11.02 }, { t: 660, d: -11.41 }]).anchors, [{ t: 0, d: -11.215 }]) // two noisy windows are a constant, not a slope
   const drift = classify([{ t: 100, d: 1 }, { t: 600, d: 3 }, { t: 1100, d: 5 }, { t: 1600, d: 7 }])
   assert.equal(drift.model, 'linear')
   const spliced = classify([{ t: 100, d: 1 }, { t: 600, d: 1 }, { t: 1100, d: 91 }, { t: 1600, d: 91 }])

@@ -253,6 +253,20 @@ export function readablePrefix (hash, idx) {
   return p > last ? f.length : Math.max(0, p * pl - f.offset)
 }
 
+// Byte runs [from, to) of the file that are downloaded and verified, wherever they sit.
+export function readableRuns (hash, idx) {
+  const t = torrentOf(hash); const f = t?.ready ? t.files[idx] : null
+  if (!f || !t.bitfield) return []
+  const pl = t.pieceLength; const first = Math.floor(f.offset / pl); const last = Math.floor((f.offset + f.length - 1) / pl)
+  const runs = []; let from = null
+  for (let p = first; p <= last + 1; p++) {
+    const has = p <= last && t.bitfield.get(p)
+    if (has && from == null) from = p
+    else if (!has && from != null) { runs.push([Math.max(0, from * pl - f.offset), Math.min(f.length, p * pl - f.offset)]); from = null }
+  }
+  return runs
+}
+
 // Subtitle files inside the torrent that belong to the file being watched.
 export function sidecars (hash, file) {
   const e = lib[hash]; const t = torrentOf(hash)

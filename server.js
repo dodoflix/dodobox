@@ -30,7 +30,7 @@ import { encoder, FFMPEG } from './src/bin.js'
 import * as speed from './src/speed.js'
 import { race, rivalsOf, racing } from './src/race.js'
 import { localizeItems, localizeMeta } from './src/locale.js'
-import { syncInWorker, parseCues, shiftVtt } from './src/sync.js'
+import { syncInWorker, parseCues, shiftVtt, usable } from './src/sync.js'
 import * as better from './src/translate-hq.js'
 import { translateSubtitle, translateBetter, stopBetter, targets as translateTargets, modelLang } from './src/translate.js'
 import { once } from './src/http.js'
@@ -267,26 +267,33 @@ async function readable (h, i) {
   const info = await probe(rawUrl(h, i), `${h}:${i}`, s.name || '')
   // Read from disk: asking the torrent for pieces ahead would take bandwidth from playback.
   const done = s.phase === 'done'
-  const prefix = done ? s.length : engine.readablePrefix(h, i)
-  return { file, done, duration: info.duration, available: done ? info.duration : info.duration * (s.length ? prefix / s.length : 0) * 0.85 }
+  const D = info.duration
+  // Seconds of the film that are on disk. Playback resumed in the middle downloads from there, so the start may be missing; byte position maps to time only roughly, so the ends of each stretch are trimmed.
+  const ranges = done ? [[0, D]] : engine.readableRuns(h, i).map(([a, b]) => {
+    const [ta, tb] = [a, b].map(x => (s.length ? x / s.length : 0) * D)
+    const cut = 15 + 0.05 * (tb - ta)
+    return [a === 0 ? 0 : ta + cut, b >= s.length ? D : tb - cut]
+  })
+  const lead = done ? D : D * (s.length ? engine.readablePrefix(h, i) / s.length : 0) * 0.85 // the start of the file only: what built-in tracks can be read from
+  return { file, done, duration: D, ranges, lead, available: ranges.reduce((n, [a, b]) => n + Math.max(0, b - a), 0) }
 }
 const cuesCache = new Map()
 async function cuesOf (src) {
   if (!cuesCache.has(src)) { cuesCache.set(src, parseCues(await localText(src))); if (cuesCache.size > 20) cuesCache.delete(cuesCache.keys().next().value) }
   return cuesCache.get(src)
 }
-async function subtitleSync (h, i, src) {
+async function subtitleSync (h, i, src, near) {
   const key = `${h}:${i}:${src}`
   const r = await readable(h, i)
-  if (!r || r.available < 150) return { pending: true }
-  const { file, done, available } = r
+  if (!r || !usable(r.ranges).length) return { pending: true }
+  const { file, done, available, ranges, duration } = r
   const hit = syncCache.get(key)
   const fresh = hit && (done ? !hit.partial : !hit.partial || available < hit.available * 1.6)
   if (fresh) return hit.res ? { ...hit.res, partial: hit.partial } : { none: true }
   return once('sync:' + key, () => (syncChain = syncChain.catch(() => {}).then(async () => {
     const t0 = Date.now()
-    const res = await syncInWorker({ url: file, duration: available, cues: await cuesOf(src) })
-    log.info('sync', res ? 'subtitle aligned' : 'no alignment found', { key: `${h}:${i}`, ms: Date.now() - t0, partial: !done, availableSec: Math.round(available), ratio: res?.ratio, anchors: res?.anchors?.length, confidence: res?.confidence })
+    const res = await syncInWorker({ url: file, duration, ranges, at: near, cues: await cuesOf(src) })
+    log.info('sync', res ? 'subtitle aligned' : 'no alignment found', { key: `${h}:${i}`, ms: Date.now() - t0, partial: !done, readableSec: Math.round(available), at: near && Math.round(near), ratio: res?.ratio, anchors: res?.anchors?.length, confidence: res?.confidence })
     syncCache.set(key, { res, partial: !done, available })
     if (syncCache.size > 100) syncCache.delete(syncCache.keys().next().value)
     return res ? { ...res, partial: !done } : { none: true }
@@ -294,10 +301,9 @@ async function subtitleSync (h, i, src) {
 }
 async function subtitleProbe (h, i, src, { at, ratio, expected }) {
   const r = await readable(h, i)
-  if (!r || r.available < 150) return { pending: true }
-  if (at > r.available) return { probe: null, ahead: true } // the playhead is beyond the part that can be read
+  if (!r || !usable(r.ranges, 60).some(([a, b]) => at >= a && at <= b)) return r ? { probe: null, ahead: true } : { pending: true } // the playhead is beyond what can be read
   return once(`probe:${h}:${i}:${src}:${Math.round(at / 30)}`, () => (syncChain = syncChain.catch(() => {}).then(async () => ({
-    probe: await syncInWorker({ url: r.file, duration: r.available, cues: await cuesOf(src), at, ratio, expected }, 90000)
+    probe: await syncInWorker({ url: r.file, duration: r.duration, ranges: r.ranges, cues: await cuesOf(src), at, ratio, expected }, 90000)
   }))))
 }
 let converting = 0
@@ -542,7 +548,7 @@ const routes = [
     const h = q.get('hash') || ''; const i = +q.get('file') || 0; const src = q.get('src') || ''
     json(req, res, q.get('at') != null
       ? await subtitleProbe(h, i, src, { at: +q.get('at') || 0, ratio: +q.get('ratio') || 1, expected: +q.get('expected') || 0 })
-      : await subtitleSync(h, i, src))
+      : await subtitleSync(h, i, src, q.get('near') != null ? +q.get('near') || 0 : undefined))
   }],
   ['GET', /^\/api\/sub$/, async (req, res, _, q) => {
     const url = q.get('url')
@@ -557,7 +563,7 @@ const routes = [
     const r = await readable(h, i)
     if (s.phase !== 'done') {
       // Only the verified start of the file counts: pieces downloaded further on leave holes that cut the track short.
-      to = Math.floor(r?.available || 0)
+      to = Math.floor(r?.lead || 0)
       if (to < 60) return fail(req, res, 409, 'built-in subtitles need a little more of the download')
     }
     const key = `${h}:${i}:${n}:${Math.floor(to / 120)}`

@@ -27,7 +27,8 @@ export const isLine = pts => { if (pts.length < 3) return pts.length === 2; cons
 // Speech trails the start of its subtitle by a fraction of a second, so a tiny constant offset is measurement, not error.
 export function classify (points, ratio = 1) {
   const pts = [...points].sort((a, b) => a.t - b.t)
-  const km = median(pts.map(p => p.d)); const spread = Math.max(...pts.map(p => Math.abs(p.d - km)))
+  // Two windows that differ by measurement noise are one offset: a line through them would extrapolate that noise over the whole film.
+  const km = pts.length === 2 ? (pts[0].d + pts[1].d) / 2 : median(pts.map(p => p.d)); const spread = Math.max(...pts.map(p => Math.abs(p.d - km)))
   if (spread < 0.3) return { model: 'constant', anchors: [{ t: 0, d: Math.abs(km) < 0.3 && ratio === 1 ? 0 : km }] }
   return { model: isLine(pts) ? 'linear' : 'piecewise', anchors: pts }
 }
