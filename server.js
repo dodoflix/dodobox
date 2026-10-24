@@ -540,8 +540,10 @@ const routes = [
     const titles = m ? [m.name, ...(m.altTitles || [])] : []
     const langs = (q.get('langs') || '').split(',').filter(l => /^[a-z]{3}$/.test(l))
     // Most subtitle files are filed under the series' catalog id; anime episodes map onto it when it is the first season.
-    const imdb = type === 'anime' && m && !m.movie ? await animeImdb(m) : null
-    const subs = await listSubtitles({ type, id: q.get('id'), season: q.get('season'), episode: q.get('episode'), titles, imdb: imdb && !imdb.later ? imdb.id : null }, langs, q.get('release') || '', pid(req)).catch(e => { log.warn('subs', 'listing failed', { id: q.get('id'), err: e }); return [] })
+    const alId = +String(q.get('id')).replace('al:', '')
+    const [imdb, nums] = type === 'anime' && m && !m.movie ? await Promise.all([animeImdb(m), episodeNumbers(alId, q.get('episode'))]) : []
+    // Without the episode table a later season cannot be told apart in the catalog's numbering: search it by name only.
+    const subs = await listSubtitles({ type, id: q.get('id'), season: q.get('season'), episode: q.get('episode'), titles, imdb: imdb && (nums || !imdb.later) ? imdb.id : null, ...nums }, langs, q.get('release') || '', pid(req)).catch(e => { log.warn('subs', 'listing failed', { id: q.get('id'), err: e }); return [] })
     log.info('subs', 'listed', { id: q.get('id'), season: q.get('season'), episode: q.get('episode'), langs: langs.join(','), found: subs.length, incomplete: subs.incomplete })
     json(req, res, subs)
   }],

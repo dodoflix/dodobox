@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { releaseSubLangs, parseQuality, rank, lengthFits, measured } from '../src/sources.js'
-import { srtToVtt, allowedSubUrl, sameShow, plausible } from '../src/subs.js'
+import { srtToVtt, allowedSubUrl, sameShow, plausible, animeKeys, restRow } from '../src/subs.js'
 import { playlist, run } from '../src/transcode.js'
 import { upstream } from '../src/images.js'
 import * as updates from '../src/update.js'
@@ -168,6 +168,26 @@ test('anime subtitle results keep only the asked show and episode', () => {
   assert.ok(plausible('1000.ass', op) && plausible('[SubsPlease] One Piece - 1000 (1080p)', op) && plausible('One Piece (1999)', op))
   assert.ok(!plausible('[SubsPlease] One Piece - 1001 (1080p)', op) && !plausible('One Piece 600', op))
   assert.ok(!plausible('Naruto 101 Gotta See Gotta Know', q) && !plausible('Naruto Shippuden - 001', q) && !plausible('Naruto.S01E02', q) && !plausible('[ANBU]_Naruto_94_[D1]', q))
+})
+
+test('anime subtitle lookups follow TVDB numbering, not the entry numbering', () => {
+  const part2 = { episode: 3, titles: ['86'], imdb: 'tt13718450', tvdbSeason: 1, tvdbEpisode: 14, abs: 14 }
+  assert.deepEqual(animeKeys(part2), [[1, 14]])
+  assert.ok(plausible('86 EIGHTY-SIX S01E14.BluRay', part2) && !plausible('86 EIGHTY-SIX S01E03.BluRay', part2))
+  const jjk = { episode: 3, titles: ['Jujutsu Kaisen'], imdb: 'tt12343534', tvdbSeason: 2, tvdbEpisode: 3, abs: 27 }
+  assert.deepEqual(animeKeys(jjk), [[2, 3], [1, 27]])
+  assert.ok(plausible('Jujutsu Kaisen - S02E03', jjk) && !plausible('Jujutsu Kaisen - S01E03', jjk))
+  const row = { SubFormat: 'srt', SubDownloadLink: 'https://dl.opensubtitles.org/x.gz', SeriesIMDBParent: '12343534', SeriesEpisode: '3', MovieKind: 'episode' }
+  assert.ok(restRow({ ...row, SeriesSeason: '2' }, 'episode-3/imdbid-12343534/season-2/sublanguageid-eng', { type: 'anime', ...jjk }))
+  assert.equal(restRow({ ...row, SeriesSeason: '1' }, 'query-jujutsu%20kaisen%203/sublanguageid-eng', { type: 'anime', ...jjk }), null, 'another season with the same number')
+  // First-season episodes TVDB files at another number follow its air order (Cowboy Bebop 5 is S1E15): the entry's own number is kept
+  const bebop = { episode: 5, titles: ['Cowboy Bebop'], imdb: 'tt0213338', tvdbSeason: 1, tvdbEpisode: 15, abs: 5 }
+  assert.deepEqual(animeKeys(bebop), [[1, 5]])
+  assert.ok(plausible('Cowboy Bebop - Session 05', bebop) && !plausible('Cowboy.Bebop.S01E15.My.Funny.Valentine', bebop))
+  // Films and specials filed under an episode number
+  const film = { ...row, SeriesSeason: '0', SeriesEpisode: '0', MovieKind: 'movie', SeriesIMDBParent: '0', MovieReleaseName: 'Cowboy Bebop The Movie 05' }
+  assert.equal(restRow(film, 'query-cowboy%20bebop%205/sublanguageid-eng', { type: 'anime', ...bebop }), null)
+  assert.ok(!plausible('One Piece - Special 6', { episode: 6, titles: ['One Piece'] }))
 })
 
 test('picture hosts that resize are asked for about the width needed', () => {
