@@ -17,9 +17,23 @@ test('first run: create a profile, finish onboarding, land on a populated home',
 
 test('a viewer in a region sees the Top 10 of their country', async () => {
   const { ctx, page } = await newPage(base, { locale: 'en-US' })
+  const seen = []
+  page.on('response', r => { if (/shelf/.test(r.url())) seen.push(`${r.status()} ${r.url()}`) })
+  page.on('requestfailed', r => seen.push(`FAILED ${r.url()} ${r.failure()?.errorText}`))
   await signIn(page, base, 'Ada')
-  await page.locator('.shelf h2', { hasText: 'Top 10 movies in United States' }).waitFor()
-  await page.locator('.shelf h2', { hasText: 'Top 10 series in United States' }).waitFor()
+  // the shelves load as they scroll into view
+  try {
+    for (const kind of ['movies', 'series']) {
+      await page.waitForFunction(k => {
+        const shelf = [...document.querySelectorAll('.shelf')].find(x => x.querySelector('h2')?.textContent.includes(`Top 10 ${k} in United States`))
+        shelf?.scrollIntoView()
+        return !!shelf?.querySelector('.poster .cap')
+      }, kind)
+    }
+  } catch (e) {
+    const shelves = await page.evaluate(() => [...document.querySelectorAll('.shelf')].map(s => `${s.querySelector('h2')?.textContent}=${s.querySelectorAll('.poster').length}`))
+    throw new Error(`${e.message}\nshelf answers: ${seen.join(' | ')}\nshelves: ${shelves.join(' | ')}`, { cause: e })
+  }
   await ctx.close()
 })
 

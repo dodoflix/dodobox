@@ -52,7 +52,6 @@ jobs:
       - run: npm ci
       - run: npm run test:coverage:unit
       - run: npm run test:coverage:e2e
-      - run: npm run test:coverage
 
   docker:
     runs-on: ubuntu-latest

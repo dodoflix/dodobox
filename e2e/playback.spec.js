@@ -51,13 +51,17 @@ test('leaving the player saves progress and the title offers Resume', async () =
   await ctx.close()
 })
 
-test('a series episode plays from its page', async () => {
+test('a series episode plays from its page and its intro can be skipped', async () => {
+  stub('api.introdb.app', () => json({ intro: { start_sec: 1, end_sec: 9 } }))
   const { ctx, page } = await newPage(base)
   await signIn(page, base, 'Ada')
   await page.goto(`${base}/#/title/series/${SERIES.id}`)
   await page.click('#play')
   await playing(page)
+  await page.locator('#skip', { hasText: /Skip intro/ }).click()
+  await page.waitForFunction(() => document.querySelector('.pl video').currentTime >= 9)
   await ctx.close()
+  resetStubs()
 })
 
 test('a title with no source tells the viewer instead of hanging', async () => {
