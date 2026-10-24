@@ -3,6 +3,8 @@
 //   --place a,b    start (first 10 min downloaded), resume (5 min around the playhead only), full (default all three)
 //   --files n      real subtitle timings used as the speech (default 6)   --noise a,b  clean,music,action (default all)
 //   --verbose      print the trials that came out wrong
+//   --track        with --grow: audio alone against audio plus the video's built-in text track as a reference; the downloaded subtitle
+//                  and the track are the same speech cut differently (starts and ends moved up to 0.25 s, 4% of cues dropped, 4% split)
 //   --grow         the download grows (readable 2 min, 3 min ... 15 min, viewer at 1:40): the previous all-or-nothing pass run again at
 //                  each size against the incremental pass that keeps earlier windows; an answer counts as
 //                  right when the next few minutes of subtitles, from 1:40, are within 0.5 s
@@ -85,7 +87,19 @@ const places = (film, seed) => {
 }
 
 // One trial: the subtitle (shifted by d, optionally converted between frame rates), the audio it is judged against.
-function makeTrial (f, fi, kind, vi, real, { realistic, other } = {}) {
+// Another author's cut of the same speech: moved edges, a few cues missing, a few split in two.
+function recut (cues, seed) {
+  const r = rng(seed); const out = []
+  for (const c of cues) {
+    const x = r()
+    if (x < 0.04) continue
+    const s = c.s + (r() - 0.5) * 0.5; const e = Math.max(s + 0.3, c.e + (r() - 0.5) * 0.5)
+    if (x > 0.96) { const m = (s + e) / 2; out.push({ ...c, s, e: m - 0.05 }, { ...c, s: m + 0.05, e }) } else out.push({ ...c, s, e })
+  }
+  return out
+}
+
+function makeTrial (f, fi, kind, vi, real, { realistic, other, track } = {}) {
   const seed = fi * 100 + Object.keys(NOISE).indexOf(kind) * 10 + vi + 1; const r = rng(seed)
   const truth = f.cues ?? truthOf(f, seed); const film = f.film ?? f.last + 120
   const drift = vi % 2 === 1; const ratio = drift ? 25 / 23.976 : 1
@@ -94,7 +108,9 @@ function makeTrial (f, fi, kind, vi, real, { realistic, other } = {}) {
   const d = realistic ? (u < 0.4 ? (span - 0.5) * 0.6 : u < 0.7 ? sign * (0.5 + span * 3.5) : sign * (4 + span * 21)) : sign * (0.7 + span * 24)
   // subtitle time t belongs at t * ratio + d
   // `other`: the subtitle of another episode, which no stretch of this audio should match.
-  const cues = (other ?? truth).map(c => ({ s: (c.s - d) / ratio, e: (c.e - d) / ratio, t: c.t ?? 'x' }))
+  const given = track && !other ? recut(truth, seed + 11) : (other ?? truth)
+  const cues = given.map(c => ({ s: (c.s - d) / ratio, e: (c.e - d) / ratio, t: c.t ?? 'x' }))
+  const trackCues = track ? recut(truth, seed + 23) : null
   const voiced = truth.map(c => ({ s: c.s + 0.05 + r() * 0.25, e: c.e - 0.05 }))
   const spent = { secs: 0 }
   const signalAt = real ? async (ws, len) => { spent.secs += len; return speechStrength(await pcm(f.url, ws, len)) } : (ws, len) => { spent.secs += len; return speechStrength(audio(voiced, ws, len, kind, seed + Math.round(ws))) }
@@ -105,13 +121,13 @@ function makeTrial (f, fi, kind, vi, real, { realistic, other } = {}) {
     for (let k = 0; k < 30; k++) { const at = from + ((to - from) * (k + 0.5)) / 30; worst = Math.max(worst, Math.abs(mapTime(res, (at - d) / ratio) - at)) }
     return worst
   }
-  return { seed, film, ratio, d, cues, signalAt, spent, error, name: f.name ?? f.title }
+  return { seed, film, ratio, d, cues, trackCues, signalAt, spent, error, name: f.name ?? f.title }
 }
 const answered = res => res && !res.none && res.confidence >= 0.35
 
-async function grow (files, kinds, real, verbose) {
+async function grow (files, kinds, real, verbose, track) {
   const stages = [120, 180, 240, 300, 420, 600, 900]
-  const policies = { previous: { step: 1, carry: false }, incremental: { step: 0.5, carry: true } }
+  const policies = track ? { audio: { step: 0.5, carry: true }, 'audio + track': { step: 0.5, carry: true, track: true } } : { previous: { step: 1, carry: false }, incremental: { step: 0.5, carry: true } }
   const names = Object.keys(policies)
   const zero = () => stages.map(() => ({ n: 0, right: 0, wrong: 0, secs: 0 }))
   // match: the subtitle belongs to the video. mismatch: it is another episode's, so any answer is wrong.
@@ -123,11 +139,11 @@ async function grow (files, kinds, real, verbose) {
     if (mode === 'match') trials++
     for (const name of names) {
       const pol = policies[name]
-      const t = makeTrial(f, fi, kind, vi, real, { realistic: true, other: mode === 'mismatch' ? (f2.cues ?? truthOf(f2, fi + 7)) : undefined }); let prior; let firstRight = null
+      const t = makeTrial(f, fi, kind, vi, real, { realistic: true, track, other: mode === 'mismatch' ? (f2.cues ?? truthOf(f2, fi + 7)) : undefined }); let prior; let firstRight = null
       for (const [si, R] of stages.entries()) {
         if (R > t.film) break
         t.spent.secs = 0
-        const res = await syncSubtitle({ url: 'unused', duration: t.film, ranges: [[0, R]], near: 100, cues: t.cues, signalAt: t.signalAt, step: pol.step, prior: pol.carry ? prior : undefined }).catch(() => null)
+        const res = await syncSubtitle({ url: 'unused', duration: t.film, ranges: [[0, R]], near: 100, cues: t.cues, signalAt: t.signalAt, step: pol.step, prior: pol.carry ? prior : undefined, reference: pol.track ? { cues: t.trackCues, to: Math.min(480, Math.floor(R * 0.85)) } : undefined }).catch(() => null)
         if (pol.carry && res) prior = res
         const c = tally[mode][name][si]; c.n++; c.secs += t.spent.secs
         // What the viewer sees: from the playhead to five minutes ahead (or as far as is downloaded).
@@ -162,7 +178,7 @@ export default async function (args) {
   const files = real ?? readSnapshot('subs').filter(f => f.lang === 'eng' && f.last > 3000 && f.n > 500 && !seen.has(f.imdb) && seen.add(f.imdb)).slice(0, +args.files || 6)
   const kindsUsed = real ? ['real'] : kinds
   console.log(real ? `${real.length} real films: ${real.map(f => f.name).join(' | ')}\n` : `${files.length} subtitle timings, ${kinds.join('/')} noise\n`)
-  if (args.grow) return grow(files, kindsUsed, !!real, !!args.verbose)
+  if (args.grow) return grow(files, kindsUsed, !!real, !!args.verbose, !!args.track)
   console.log('place   win count  right  wrong  none  p90 err   audio read  ms/sync')
   for (const place of where) for (const win of wins) for (const count of counts) {
     let right = 0; let wrong = 0; let none = 0; let read = 0; let ms = 0; let n = 0; const errs = []

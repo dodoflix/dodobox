@@ -24,7 +24,7 @@ command produces them.
 | `app` | yes | The app's own `findSources()` on the gold titles, cold: seeded results and time |
 | `scrape` | yes | Live tracker seeder counts against the numbers sources report |
 | `subs` | no (`--snapshot` needs network) | Subtitle ranking: does the top pick match the timing of the release being played; `--grid` fits the weights, `--weights` tries a set |
-| `sync` | no | Auto sync: window length, window count and where in the file the audio comes from (`--grow`: answers as the download grows); right, wrong or no answer, and audio read. Synthetic audio on real cue times, or your own videos with `--media a.mkv,b.mkv` (`--win`, `--count`, `--place start,resume,full`, `--verbose`) |
+| `sync` | no | Auto sync: window length, window count and where in the file the audio comes from (`--grow`: answers as the download grows, `--track`: with the built-in track); right, wrong or no answer, and audio read. Synthetic audio on real cue times, or your own videos with `--media a.mkv,b.mkv` (`--win`, `--count`, `--place start,resume,full`, `--verbose`) |
 | `search` | yes | Title search relevance and latency |
 | `idmap` | yes | Anime id mapping coverage and agreement |
 | `skips` | yes | Skip markers (intro, recap, ending): AniSkip and IntroDB coverage by popularity; with `--server url`, chapter marks and file lengths of real releases through a running app (use a throwaway `DATA_DIR`) |
@@ -361,6 +361,33 @@ A second set of trials pairs the audio with another episode's subtitle, where an
   audio it added 5 to 9 points of right answers at 2 to 5 minutes and cost 3 to 5 points of wrong answers and 5 to 14 points more
   false answers for another episode's subtitle; on real films it added nothing. An in-step subtitle is already right with no
   answer, so the rough answer only helps the out-of-step ones, and those are the ones noise hurts.
+
+### Auto sync with the video's built-in track (`sync --grow --track`)
+
+Question: does a text track built into the video help? Its cue times are timed to the audio, so measuring the downloaded subtitle
+against them needs no audio decoding. Same trials as above, except that the downloaded subtitle and the built-in track are the
+same speech cut differently (edges moved up to 0.25 s, 4% of cues dropped, 4% split in two), and the track is readable for the
+first 85% of the readable part, up to 8 minutes.
+
+| readable | synthetic, audio only right / wrong | synthetic, audio and track right / wrong | real films, audio only | real films, audio and track |
+|---|---|---|---|---|
+| 3 min | 64 / 0 % | 100 / 0 % | 0 / 0 % | 100 / 0 % |
+| 4 min | 64 / 6 % | 97 / 3 % | 25 / 17 % | 100 / 0 % |
+| 5 min | 75 / 0 % | 97 / 3 % | 33 / 8 % | 100 / 0 % |
+| 7 min | 72 / 6 % | 97 / 3 % | 67 / 8 % | 100 / 0 % |
+| 10 min | 78 / 0 % | 97 / 3 % | 50 / 8 % | 100 / 0 % |
+| 15 min | 83 / 0 % | 97 / 3 % | 67 / 17 % | 100 / 0 % |
+
+- From 3 minutes readable the answer is right in 97 to 100% of the trials, in the music and action mixes that defeat the audio
+  alone (33% right at 5 minutes in the music mix, 92% with the track).
+- A subtitle for another episode gets no answer at all from 3 minutes on (audio alone: 8% to 22% false answers): against the track
+  the right subtitle peaks at 0.65 or more and another episode's at 0.45 or less, so the track is judged on that peak, and a
+  track that covers minutes without a lock stops a lone weak audio window from being trusted.
+- Before 2 minutes of the track are readable it changes nothing, and a video without a text track (picture subtitles do not
+  count) gets the audio result. In the maintainer's library about 4 in 10 readable files had one.
+- The pairs differ from real life in one way that matters: a real downloaded subtitle can be cut or timed further from the
+  release's own track than 0.25 s, which lowers the peak. The thresholds have room (0.55 against 0.65 and 0.45), but the
+  figures above are the favourable end.
 
 ### Not pursued
 
