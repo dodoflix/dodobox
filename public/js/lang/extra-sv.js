@@ -50,7 +50,7 @@ export const rows = [
   'Synka igen',
   'Letar efter en matchning...',
   'Matchar inte den här videon',
-  'Använd Auto', 'Använd Balanserad', 'Den här kvaliteten kan hacka på din anslutning.', 'Kvaliteten är för hög för den här anslutningen. Använd Auto'
+  'Använd Auto', 'Använd Balanserad', 'Kvaliteten är för hög för den här anslutningen. Använd Auto', 'Använd Minsta'
 ]
 export const patterns = [
   'Hej $1, gör det till ditt', 'Säsong $1', 'Säsong $1 · Avsnitt $2', 'Återuppta S$1 A$2', 'S$1 A$2$3', 'Sänds $1', '$1 h $2 min', '$1 min', '$1$2 h $3 min kvar', '$1$2 min kvar',
@@ -64,5 +64,6 @@ export const patterns = [
   'Dodobox $1 är tillgänglig', 'Version $1 är tillgänglig', 'Du har version $1.', 'Hämta den nya avbilden och skapa om containern: $1', 'Endast tvingade: $1', 'Inga $1-undertexter hittades', 'QR-kod för $1', '$1 gick med i tittarfesten', '$1 lämnade tittarfesten', '$1 tittar på $2', '$1 pausade uppspelningen', '$1 återupptog uppspelningen', '$1 hoppade till $2',
   'Inloggad som $1. Används när den delade nedladdningsgränsen är nådd.', 'Inloggad som $1. Dagens nedladdningsgräns är förbrukad.', '$1 kunde inte logga in. Anslut igen.', 'Inloggad som $1, men det här kontot är inte VIP så OpenSubtitles ger det inga nedladdningar och det används inte.',
   '$1 av $2 i sessionen', 'PIN för $1', 'För många försök. Vänta $1 sekunder.', 'För många försök. Vänta $1 minuter.', 'Dina vänner behöver också Dodobox. Dela koden med dem. En session rymmer upp till $1 personer.', 'Ta bort $1 från tittarhistoriken', '$1 säsonger', '$1 avsnitt', 'Tillgängligt upp till $1, mer allteftersom det laddas ner', '~$1 min',
-  '$1 betyder en mycket stor nedladdning, och den här serverns internet är ungefär $2 Mbps. Uppspelningen startar sent och kan stanna.', '$1 kräver ungefär $2 Mbps och den här enheten mäter $3. Bilden kommer att hacka hela tiden.', 'Bästa kvalitet tar emot filer på tiotals GB, och den här serverns internet är ungefär $1 Mbps. Nedladdningarna blir långsamma.'
+  '$1 betyder en mycket stor nedladdning, och den här serverns internet är ungefär $2 Mbps. Uppspelningen startar sent och kan stanna.', '$1 kräver ungefär $2 Mbps och den här enheten mäter $3. Bilden kommer att hacka hela tiden.', 'Bästa kvalitet tar emot filer på tiotals GB, och den här serverns internet är ungefär $1 Mbps. Nedladdningarna blir långsamma.',
+  'Balanserad väljer filer som kräver ungefär $1 Mbps, och den här serverns internet är ungefär $2 Mbps. Nedladdningarna blir långsamma.'
 ]

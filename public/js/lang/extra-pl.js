@@ -50,7 +50,7 @@ export const rows = [
   'Synchronizuj ponownie',
   'Szukanie dopasowania...',
   'Nie pasuje do tego wideo',
-  'Użyj Automatycznej', 'Użyj Zrównoważonego', 'Ta jakość może się zacinać przy Twoim połączeniu.', 'Jakość jest zbyt wysoka dla tego połączenia. Użyj Automatycznej'
+  'Użyj Automatycznej', 'Użyj Zrównoważonego', 'Jakość jest zbyt wysoka dla tego połączenia. Użyj Automatycznej', 'Użyj Najmniejszego'
 ]
 export const patterns = [
   'Cześć $1, dostosuj to do siebie', 'Sezon $1', 'Sezon $1 · Odcinek $2', 'Wznów S$1 O$2', 'S$1 O$2$3', 'Premiera $1', '$1 godz. $2 min', '$1 min', '$1zostało $2 godz. $3 min', '$1zostało $2 min',
@@ -64,5 +64,6 @@ export const patterns = [
   'Dostępny jest Dodobox $1', 'Dostępna jest wersja $1', 'Masz wersję $1.', 'Pobierz nowy obraz i utwórz kontener ponownie: $1', 'Tylko wymuszone: $1', 'Nie znaleziono napisów: $1', 'Kod QR dla $1', 'Do seansu dołącza: $1', 'Seans opuszcza: $1', '$1 ogląda: $2', '$1 wstrzymał(a) odtwarzanie', '$1 wznowił(a) odtwarzanie', '$1 przewinął(-ęła) do $2',
   'Zalogowano jako $1. Używane, gdy wspólny limit pobierania zostanie wyczerpany.', 'Zalogowano jako $1. Dzisiejszy limit pobierania został wyczerpany.', '$1 nie udało się zalogować. Połącz ponownie.', 'Zalogowano jako $1, ale to konto nie jest VIP, więc OpenSubtitles nie daje mu pobrań i nie jest używane.',
   '$1 z $2 w sesji', 'PIN: $1', 'Zbyt wiele prób. Poczekaj $1 sekund.', 'Zbyt wiele prób. Poczekaj $1 minut.', 'Znajomi też potrzebują Dodobox. Udostępnij im kod. W jednej sesji może być do $1 osób.', 'Usuń $1 z historii oglądania', 'Sezony: $1', 'Odcinki: $1', 'Dostępne do $1, więcej w miarę pobierania', '~$1 min',
-  '$1 oznacza bardzo duże pobieranie, a internet tego serwera ma około $2 Mbps. Odtwarzanie ruszy z opóźnieniem i może się zatrzymywać.', '$1 wymaga około $2 Mbps, a to urządzenie mierzy $3. Obraz będzie się ciągle zacinał.', 'Najlepsza jakość akceptuje pliki o rozmiarze dziesiątek GB, a internet tego serwera ma około $1 Mbps. Pobieranie będzie wolne.'
+  '$1 oznacza bardzo duże pobieranie, a internet tego serwera ma około $2 Mbps. Odtwarzanie ruszy z opóźnieniem i może się zatrzymywać.', '$1 wymaga około $2 Mbps, a to urządzenie mierzy $3. Obraz będzie się ciągle zacinał.', 'Najlepsza jakość akceptuje pliki o rozmiarze dziesiątek GB, a internet tego serwera ma około $1 Mbps. Pobieranie będzie wolne.',
+  'Zrównoważony wybiera pliki wymagające około $1 Mbps, a internet tego serwera ma około $2 Mbps. Pobieranie będzie wolne.'
 ]

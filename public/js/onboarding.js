@@ -94,7 +94,7 @@ export async function profileOnboarding () {
       const pn = e.target.closest('#ob-pin'); if (pn) changePin(S.me).then(ok => { if (ok) pn.textContent = S.me.hasPin ? 'Change' : 'Set a PIN' })
       const dc = e.target.closest('#ob-discord'); if (dc) { discord = !discord; dc.setAttribute('aria-checked', discord) }
       const mb = e.target.closest('[data-m]'); if (mb) { mode = mb.dataset.m; l.querySelectorAll('[data-m]').forEach(x => { x.classList.toggle('on', x === mb); x.setAttribute('aria-pressed', x === mb) }); $('#nn-size', l).innerHTML = sizeNote() }
-      if (e.target.closest('[data-fix]')) { mode = 'balanced'; draw() }
+      const fx = e.target.closest('[data-fix]'); if (fx) { mode = fx.dataset.fix.split(':')[1]; draw() }
       if (e.target.closest('[data-back]')) { page--; draw() }
       if (e.target.closest('[data-next]')) { if (page === PAGES.length - 1) resolve(); else { page++; draw() } }
     }

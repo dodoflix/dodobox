@@ -50,7 +50,7 @@ export const rows = [
   'Sinkronkan ulang',
   'Mencari kecocokan...',
   'Tidak cocok dengan video ini',
-  'Gunakan Otomatis', 'Gunakan Seimbang', 'Kualitas ini mungkin tersendat di koneksi Anda.', 'Kualitas terlalu tinggi untuk koneksi ini. Gunakan Otomatis'
+  'Gunakan Otomatis', 'Gunakan Seimbang', 'Kualitas terlalu tinggi untuk koneksi ini. Gunakan Otomatis', 'Gunakan Terkecil'
 ]
 export const patterns = [
   'Hai $1, buat jadi milikmu', 'Musim $1', 'Musim $1 · Episode $2', 'Lanjutkan S$1 E$2', 'S$1 E$2$3', 'Tayang $1', '$1 j $2 mnt', '$1 mnt', '$1sisa $2 j $3 mnt', '$1sisa $2 mnt',
@@ -64,5 +64,6 @@ export const patterns = [
   'Dodobox $1 tersedia', 'Versi $1 tersedia', 'Anda memiliki versi $1.', 'Tarik image baru lalu buat ulang container: $1', 'Hanya paksa: $1', 'Subtitel $1 tidak ditemukan', 'Kode QR untuk $1', '$1 bergabung ke sesi', '$1 keluar dari sesi', '$1 sedang menonton $2', '$1 menjeda pemutaran', '$1 melanjutkan pemutaran', '$1 melompat ke $2',
   'Masuk sebagai $1. Dipakai saat batas unduhan bersama tercapai.', 'Masuk sebagai $1. Batas unduhan hari ini sudah habis.', '$1 tidak bisa masuk. Hubungkan lagi.', 'Masuk sebagai $1, tetapi akun ini bukan VIP sehingga OpenSubtitles tidak memberinya unduhan dan tidak dipakai.',
   '$1 dari $2 dalam sesi', 'PIN $1', 'Terlalu banyak percobaan. Tunggu $1 detik.', 'Terlalu banyak percobaan. Tunggu $1 menit.', 'Teman Anda juga butuh Dodobox. Bagikan kode ke mereka. Satu sesi bisa berisi hingga $1 orang.', 'Hapus $1 dari riwayat tontonan', '$1 musim', '$1 episode', 'Tersedia hingga $1, bertambah saat mengunduh', '~$1 mnt',
-  '$1 berarti unduhan yang sangat besar, dan internet server ini sekitar $2 Mbps. Pemutaran akan mulai terlambat dan mungkin berhenti.', '$1 butuh sekitar $2 Mbps dan perangkat ini terukur $3. Gambar akan terus tersendat.', 'Kualitas terbaik menerima file puluhan GB, dan internet server ini sekitar $1 Mbps. Unduhan akan lambat.'
+  '$1 berarti unduhan yang sangat besar, dan internet server ini sekitar $2 Mbps. Pemutaran akan mulai terlambat dan mungkin berhenti.', '$1 butuh sekitar $2 Mbps dan perangkat ini terukur $3. Gambar akan terus tersendat.', 'Kualitas terbaik menerima file puluhan GB, dan internet server ini sekitar $1 Mbps. Unduhan akan lambat.',
+  'Seimbang memilih file yang butuh sekitar $1 Mbps, dan internet server ini sekitar $2 Mbps. Unduhan akan lambat.'
 ]

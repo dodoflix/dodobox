@@ -83,6 +83,8 @@ Off by default, in Settings and first-run setup. When on, titles marked as adult
 
 Smallest (default) prefers compact encodes and starts fastest. Balanced avoids huge files: a 4K or 1080p version is fine, a 10 GB episode is not. Best quality accepts very large files such as disc remuxes. Several of the best versions race for a few seconds when you press play or download, and the fastest wins.
 
+When the server's measured internet is too slow for the chosen size, or a forced video quality is too high for the server's or your device's connection, a notice appears in Settings, first-run setup and the player (loading screen, Quality menu) with a one-tap fix to the setting that connection can carry.
+
 ## Library, ratings and downloads
 
 Rate a title with the thumbs and heart under its description; tapping the same one clears it. Liked titles add "Because you liked ..." rows to Home. Library shows what you are watching, My List, your ratings and history. Remove a title from history with the x on its card, or from its own page; it also leaves Continue watching.

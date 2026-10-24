@@ -50,7 +50,7 @@ export const rows = [
   'Đồng bộ lại',
   'Đang tìm khớp...',
   'Không khớp với video này',
-  'Dùng Tự động', 'Dùng Cân bằng', 'Chất lượng này có thể bị giật với kết nối của bạn.', 'Chất lượng quá cao so với kết nối này. Dùng Tự động'
+  'Dùng Tự động', 'Dùng Cân bằng', 'Chất lượng quá cao so với kết nối này. Dùng Tự động', 'Dùng Nhỏ nhất'
 ]
 export const patterns = [
   'Chào $1, hãy biến nó thành của bạn', 'Mùa $1', 'Mùa $1 · Tập $2', 'Tiếp tục S$1 E$2', 'S$1 E$2$3', 'Phát sóng $1', '$1 giờ $2 phút', '$1 phút', '$1còn $2 giờ $3 phút', '$1còn $2 phút',
@@ -64,5 +64,6 @@ export const patterns = [
   'Dodobox $1 đã có sẵn', 'Phiên bản $1 đã có sẵn', 'Bạn đang dùng phiên bản $1.', 'Kéo image mới và tạo lại container: $1', 'Chỉ phụ đề bắt buộc: $1', 'Không tìm thấy phụ đề $1', 'Mã QR cho $1', '$1 đã vào phòng', '$1 đã rời phòng', '$1 đang xem $2', '$1 đã tạm dừng phát', '$1 đã tiếp tục phát', '$1 đã tua đến $2',
   'Đã đăng nhập là $1. Được dùng khi đạt giới hạn tải dùng chung.', 'Đã đăng nhập là $1. Giới hạn tải hôm nay đã hết.', '$1 không đăng nhập được. Hãy kết nối lại.', 'Đã đăng nhập là $1, nhưng tài khoản này không phải VIP nên OpenSubtitles không cho tải và nó không được dùng.',
   '$1 trên $2 trong phiên', 'PIN của $1', 'Quá nhiều lần thử. Hãy chờ $1 giây.', 'Quá nhiều lần thử. Hãy chờ $1 phút.', 'Bạn bè cũng cần Dodobox. Hãy chia sẻ mã với họ. Một phiên có tối đa $1 người.', 'Xóa $1 khỏi lịch sử xem', '$1 mùa', '$1 tập', 'Có sẵn đến $1, thêm khi tải về', '~$1 phút',
-  '$1 nghĩa là một bản tải rất lớn, và internet của máy chủ này khoảng $2 Mbps. Phát sẽ bắt đầu muộn và có thể bị dừng.', '$1 cần khoảng $2 Mbps trong khi thiết bị này đo được $3. Hình ảnh sẽ liên tục bị giật.', 'Chất lượng tốt nhất chấp nhận tệp hàng chục GB, và internet của máy chủ này khoảng $1 Mbps. Tải xuống sẽ chậm.'
+  '$1 nghĩa là một bản tải rất lớn, và internet của máy chủ này khoảng $2 Mbps. Phát sẽ bắt đầu muộn và có thể bị dừng.', '$1 cần khoảng $2 Mbps trong khi thiết bị này đo được $3. Hình ảnh sẽ liên tục bị giật.', 'Chất lượng tốt nhất chấp nhận tệp hàng chục GB, và internet của máy chủ này khoảng $1 Mbps. Tải xuống sẽ chậm.',
+  'Cân bằng chọn các tệp cần khoảng $1 Mbps, và internet của máy chủ này khoảng $2 Mbps. Tải xuống sẽ chậm.'
 ]

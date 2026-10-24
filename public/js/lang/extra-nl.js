@@ -50,7 +50,7 @@ export const rows = [
   'Opnieuw synchroniseren',
   'Zoeken naar een match...',
   'Past niet bij deze video',
-  'Auto gebruiken', 'Gebalanceerd gebruiken', 'Deze kwaliteit kan haperen op je verbinding.', 'De kwaliteit is te hoog voor deze verbinding. Auto gebruiken'
+  'Auto gebruiken', 'Gebalanceerd gebruiken', 'De kwaliteit is te hoog voor deze verbinding. Auto gebruiken', 'Kleinste gebruiken'
 ]
 export const patterns = [
   'Hoi $1, maak het van jou', 'Seizoen $1', 'Seizoen $1 · Aflevering $2', 'Hervat S$1 A$2', 'S$1 A$2$3', 'Verschijnt $1', '$1 u $2 min', '$1 min', '$1nog $2 u $3 min', '$1nog $2 min',
@@ -64,5 +64,6 @@ export const patterns = [
   'Dodobox $1 is beschikbaar', 'Versie $1 is beschikbaar', 'Je hebt versie $1.', 'Haal de nieuwe image op en maak de container opnieuw aan: $1', 'Alleen geforceerd: $1', 'Geen $1 ondertitels gevonden', 'QR-code voor $1', '$1 doet mee', '$1 is weggegaan', '$1 kijkt naar $2', '$1 heeft het afspelen gepauzeerd', '$1 heeft het afspelen hervat', '$1 spoelde naar $2',
   'Ingelogd als $1. Wordt gebruikt als de gedeelde downloadlimiet is bereikt.', 'Ingelogd als $1. De downloadlimiet is voor vandaag op.', '$1 kon niet inloggen. Koppel opnieuw.', 'Ingelogd als $1, maar dit account is geen VIP, dus OpenSubtitles geeft het geen downloads en het wordt niet gebruikt.',
   '$1 van $2 in de party', 'Pincode van $1', 'Te veel pogingen. Wacht $1 seconden.', 'Te veel pogingen. Wacht $1 minuten.', 'Je vrienden hebben Dodobox ook nodig. Deel de code met ze. In een party kunnen maximaal $1 mensen zitten.', '$1 uit kijkgeschiedenis verwijderen', '$1 seizoenen', '$1 afleveringen', 'Beschikbaar tot $1, meer naarmate het downloadt', '~$1 min',
-  '$1 betekent een zeer grote download en het internet van deze server is ongeveer $2 Mbps. Afspelen start laat en kan pauzeren.', '$1 heeft ongeveer $2 Mbps nodig en dit apparaat meet $3. Het beeld blijft haperen.', 'Beste kwaliteit accepteert bestanden van tientallen GB en het internet van deze server is ongeveer $1 Mbps. Downloads zijn traag.'
+  '$1 betekent een zeer grote download en het internet van deze server is ongeveer $2 Mbps. Afspelen start laat en kan pauzeren.', '$1 heeft ongeveer $2 Mbps nodig en dit apparaat meet $3. Het beeld blijft haperen.', 'Beste kwaliteit accepteert bestanden van tientallen GB en het internet van deze server is ongeveer $1 Mbps. Downloads zijn traag.',
+  'Gebalanceerd kiest bestanden die ongeveer $1 Mbps nodig hebben en het internet van deze server is ongeveer $2 Mbps. Downloads zijn traag.'
 ]

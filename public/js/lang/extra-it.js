@@ -50,7 +50,7 @@ export const rows = [
   'Risincronizza',
   'Ricerca di una corrispondenza...',
   'Non corrisponde a questo video',
-  'Usa Automatica', 'Usa Bilanciato', 'Questa qualità potrebbe andare a scatti con la tua connessione.', 'La qualità è troppo alta per questa connessione. Usa Automatica'
+  'Usa Automatica', 'Usa Bilanciato', 'La qualità è troppo alta per questa connessione. Usa Automatica', 'Usa Più piccolo'
 ]
 export const patterns = [
   'Ciao $1, rendilo tuo', 'Stagione $1', 'Stagione $1 · Episodio $2', 'Riprendi S$1 E$2', 'S$1 E$2$3', 'Esce il $1', '$1 h $2 min', '$1 min', '$1restano $2 h $3 min', '$1restano $2 min',
@@ -64,5 +64,6 @@ export const patterns = [
   'Dodobox $1 è disponibile', 'La versione $1 è disponibile', 'Hai la versione $1.', 'Scarica la nuova immagine e ricrea il container: $1', 'Solo forzati: $1', 'Nessun sottotitolo in $1 trovato', 'Codice QR per $1', '$1 si è unito alla sessione', '$1 ha lasciato la sessione', '$1 sta guardando $2', '$1 ha messo in pausa', '$1 ha ripreso la riproduzione', '$1 è passato a $2',
   'Accesso come $1. Usato quando si raggiunge il limite di download condiviso.', 'Accesso come $1. Il suo limite di download per oggi è esaurito.', '$1 non è riuscito ad accedere. Collega di nuovo.', 'Accesso come $1, ma questo account non è VIP, quindi OpenSubtitles non gli concede download e non viene usato.',
   '$1 su $2 nella sessione', 'PIN di $1', 'Troppi tentativi. Attendi $1 secondi.', 'Troppi tentativi. Attendi $1 minuti.', 'Anche i tuoi amici hanno bisogno di Dodobox. Condividi il codice con loro. In una sessione possono esserci fino a $1 persone.', 'Rimuovi $1 dalla cronologia', '$1 stagioni', '$1 episodi', 'Disponibile fino a $1, altro man mano che scarica', '~$1 min',
-  '$1 significa un download molto grande e internet di questo server è di circa $2 Mbps. La riproduzione partirà in ritardo e potrebbe fermarsi.', '$1 richiede circa $2 Mbps e questo dispositivo misura $3. L\'immagine andrà continuamente a scatti.', 'Migliore qualità accetta file di decine di GB e internet di questo server è di circa $1 Mbps. I download saranno lenti.'
+  '$1 significa un download molto grande e internet di questo server è di circa $2 Mbps. La riproduzione partirà in ritardo e potrebbe fermarsi.', '$1 richiede circa $2 Mbps e questo dispositivo misura $3. L\'immagine andrà continuamente a scatti.', 'Migliore qualità accetta file di decine di GB e internet di questo server è di circa $1 Mbps. I download saranno lenti.',
+  'Bilanciato sceglie file che richiedono circa $1 Mbps e internet di questo server è di circa $2 Mbps. I download saranno lenti.'
 ]

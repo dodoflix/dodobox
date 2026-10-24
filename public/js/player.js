@@ -1,6 +1,6 @@
 import { api, cget, getProfile, getToken } from './api.js'
 import { report } from './report.js'
-import { S, progress, recordProgress } from './session.js'
+import { S, progress, recordProgress, setSetting } from './session.js'
 import { nowPlaying, pingPresence } from './presence.js'
 import { mapTime, offsetAt, classify } from './syncmap.js'
 import { $, EP_PAGE, esc, icon, enc, clock, bytes, store, sleep, toast, isTV, isSafari, lowres, sized, thumbW, hue } from './util.js'
@@ -87,7 +87,7 @@ export async function watch (type, id, season, episode) {
     <div class="pl-cast" id="casting" hidden></div>
     <div class="pl-load" id="load"><div class="bg" style="background-image:url('${esc(lowres(m.poster) || m.poster || '')}')"></div>
       <button class="cbtn pl-back" id="back2" aria-label="Back">${icon('left')}</button>
-      <div class="msg"><h2 id="l-title" translate="no">${esc(m.name)}</h2><p id="l-line">Getting ready...</p><div class="hair"><i id="l-bar"></i></div><div class="actions" id="l-act"></div></div></div>
+      <div class="msg"><h2 id="l-title" translate="no">${esc(m.name)}</h2><p id="l-line">Getting ready...</p><div class="hair"><i id="l-bar"></i></div><div class="netnotes" id="l-net"></div><div class="actions" id="l-act"></div></div></div>
     <input type="file" id="subfile" accept=".srt,.vtt,.ass,.ssa,.sub" hidden>
   </div>`
 
@@ -396,7 +396,8 @@ export async function watch (type, id, season, episode) {
     if (d.stats != null) return toggleStats()
     if (d.another != null) { closeMenu(); if (!hash) return; toast('Looking for another version...'); tried.add(hash); startAt = v.currentTime; return start() }
     if (d.speed) { v.defaultPlaybackRate = v.playbackRate = +d.speed; keep('speed', +d.speed); closeMenu() }
-    if (d.q || d.fix) setQuality(d.q || 'auto')
+    if (d.q) setQuality(d.q)
+    if (d.fix) applyFix(d.fix)
     if (d.a) { audio = +d.a; const t = info.audio.find(x => x.i === audio); keep('audio', { lang: t?.lang || null, title: t?.title || '' }); closeMenu(); startAt = v.currentTime; chooseMode(); attach() }
     if (d.es != null) { epSeason = +d.es; epPage = pageOf(epSeason); menu.scrollTop = 0; drawMenu(); return }
     if (d.ep != null) { epPage = +d.ep; menu.scrollTop = 0; drawMenu(); return }
@@ -648,13 +649,19 @@ export async function watch (type, id, season, episode) {
   }
 
   const cap = () => (quality !== 'auto' ? +quality : autoH)
-  // A forced level the connection cannot carry. A source below the forced level is not upscaled, so it needs only its own tier.
+  // A forced level the connection cannot carry. A source below the forced level is not upscaled, so it needs only its own tier. A finished download or a local file needs no server internet.
   let srvMbps = 0; let warned = false
-  const qualityWarn = () => netWarnings({ quality: quality !== 'auto' && info?.tier ? String(Math.min(+quality, info.tier)) : quality, serverMbps: srvMbps, linkMbps: bandwidth() }, { size: false })
-  const setQuality = q => { quality = q; keep('quality', quality); closeMenu(); startAt = v.currentTime; if (info) { chooseMode(); attach() } }
-  // Runs from both chooseMode and the server speed reply: a local file starts before the reply arrives.
-  const warnOnce = () => { if (!warned && info && qualityWarn().length) { warned = true; toast('This quality may keep buffering on your connection.', { action: { label: 'Use Auto', run: () => setQuality('auto') } }) } }
-  cget('/api/server', 60e3).then(x => { srvMbps = x.internetMbps || 0; warnOnce() }, () => {})
+  const playWarn = () => netWarnings({ quality: quality !== 'auto' && info?.tier ? String(Math.min(+quality, info.tier)) : quality, mode: S.me.settings.sourceMode || 'compact', serverMbps: st?.phase === 'done' ? 0 : srvMbps, linkMbps: bandwidth() })
+  const qualityWarn = () => playWarn().filter(w => w.k === 'quality')
+  // Before the video is known there is nothing to re-attach: the version is asked for again under the new setting.
+  const restart = () => { if (hash) tried.add(hash); if (info) startAt = v.currentTime; start() }
+  const setQuality = q => { quality = q; keep('quality', quality); closeMenu(); if (!info) return restart(); startAt = v.currentTime; chooseMode(); attach() }
+  const applyFix = fix => { const [k, val] = fix.split(':'); if (k === 'quality') setQuality(val); else { closeMenu(); setSetting(k, val).then(restart) } }
+  // Runs from both chooseMode and the server speed reply: a local file starts before the reply arrives. The loading screen shows the same warning, so a toast would repeat it.
+  const warnOnce = () => { const w = playWarn()[0]; if (!warned && info && w) { warned = true; toast(w.text, { action: { label: w.label, run: () => applyFix(w.k + ':' + w.v) } }) } }
+  let loadNet = ''
+  const showLoadWarn = () => { const w = playWarn(); const html = notesHTML(w); if (html !== loadNet) { loadNet = html; $('#l-net', root).innerHTML = html } if (w.length) warned = true }
+  cget('/api/server', 60e3).then(x => { srvMbps = x.internetMbps || 0; if (!$('#load', root).hidden) showLoadWarn(); warnOnce() }, () => {})
   const hq = () => (cap() ? `&h=${cap()}` : '')
   function chooseMode () {
     autoH = null
@@ -784,6 +791,7 @@ export async function watch (type, id, season, episode) {
       if (probing && Date.now() - probeAt > 18000) showSlowLink()
       if (probing && Date.now() - probeAt > 120000) throw Object.assign(new Error('probe timeout'), { stall: true })
       const need = Math.min(st.length || 3e6, 3e6)
+      showLoadWarn()
       setLoad({
         line: st.phase === 'metadata' ? (waited < 8 ? 'Finding a source...' : 'Connecting...') : st.downloaded > 0 ? `Buffering · ${bytes(st.speed)}/s` : 'Starting the stream...',
         pct: st.phase === 'metadata' || !st.downloaded ? null : Math.min(1, st.downloaded / need)
@@ -798,6 +806,7 @@ export async function watch (type, id, season, episode) {
     try {
       hls?.destroy(); v.removeAttribute('src'); v.load(); info = null; subSel = null; subs = []; marks = {}; paintSkip()
       setLoad({ title: m.name, line: 'Finding the best version...', pct: null, actions: '' })
+      showLoadWarn()
       const began = Date.now()
       report('info', 'player: opening', { type, id, season, episode, quality, forced, display: displayPx() })
       for (let attempt = 0; attempt < 5 && !dead; attempt++) {
@@ -857,6 +866,7 @@ export async function watch (type, id, season, episode) {
     tried.add(hash); startAt = v.currentTime; start()
   }
   root.addEventListener('click', e => {
+    const fx = e.target.closest('#l-net [data-fix]'); if (fx) applyFix(fx.dataset.fix)
     if (e.target.closest('#retry')) { tried.clear(); start() }
     if (e.target.closest('#another')) { tried.add(hash); $('#slow', root).hidden = true; start() }
   })
