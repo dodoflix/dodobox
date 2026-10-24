@@ -3,5 +3,5 @@
 ## Checks
 
 - [ ] The title follows Conventional Commits (`feat:`, `fix:`, `docs:` ...)
-- [ ] `npm run lint` and `npm test` pass
+- [ ] `npm run lint`, `npm test` and `npm run test:coverage` pass
 - [ ] Docs updated if behaviour or settings changed

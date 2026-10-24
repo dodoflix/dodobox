@@ -11,9 +11,13 @@ npm run desktop # the Electron app, from source
 npm run dist    # build installers for this OS into dist/
 npm test
 npm run lint
+npm run test:e2e      # real server and browser, no internet needed
+npm run test:coverage:unit # unit coverage report
+npm run test:coverage:e2e  # e2e coverage report
+npm run test:coverage      # unit + e2e together, fails under 90% line coverage
 ```
 
-Needs Node.js 24+ and `ffmpeg` on the path for the end-to-end test. The frontend is plain ES modules with no build step.
+Needs Node.js 24+ and `ffmpeg` on the path for the end-to-end tests. The browser tests drive Google Chrome (the H.264 video needs its codecs); set `CHROME_PATH` to a Chrome or Chromium binary if it is not installed. `npm install` points git at `.githooks`: lint and unit tests run before every commit, the combined coverage gate before every push (`--no-verify` skips them). The frontend is plain ES modules with no build step.
 
 ## Commits and pull requests
 

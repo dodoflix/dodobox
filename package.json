@@ -28,7 +28,12 @@
     "watch": "node --watch server.js",
     "lint": "eslint .",
     "bench": "node bench/run.js",
-    "test": "node --test",
+    "test": "node --test test/*.test.js",
+    "test:e2e": "node --test --test-timeout=120000 e2e/*.spec.js",
+    "test:coverage:unit": "node --test --experimental-test-coverage --test-coverage-include=server.js --test-coverage-include=src/** --test-coverage-lines=75 test/*.test.js",
+    "test:coverage:e2e": "node --test --test-timeout=120000 --experimental-test-coverage --test-coverage-include=server.js --test-coverage-include=src/** --test-coverage-lines=65 e2e/*.spec.js",
+    "test:coverage": "node --test --test-timeout=120000 --experimental-test-coverage --test-coverage-include=server.js --test-coverage-include=src/** --test-coverage-lines=90 test/*.test.js e2e/*.spec.js",
+    "prepare": "git config core.hooksPath .githooks || exit 0",
     "desktop": "electron .",
     "dist": "electron-builder --publish never"
   },
@@ -46,10 +51,12 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "bittorrent-tracker": "^11.2.3",
     "electron": "^44.9.0",
     "electron-builder": "^26.15.3",
     "eslint": "^10.13.0",
-    "globals": "^17.13.0"
+    "globals": "^17.13.0",
+    "playwright-core": "^1.64.1"
   },
   "author": "Dodobox contributors <43419555+dodoflix@users.noreply.github.com>",
   "build": {

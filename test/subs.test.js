@@ -96,3 +96,17 @@ test('subtitles: ad cues are dropped from the served file, dialogue and timing s
     assert.equal(vtt, 'WEBVTT\n\n2\n00:00:05.000 --> 00:00:07.000\n<i>Hello there</i>\n\n3\n00:00:09.000 --> 00:00:11.000\nSee you at example.com')
   } finally { globalThis.fetch = real }
 })
+
+test('yify: movie subtitles are read from the page, filtered to the asked languages and cached', async () => {
+  const { yifyList } = await import('../src/yify.js')
+  const row = (lang, name, rating) => `<tr data-id="1"><td class="rating-cell">${rating}</td><td class="flag-cell"><span class="sub-lang">${lang}</span></td><td><a href="/subtitles/${name}"><span class="text-muted">subtitle</span> Stub.Movie.2001.1080p</a></td></tr>`
+  let asked = 0
+  const real = globalThis.fetch
+  globalThis.fetch = async () => { asked++; return new Response(`<table>${row('Turkish', 'stub-turkish', 7)}${row('English', 'stub-english', -3)}${row('Klingon', 'stub-klingon', 1)}</table>`) }
+  try {
+    const tur = await yifyList('tt9100002', ['tur'])
+    assert.deepEqual(tur.map(r => [r.lang, r.url, r.dl, r.rel]), [['tur', 'https://yifysubtitles.ch/subtitle/stub-turkish.zip', 140, 'Stub.Movie.2001.1080p']])
+    assert.equal((await yifyList('tt9100002', ['eng']))[0].dl, 0)
+    assert.equal(asked, 1)
+  } finally { globalThis.fetch = real }
+})
