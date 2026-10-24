@@ -171,6 +171,7 @@ export function warm (url, key, n, last, audio, maxH) {
 }
 
 // `to` (seconds) limits how much of the file is read, so subtitles can be pulled from a download still in progress.
-export const embeddedSub = async (url, n, to = 0) => srtToVtt((await run([...(to ? ['-t', String(to)] : []), '-i', url, '-map', `0:s:${n}`, '-f', 'webvtt', 'pipe:1'])).toString('utf8'))
+export const embeddedSub = async (url, n, to = 0) => srtToVtt((await run([...(to ? ['-t', String(to)] : []), '-i', url, '-map', `0:s:${n}`, '-f', 'srt', 'pipe:1'])).toString('utf8'))
 
-export const anyToVtt = async buf => (await run(['-protocol_whitelist', 'pipe', '-i', 'pipe:0', '-f', 'webvtt', 'pipe:1'], buf)).toString('utf8')
+// Through SRT rather than WebVTT: ffmpeg's WebVTT writer drops an ASS cue's alignment, its SRT writer keeps it as {\an8}, which srtToVtt turns into a cue setting.
+export const anyToVtt = async buf => srtToVtt((await run(['-protocol_whitelist', 'pipe', '-i', 'pipe:0', '-f', 'srt', 'pipe:1'], buf)).toString('utf8'))

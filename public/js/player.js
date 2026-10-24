@@ -50,7 +50,7 @@ export async function watch (type, id, season, episode) {
   layer.innerHTML = `
   <div class="pl paused ui" data-modal data-keys="own">
     <video playsinline preload="auto"></video>
-    <div class="pl-subs" aria-hidden="true"></div>
+    <div class="pl-subs" aria-hidden="true"><div class="top"></div><div class="mid"></div><div class="bot"></div></div>
     <div class="pl-fx l"></div><div class="pl-fx r"></div>
     <div class="pl-spin" hidden></div>
     <div class="pl-top"><button class="cbtn" id="back" aria-label="Back">${icon('left')}</button>
@@ -92,7 +92,7 @@ export async function watch (type, id, season, episode) {
   </div>`
 
   const root = $('.pl', layer); const v = $('video', root)
-  const subsEl = $('.pl-subs', root); const menu = $('#menu', root)
+  const subsEl = $('.pl-subs', root); const zones = { top: $('.top', subsEl), mid: $('.mid', subsEl), bot: $('.bot', subsEl) }; const menu = $('#menu', root)
   const openedAt = Date.now()
   let dead = false; let hash; let st; let info; let mode = 'direct'; let hls
   let marks = {}; let skipTo = null // intro, recap and ending of the episode, and where the skip button leads
@@ -425,6 +425,12 @@ export async function watch (type, id, season, episode) {
 
   let cues = []; let subGen = 0; let refreshT; let raf = 0; let lastDraw = 0; let smLang = null
   const toSec = t => { const p = t.replace(',', '.').split(':').map(Number); return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1] }
+  // WebVTT cue settings the player honours: where on the picture (line) and which side (align). Anything else is the default.
+  function cueSettings (set) {
+    const ln = set.match(/line:(-?[\d.]+)(%?)/); const al = set.match(/align:(start|left|end|right)/)
+    const v = ln && +ln[1]
+    return { p: !ln ? null : ln[2] ? (v < 34 ? 'top' : v < 67 ? 'mid' : null) : v >= 0 && v < 5 ? 'top' : null, a: al && (/^(start|left)$/.test(al[1]) ? 'left' : 'right') }
+  }
   function parseVtt (text) {
     const out = []
     for (const block of text.replace(/\r/g, '').split(/\n{2,}/)) {
@@ -432,18 +438,22 @@ export async function watch (type, id, season, episode) {
       if (k < 0 || /^(NOTE|STYLE|REGION)/.test(lines[0])) continue
       const m = lines[k].match(/([\d:.,]+)\s*-->\s*([\d:.,]+)/); if (!m) continue
       const t = lines.slice(k + 1).join('\n').trim()
-      if (t) out.push({ s: toSec(m[1]), e: toSec(m[2]), t })
+      if (t) out.push({ s: toSec(m[1]), e: toSec(m[2]), t, ...cueSettings(lines[k].slice(m.index + m[0].length)) })
     }
     return out.sort((a, b) => a.s - b.s)
   }
+  const resetSubs = () => { for (const el of Object.values(zones)) { el.innerHTML = ''; el._last = null } }
   function renderCue () {
     const t = v.currentTime - delay
     let lo = 0; let hi = cues.length
     while (lo < hi) { const mid = (lo + hi) >> 1; cues[mid].s <= t ? (lo = mid + 1) : (hi = mid) }
     const active = []
-    for (let k = lo - 1; k >= 0 && k > lo - 8; k--) if (cues[k].e > t && cues[k].t) active.unshift(cues[k].t)
-    const lines = active.join('\n')
-    if (lines !== subsEl._last) { subsEl._last = lines; subsEl.innerHTML = lines ? lines.split('\n').map(l => `<span>${cueHTML(l)}</span>`).join('<br>') : '' }
+    for (let k = lo - 1; k >= 0 && k > lo - 8; k--) if (cues[k].e > t && cues[k].t) active.unshift(cues[k])
+    for (const [z, el] of Object.entries(zones)) {
+      const mine = active.filter(c => (c.p || 'bot') === z); const align = mine.at(-1)?.a || ''
+      const lines = mine.map(c => c.t).join('\n') + align
+      if (lines !== el._last) { el._last = lines; el.dataset.a = align; el.innerHTML = mine.length ? mine.map(c => c.t).join('\n').split('\n').map(l => `<span>${cueHTML(l)}</span>`).join('<br>') : '' }
+    }
   }
   const loop = now => { if (now - lastDraw > 90) { lastDraw = now; renderCue() } raf = v.paused ? 0 : requestAnimationFrame(loop) }
   v.addEventListener('playing', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(loop) })
@@ -451,7 +461,7 @@ export async function watch (type, id, season, episode) {
 
   let baseCues = []; let syncRes = null; let syncGen = 0; let syncTimer; let syncState = ''
   const autoOn = () => P.autosync ?? store.get('autosync', true)
-  const applyCues = () => { cues = syncRes && autoOn() ? baseCues.map(c => ({ ...c, s: mapTime(syncRes, c.s), e: mapTime(syncRes, c.e) })) : baseCues; subsEl._last = null; renderCue() }
+  const applyCues = () => { cues = syncRes && autoOn() ? baseCues.map(c => ({ ...c, s: mapTime(syncRes, c.s), e: mapTime(syncRes, c.e) })) : baseCues; resetSubs(); renderCue() }
   async function runSync (entry, attempt = 0, quiet = false, fresh = false) {
     clearTimeout(syncTimer)
     const gen = ++syncGen
@@ -588,7 +598,7 @@ export async function watch (type, id, season, episode) {
   function showSub (entry, { auto } = {}) {
     stopTranslating(entry)
     if (!auto) remember(entry)
-    subSel = entry; if (entry) entry.autoPicked = !!auto; delay = entry ? savedDelay(entry) : 0; cues = []; baseCues = []; syncRes = null; candidate = null; syncState = ''; syncGen++; clearTimeout(syncTimer); clearTimeout(probeTimer); subsEl.innerHTML = ''; subsEl._last = null; subGen++
+    subSel = entry; if (entry) entry.autoPicked = !!auto; delay = entry ? savedDelay(entry) : 0; cues = []; baseCues = []; syncRes = null; candidate = null; syncState = ''; syncGen++; clearTimeout(syncTimer); clearTimeout(probeTimer); resetSubs(); subGen++
     clearTimeout(refreshT)
     smLang = entry ? (entry.lang || '_file') : 'off'
     if (!entry) { drawMenu(); return syncNative() }

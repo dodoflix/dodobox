@@ -22,6 +22,32 @@ export const ANIME = { id: 'al:9001', name: 'Moon Station Nine', year: 2022, gen
 // A longer film with speech-like audio and its own subtitle file, for the automatic subtitle sync. The subtitle runs SYNC_LAG seconds late.
 export const LONG = { id: 'tt9000004', type: 'movie', name: 'Long Take', year: 2018, file: 'Long.Take.2018.1080p.WEB-DL.mkv', genres: ['Drama'], description: 'One scene, many minutes.' }
 export const SYNC_LAG = 3.2
+// The subtitle file beside Home Movie: one cue a second, each asking for a place the way files converted from ASS do.
+// [start second, text as written, zone it must be drawn in, side, text the viewer must read]
+export const PLACED = [
+  [1, '{\\an8}Beside the file', 'top', '', 'Beside the file'],
+  [2, '{\\an7}Top left', 'top', 'left', 'Top left'],
+  [3, '{\\an9}Top right', 'top', 'right', 'Top right'],
+  [4, '{\\an4}Middle left', 'mid', 'left', 'Middle left'],
+  [5, '{\\an5}Middle', 'mid', '', 'Middle'],
+  [6, '{\\an6}Middle right', 'mid', 'right', 'Middle right'],
+  [7, '{\\an1}Bottom left', 'bot', 'left', 'Bottom left'],
+  [8, '{\\an2}Bottom', 'bot', '', 'Bottom'],
+  [9, '{\\an3}Bottom right', 'bot', 'right', 'Bottom right'],
+  [10, '{\\a6}Old style top', 'top', '', 'Old style top'],
+  [11, '{\\fad(200,200)}{\\pos(10,10)}Fade and place', 'bot', '', 'Fade and place'],
+  [12, '{\\an10}Out of range', 'bot', '', 'Out of range'],
+  [13, '{\\i1}Slanted{\\i0} and plain', 'bot', '', 'Slanted and plain'],
+  [14, '{whisper} keeps its braces', 'bot', '', '{whisper} keeps its braces'],
+  [15, '{\\an8}Two long lines in the top row to see how a sign wraps\\nwhen the picture is narrow', 'top', '', 'Two long lines in the top row to see how a sign wraps\nwhen the picture is narrow']
+]
+// Cues that share a second: [start second, [[text as written, zone, side]...]], each drawn in its own zone, lines in the order written.
+export const TOGETHER = [
+  [17, [['{\\an8}Sign above', 'top', ''], ['Spoken below', 'bot', '']]],
+  [18, [['First speaker', 'bot', ''], ['Second speaker', 'bot', '']]],
+  [19, [['{\\an4}Left one', 'mid', 'right'], ['{\\an6}Right one', 'mid', 'right']]]
+]
+const placedSrt = [...PLACED.map(([s, text]) => [s, text.replace('\\n', '\n')]), ...TOGETHER.flatMap(([s, cues]) => cues.map(([text]) => [s, text]))].map(([s, text], i) => `${i + 1}\n00:00:${String(s).padStart(2, '0')},000 --> 00:00:${String(s).padStart(2, '0')},900\n${text}\n`).join('\n')
 export const ANIME_FILE = '[Grp] Moon Station Nine - 01 [1080p].mkv'
 // Two torrents of the same film, so playing it starts a race between versions.
 export const TWIN = { id: 'tt9000005', type: 'movie', name: 'Twin Streams', year: 2017, file: 'Twin.Streams.2017.1080p.WEB-DL.mkv', alt: 'Twin.Streams.2017.1080p.BluRay.mkv', genres: ['Drama'], description: 'Same story, two sources.' }
@@ -198,7 +224,7 @@ export async function boot ({ seed = false, data, media = false, speedtest = fal
       async single (t) {
         const dir = path.join(tmp, 'seed', t.id); fs.mkdirSync(dir, { recursive: true })
         const file = path.join(dir, t.file)
-        makeVideo(file, `Hello from ${t.name}`)
+        makeVideo(file, `{\\an8}Hello from ${t.name}`)
         seeded[t.id] = await this.add(file)
       }
     }
@@ -207,7 +233,7 @@ export async function boot ({ seed = false, data, media = false, speedtest = fal
   if (media) {
     const dir = process.env.MEDIA_DIR; fs.mkdirSync(path.join(dir, 'Paper Lanterns', 'Subs'), { recursive: true })
     makeVideo(path.join(dir, 'Home.Movie.2015.1080p.mkv'), 'Hello from the disk')
-    fs.writeFileSync(path.join(dir, 'Home.Movie.2015.1080p.en.srt'), '1\n00:00:01,000 --> 00:00:03,000\nBeside the file\n')
+    fs.writeFileSync(path.join(dir, 'Home.Movie.2015.1080p.en.srt'), placedSrt)
     makeVideo(path.join(dir, 'Paper Lanterns', 'Paper.Lanterns.S01E02.mkv'), 'Hello from the disk')
   }
   if (speedtest) delete process.env.NO_SPEEDTEST

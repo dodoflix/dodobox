@@ -86,6 +86,15 @@ test('the optional better translator knows every interface language except Engli
   assert.equal(supports('en'), false)
 })
 
+test('a translated cue keeps its place on the picture and its alignment', async () => {
+  const { assemble, analyse, parseVtt } = await import('../src/translate.js')
+  const a = analyse('WEBVTT\n\n00:01.000 --> 00:02.000 line:0 align:start\nSign over there.\n\n00:03.000 --> 00:04.000\nHow are you?\n')
+  const out = assemble(a, ['Şuradaki tabela.', 'Nasılsın?'])
+  assert.match(out, /00:01\.000 --> 00:02\.000 line:0 align:start\nŞuradaki tabela\./)
+  assert.match(out, /00:03\.000 --> 00:04\.000\nNasılsın\?/)
+  assert.equal(parseVtt(out).length, 2)
+})
+
 test('a line the translator answers nothing for keeps its original words', async () => {
   const { assemble, analyse, parseVtt } = await import('../src/translate.js')
   const a = analyse('WEBVTT\n\n00:01.000 --> 00:02.000\nHello there.\n\n00:03.000 --> 00:04.000\nHow are you?\n')

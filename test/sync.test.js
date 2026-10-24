@@ -137,6 +137,13 @@ test('shiftVtt rewrites cue times and parseCues reads them back', () => {
   assert.equal(offsetAt([{ t: 0, d: 1 }, { t: 100, d: 3 }], 'piecewise', 50), 2)
 })
 
+test('shifting a subtitle keeps where each cue sits on the picture', () => {
+  const vtt = 'WEBVTT\n\n1\n00:00:10.000 --> 00:00:12.500 line:0 align:start\n<i>Hello</i>\n\n2\n00:01:00.000 --> 00:01:02.000 line:50%\nWorld\n'
+  const out = shiftVtt(vtt, { ratio: 1, anchors: [{ t: 0, d: 2.5 }], model: 'constant' })
+  assert.match(out, /00:00:12\.500 --> 00:00:15\.000 line:0 align:start\n<i>Hello<\/i>/)
+  assert.match(out, /00:01:02\.500 --> 00:01:04\.500 line:50%\nWorld/)
+})
+
 test('advertisements and credits in a subtitle file are recognised and left out of the sync', async () => {
   const cue = (s, e, text) => ({ s, e, t: text })
   const lines = [cue(0, 6, 'Support us and become VIP member to remove all ads from www.OpenSubtitles.org'), cue(7, 9, 'Advertise your product or brand here'),

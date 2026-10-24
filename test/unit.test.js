@@ -28,6 +28,68 @@ test('srt to vtt', () => {
   assert.ok(srtToVtt('WEBVTT\n\n00:01.000 --> 00:02.000\nx').startsWith('WEBVTT'))
 })
 
+// What a one-cue SRT turns into: the timing line's settings and the text.
+const cueOf = (text, timing = '00:00:01,000 --> 00:00:02,000') => {
+  const [t, ...body] = srtToVtt(`1\n${timing}\n${text}\n`).split('\n').slice(3)
+  return { set: t.replace(/^\S+ --> \S+ ?/, ''), text: body.join('\n') }
+}
+
+test('every ASS alignment becomes the matching WebVTT line and align', () => {
+  const want = { 7: 'line:0 align:start', 8: 'line:0', 9: 'line:0 align:end', 4: 'line:50% align:start', 5: 'line:50%', 6: 'line:50% align:end', 1: 'align:start', 2: '', 3: 'align:end' }
+  for (const [an, set] of Object.entries(want)) assert.deepEqual(cueOf(`{\\an${an}}Hi`), { set, text: 'Hi' }, `\\an${an}`)
+})
+
+test('the older SSA alignment numbers mean the same places', () => {
+  const want = { 1: 'align:start', 2: '', 3: 'align:end', 5: 'line:0 align:start', 6: 'line:0', 7: 'line:0 align:end', 9: 'line:50% align:start', 10: 'line:50%', 11: 'line:50% align:end' }
+  for (const [a, set] of Object.entries(want)) assert.deepEqual(cueOf(`{\\a${a}}Hi`), { set, text: 'Hi' }, `\\a${a}`)
+  assert.deepEqual(cueOf('{\\a4}Hi'), { set: '', text: 'Hi' }, 'no such number')
+})
+
+test('override blocks are read wherever they sit and in whatever company', () => {
+  assert.deepEqual(cueOf('{\\an8\\b1\\c&HFFFFFF&\\fs30}Hi'), { set: 'line:0', text: 'Hi' }, 'with other tags in the block')
+  assert.deepEqual(cueOf('{\\b1}{\\an9}Hi'), { set: 'line:0 align:end', text: 'Hi' }, 'in a later block')
+  assert.deepEqual(cueOf('One\n{\\an8}Two'), { set: 'line:0', text: 'One\nTwo' }, 'on the second line')
+  assert.deepEqual(cueOf('{\\an8}A\n{\\an2}B'), { set: 'line:0', text: 'A\nB' }, 'the first one decides')
+  assert.deepEqual(cueOf('{\\an10}Hi'), { set: '', text: 'Hi' }, 'out of range')
+  assert.deepEqual(cueOf('{\\an0}Hi'), { set: '', text: 'Hi' })
+  assert.deepEqual(cueOf('{\\alpha&H80&}Hi'), { set: '', text: 'Hi' }, '\\alpha is not \\a')
+  assert.deepEqual(cueOf('{\\an8}'), { set: 'line:0', text: '' }, 'a cue of only a tag is left empty, the player skips it')
+  assert.deepEqual(cueOf('{\\an8}Hi', '00:00:01,000 --> 00:00:02,000'), { set: 'line:0', text: 'Hi' })
+})
+
+test('italics survive and every other override is dropped', () => {
+  assert.equal(cueOf('{\\i1}Slanted{\\i0} plain').text, '<i>Slanted</i> plain')
+  assert.equal(cueOf('{\\i1\\b1}A{\\b0\\i0}').text, '<i>A</i>')
+  assert.equal(cueOf('{\\i0}x').text, '</i>x', 'a stray close is left for the browser to ignore')
+  assert.equal(cueOf('{\\fad(200,200)}{\\pos(192,10)}{\\move(1,2,3,4)}{\\blur2}{\\k20}Hi').text, 'Hi')
+  assert.equal(cueOf('{\\fad(200,200)}Hi').set, '', 'no alignment, no setting')
+  assert.equal(cueOf('{\\1c&H0000FF&\\bord2}Red').text, 'Red')
+  assert.equal(cueOf('<i>Already</i> {\\an8}tagged').text, '<i>Already</i> tagged')
+})
+
+test('font tags are dropped from cue text and the rest of a cue is untouched', () => {
+  assert.equal(cueOf('<font size="20">Plain</font>').text, 'Plain')
+  assert.equal(cueOf('<font color="#ff0000"><i>Red</i></font> {\\an8}up').text, '<i>Red</i> up')
+  assert.equal(cueOf('{\\an8}<FONT face="x">A</FONT>\nB').text, 'A\nB')
+  assert.equal(srtToVtt('WEBVTT\n\nNOTE <font>kept</font>\n\n00:01.000 --> 00:02.000\n<font>x</font>'), 'WEBVTT\n\nNOTE <font>kept</font>\n\n00:01.000 --> 00:02.000\nx\n')
+})
+
+test('braces that are not override blocks are left alone', () => {
+  assert.equal(cueOf('{whisper} {a} {\\}').text, '{whisper} {a} ')
+  assert.equal(cueOf('{whisper}').text, '{whisper}')
+  assert.equal(cueOf('function() { return 1 }').text, 'function() { return 1 }')
+})
+
+test('override handling copes with every file shape', () => {
+  assert.equal(srtToVtt('﻿1\r\n00:00:01,500 --> 00:00:03,000\r\n{\\an8}Hello\r\n\r\n2\r\n00:00:04,000 --> 00:00:05,000\r\nBye\r\n'), 'WEBVTT\n\n1\n00:00:01.500 --> 00:00:03.000 line:0\nHello\n\n2\n00:00:04.000 --> 00:00:05.000\nBye', 'BOM, CRLF and several cues')
+  assert.equal(srtToVtt('1\n00:00:01,000 --> 00:00:02,000\n{\\an8}Hi\n\n2\n00:00:03,000 --> 00:00:04,000\nYo').includes('{'), false)
+  assert.equal(srtToVtt('WEBVTT\n\n00:01.000 --> 00:02.000\n{\\an7}x'), 'WEBVTT\n\n00:01.000 --> 00:02.000 line:0 align:start\nx\n', 'WebVTT input without settings')
+  assert.equal(srtToVtt('WEBVTT\n\n00:01.000 --> 00:02.000 line:90%\n{\\an8}x'), 'WEBVTT\n\n00:01.000 --> 00:02.000 line:90%\nx\n', 'settings already on the cue are kept')
+  assert.equal(srtToVtt('WEBVTT\n\nNOTE {\\an8} a comment\n\n00:01.000 --> 00:02.000\nx'), 'WEBVTT\n\nNOTE {\\an8} a comment\n\n00:01.000 --> 00:02.000\nx\n', 'only cues are touched')
+  assert.equal(srtToVtt(srtToVtt('1\n00:00:01,000 --> 00:00:02,000\n{\\an8}Hi\n')), 'WEBVTT\n\n1\n00:00:01.000 --> 00:00:02.000 line:0\nHi\n', 'converting twice changes nothing')
+  assert.equal(srtToVtt(''), 'WEBVTT\n\n')
+})
+
 test('subtitle proxy only allows addon hosts', () => {
   assert.ok(allowedSubUrl('https://subs5.strem.io/en/download/x'))
   assert.ok(!allowedSubUrl('http://subs5.strem.io/x'))
