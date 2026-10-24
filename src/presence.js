@@ -73,7 +73,7 @@ export const clear = () => { clearTimeout(idle); last = null; if (sock) setActiv
 
 const REPO = 'https://github.com/dodoflix/dodobox'
 const LOGO = { large_image: 'logo', large_text: 'Dodobox' }
-const EN = { browsing: 'Browsing', looking: 'Looking for something to watch', party: 'In a watch party', picking: 'Picking something to watch', paused: 'Paused', episode: '', get: 'Get Dodobox', releases: 'Releases' }
+const EN = { browsing: 'Browsing', looking: 'Looking for something to watch', party: 'In a watch party', picking: 'Picking something to watch', paused: 'Paused', episode: '', get: 'Download Dodobox' }
 
 // b: { state: 'playing' | 'paused' | 'browsing' | 'off', name, art, season, episode, pos, dur, party, t }, sent by the page every 15 s.
 // party: { id, size, max } when in a watch party. t: the page's translations of the words in EN.
@@ -85,7 +85,7 @@ export function report (b) {
   idle.unref()
   const t = { ...EN }
   for (const k of Object.keys(EN)) if (typeof b.t?.[k] === 'string') t[k] = b.t[k].slice(0, 100)
-  const activity = { type: 3, buttons: [{ label: t.get, url: REPO }, { label: t.releases, url: `${REPO}/releases/latest` }] }
+  const activity = { type: 3, buttons: [{ label: t.get, url: `${REPO}/releases/latest` }] }
   if (b.party) activity.party = { id: b.party.id, size: [b.party.size, b.party.max] }
   if (b.state === 'browsing') Object.assign(activity, { details: b.party ? t.party : t.browsing, state: b.party ? t.picking : t.looking, assets: LOGO })
   else {

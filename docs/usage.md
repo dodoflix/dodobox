@@ -57,7 +57,7 @@ Each person's Dodobox plays the video itself (a party does not stream your copy)
 
 ## Discord
 
-When Discord runs on the same computer as the server, it shows, in your interface language, that you are browsing, or what is playing or paused with its poster and a timer. In a watch party it also shows how many are in it. It has Get Dodobox and Releases buttons (other people see them, you do not). It is on by default: switch it off per profile in Settings, Discord, or for the whole server with `NO_DISCORD=1`. Joining a party from Discord is not supported, because the join secret would pass the party code, which is also its encryption key, through Discord.
+When Discord runs on the same computer as the server, it shows, in your interface language, that you are browsing, or what is playing or paused with its poster and a timer. In a watch party it also shows how many are in it. It has a Download Dodobox button that opens the latest release (other people see it, you do not). It is on by default: switch it off per profile in Settings, Discord, or for the whole server with `NO_DISCORD=1`. Joining a party from Discord is not supported, because the join secret would pass the party code, which is also its encryption key, through Discord.
 
 ## Subtitles
 

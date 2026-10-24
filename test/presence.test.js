@@ -28,7 +28,7 @@ test('report sends playing, paused and browsing activities after the handshake',
   assert.equal(frames[0].state, 'Season 2 · Episode 3')
   assert.equal(frames[0].timestamps.end - frames[0].timestamps.start, 1300)
   assert.equal(frames[0].assets.large_image, play.art)
-  assert.ok(frames[0].buttons.length)
+  assert.deepEqual(frames[0].buttons, [{ label: 'Download Dodobox', url: 'https://github.com/dodoflix/dodobox/releases/latest' }])
 
   report({ ...play, state: 'playing', pos: 101 })
   report({ ...play, state: 'paused', pos: 105 })
@@ -46,7 +46,6 @@ test('report sends playing, paused and browsing activities after the handshake',
   await next(4)
   assert.equal(frames[3].details, 'Göz atıyor')
   assert.equal(frames[3].buttons[0].label, 'Dodobox\'ı indir')
-  assert.equal(frames[3].buttons[1].label, 'Releases', 'a word the page did not send falls back to English')
 
   report({ state: 'browsing', party: { id: 'abc', size: 3, max: 12 } })
   await next(5)

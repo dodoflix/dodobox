@@ -40,7 +40,7 @@ export const rows = [
 /*more*/ 'Kijkfeestje', 'Start een kijkfeestje', 'Partycode', 'Deelnemen', 'Je vrienden hebben ook Dodobox nodig. Deel de code met hen.', 'Je vrienden zoeken...', 'Code kopiëren', 'Code gekopieerd', 'Verlaat het kijkfeestje', 'Kijkt naar', 'Samen kijken', 'Dat is geen partycode', 'Je zit al in een kijkfeestje', 'Je zit niet in een kijkfeestje',
 /*more*/ 'Haal een code om te delen en kijk alles samen, aflevering na aflevering.', 'of', 'Deelnemen met een code', 'Kies iets om te kijken en iedereen volgt.', 'Bericht aan de groep', 'Berichten', 'Verstuur', 'Afbeelding tonen', 'Emoji', 'De chat is verborgen op volledig scherm op iPhone',
 /*more*/ 'Discord-status', 'Toont in Discord wat je kijkt, als Discord op deze computer draait.',
-/*more*/ 'Bladert', 'Zoekt iets om te kijken', 'In een kijkfeestje', 'Kiest wat te kijken', 'Download Dodobox', 'Releases',
+/*more*/ 'Bladert', 'Zoekt iets om te kijken', 'In een kijkfeestje', 'Kiest wat te kijken', 'Download Dodobox',
 /*more*/ 'Wachtwoord (optioneel)', 'Je vrienden hebben ook het wachtwoord nodig.',
 /*more*/ 'Wachtwoord tonen', 'Wachtwoord verbergen',
 /*more*/ 'Plakken',
