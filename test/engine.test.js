@@ -102,6 +102,26 @@ test('a download nobody pinned is retargeted to another episode of the same pack
   engine.pin('f'.repeat(40))
 })
 
+test('a download resumed part way through still completes, and a resume point is ignored where it does not apply', async () => {
+  const dir = path.join(tmp, 'Film.2020.1080p'); fs.mkdirSync(dir)
+  fs.writeFileSync(path.join(dir, 'Film.2020.1080p.mkv'), crypto.randomBytes(3e6))
+  const film = await new Promise(r => seeder.seed(dir, { announce: [] }, r))
+  const m = `magnet:?xt=urn:btih:${film.infoHash}&x.pe=127.0.0.1:${seeder.address().port}`
+  engine.add({ hash: film.infoHash, magnet: m, ctx: { type: 'movie', id: 'tt2', title: 'Film', year: 2020 } })
+  seeder.throttleUpload(200e3) // slow enough to see what arrives first
+  engine.resumeAt(film.infoHash, undefined, 0.75) // before the file list is known
+  // The last piece of a file arrives early whatever the order, so only a stretch of some size says where the download began.
+  const run = await until(() => engine.readableRuns(film.infoHash, 0).find(([a, b]) => b - a > 100e3))
+  assert.ok(run[0] > 0.7 * 3e6, `the download began at ${run[0]}, not at the resume point`)
+  seeder.throttleUpload(-1)
+  const st = await until(() => { const s = engine.status(film.infoHash, true); return s.phase === 'done' && s })
+  assert.equal(st.progress, 1)
+  engine.resumeAt(film.infoHash, st.fileIdx, 0.5) // done: nothing left to order
+  engine.resumeAt(film.infoHash, st.fileIdx, 0)
+  engine.resumeAt('f'.repeat(40), 0, 0.5)
+  assert.equal(await engine.remove(film.infoHash), true)
+})
+
 test('the idle and watching rules decide who pauses', () => {
   const now = 1e6
   assert.equal(engine.pauseReason({ pinned: false, added: now - 60e3, lastUsed: 0 }, now, false, false), 'idle')
