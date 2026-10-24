@@ -47,7 +47,7 @@ const looksLikeImage = b => b.length > 12 && (
   (b[0] === 0xff && b[1] === 0xd8) || b.toString('latin1', 1, 4) === 'PNG' || b.toString('latin1', 0, 3) === 'GIF' ||
   (b.toString('latin1', 0, 4) === 'RIFF' && b.toString('latin1', 8, 12) === 'WEBP') || b.toString('latin1', 4, 8) === 'ftyp')
 // Written to a temp name first: a crash mid-write must not leave a half file under the real name, which would be served for good.
-const put = async (f, data) => { const t = `${f}.${process.pid}.tmp`; await writeFile(t, data); await rename(t, f) }
+const put = async (f, data) => { const t = `${f}.${crypto.randomUUID()}.tmp`; await writeFile(t, data); await rename(t, f) }
 
 async function original (u, signal) {
   const f = path.join(DIR, hash(u))

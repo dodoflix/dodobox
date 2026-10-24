@@ -27,3 +27,11 @@ test('an upstream answer that is not a picture is refused and not stored', async
   await assert.rejects(image(URL_, 0), { code: 502 })
   assert.equal(fs.existsSync(cached), false)
 })
+
+test('two requests for the same picture at once both succeed', async t => {
+  fs.rmSync(cached, { force: true }); fs.rmSync(cached + '.t', { force: true })
+  t.mock.method(globalThis, 'fetch', async () => reply(jpeg))
+  const [a, b] = await Promise.all([image(URL_, 0), image(URL_, 0)])
+  assert.deepEqual(a.buf, b.buf)
+  assert.deepEqual(fs.readdirSync(path.dirname(cached)).filter(f => f.endsWith('.tmp')), [])
+})
