@@ -39,7 +39,7 @@ export async function settings (root) {
         <div class="seg" id="interests">${[['movie', 'Movies'], ['series', 'Series'], ['anime', 'Anime']].map(([t, n]) => `<button data-t="${t}" class="${(me.settings.interests || []).includes(t) ? 'on' : ''}">${n}</button>`).join('')}</div></div>
       <div class="set"><div class="l"><b>Video quality</b><span>Auto picks the best version your connection and screen can use${srv.internetMbps ? ` (this server's internet: about ${srv.internetMbps} Mbps)` : ''}. Choose a level to force it.</span></div>
         ${seg('quality', [['auto', 'Auto'], ['2160', '4K'], ['1080', '1080p'], ['720', '720p'], ['480', 'Data saver']], ['best'].includes(me.settings.quality) ? 'auto' : me.settings.quality)}<div class="netnotes" id="nn-quality"></div></div>
-      <div class="set"><div class="l"><b>Download size</b><span>Balanced avoids huge files. Smallest starts fastest. Best quality accepts very large files.</span></div>
+      <div class="set"><div class="l"><b>Download size</b><span>Smallest starts fastest. Balanced avoids huge files. Best quality accepts very large files.</span></div>
         ${seg('sourceMode', SOURCE_MODES, me.settings.sourceMode || 'compact')}<div class="netnotes" id="nn-size"></div></div>
       <div class="set"><div class="l"><b>Adult content filter</b><span>Hide titles that are marked as adult. Off by default.</span></div>
         <button class="switch" role="switch" data-k="adultFilter" aria-checked="${!!me.settings.adultFilter}" aria-label="Adult content filter"></button></div>

@@ -65,7 +65,7 @@ export async function profileOnboarding () {
     { title: () => 'What do you like?', rows: () => `
         <div class="ob-row stack"><span><b>Your taste</b><small>Pick any. Your home screen starts with these.</small></span>
           <div class="chips">${chips([['movie', 'Movies'], ['series', 'Series'], ['anime', 'Anime']], v => interests.has(v), 'i')}</div></div>
-        <div class="ob-row stack"><span><b>Download size</b><small>Balanced avoids huge files. Smallest starts fastest. Best quality accepts very large files.</small></span>
+        <div class="ob-row stack"><span><b>Download size</b><small>Smallest starts fastest. Balanced avoids huge files. Best quality accepts very large files.</small></span>
           <div class="chips">${chips(SOURCE_MODES, v => v === mode, 'm')}</div><div class="netnotes" id="nn-size">${sizeNote()}</div></div>` },
     { title: () => 'Your privacy', rows: () => `
         <div class="ob-row"><span><b>PIN code</b><small>Optional. Keeps your list, history and settings private: it is asked when someone opens this profile. Downloads stay open to everyone.</small></span>

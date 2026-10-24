@@ -263,7 +263,7 @@ export const ROWS = [
   ['hiatus', 'ara verildi', 'en pausa', 'en pause', 'pausiert'],
   ['Choose a profile first', 'Önce bir profil seç', 'Elige primero un perfil', "Choisissez d'abord un profil", 'Wähle zuerst ein Profil'],
   ['Download size', 'İndirme boyutu', 'Tamaño de descarga', 'Taille des téléchargements', 'Downloadgröße'],
-  ['Balanced avoids huge files. Smallest starts fastest. Best quality accepts very large files.', 'Dengeli dev dosyalardan kaçınır. En küçük en hızlı başlar. En iyi kalite çok büyük dosyaları kabul eder.', 'Equilibrado evita archivos enormes. Más pequeño empieza más rápido. Mejor calidad acepta archivos muy grandes.', 'Équilibré évite les fichiers énormes. Le plus petit démarre le plus vite. Meilleure qualité accepte de très gros fichiers.', 'Ausgewogen vermeidet riesige Dateien. Kleinste startet am schnellsten. Beste Qualität nimmt sehr große Dateien in Kauf.'],
+  ['Smallest starts fastest. Balanced avoids huge files. Best quality accepts very large files.', 'En küçük en hızlı başlar. Dengeli dev dosyalardan kaçınır. En iyi kalite çok büyük dosyaları kabul eder.', 'Más pequeño empieza más rápido. Equilibrado evita archivos enormes. Mejor calidad acepta archivos muy grandes.', 'Le plus petit démarre le plus vite. Équilibré évite les fichiers énormes. Meilleure qualité accepte de très gros fichiers.', 'Kleinste startet am schnellsten. Ausgewogen vermeidet riesige Dateien. Beste Qualität nimmt sehr große Dateien in Kauf.'],
   ['Balanced', 'Dengeli', 'Equilibrado', 'Équilibré', 'Ausgewogen'],
   ['Smallest', 'En küçük', 'Más pequeño', 'Le plus petit', 'Kleinste'],
   ['Best quality', 'En iyi kalite', 'Mejor calidad', 'Meilleure qualité', 'Beste Qualität'],
