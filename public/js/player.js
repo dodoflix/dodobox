@@ -23,7 +23,7 @@ const watchHref = (t, id, s, e) => `#/watch/${t}/${enc(id)}` + (s != null ? `/${
 // Subtitle files carry their own styling: bold, underline, fonts, colours. Built-in (ASS) tracks use it freely and external
 // files hardly at all, so honouring it made the two look like different fonts. Only italics (emphasis) is kept.
 function cueHTML (text) {
-  return text.replace(/\{\\[^}]*\}/g, '').split(/(<\/?i>)/i).map((p, k) => k % 2 ? p : esc(p.replace(/<[^>]*>/g, ''))).join('')
+  return text.split(/(<\/?i>)/i).map((p, k) => k % 2 ? p : esc(p.replace(/<[^>]*>/g, ''))).join('')
 }
 
 // The player library is big and only needed to play: it is fetched here, not with the page.

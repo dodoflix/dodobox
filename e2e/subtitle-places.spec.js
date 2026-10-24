@@ -85,7 +85,7 @@ function expectPlace (m, zone, side, text, label) {
   assert.ok(b.l >= -0.5 && b.r <= m.W + 0.5, `${label}: inside the width`)
   assert.ok(b.t >= m.pic.t - 1 && b.b <= m.pic.b + 1, `${label}: inside the picture (${Math.round(b.t)}-${Math.round(b.b)} of ${Math.round(m.pic.t)}-${Math.round(m.pic.b)})`)
   if (zone === 'top') assert.ok(b.t <= m.H / 2, `${label}: starts in the upper half`) // a small picture in a tall window straddles the middle, so only where it starts counts
-  if (zone === 'mid') near((got.line.t + got.line.b) / 2, m.H / 2, `${label}: vertical middle`, 2) // the line box, not the glyph box: a big face sits a few pixels off its line's middle
+  if (zone === 'mid') near((got.line.t + got.line.b) / 2, m.H / 2, `${label}: vertical middle`, m.H * 0.01) // a wrong place is hundreds of pixels off; fonts and rounding move a line by a few
   if (zone === 'bot') assert.ok(b.b >= m.H / 2, `${label}: ends in the lower half`)
   // The controls never sit on a subtitle.
   if (m.ui) for (const c of m.controls) assert.ok(!hit(b, c), `${label}: covered by ${c.n} while the controls are up`)
