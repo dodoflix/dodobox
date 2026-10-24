@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.9.0](https://github.com/dodoflix/dodobox/compare/v0.8.0...v0.9.0) (2026-10-24)
+
+
+### Features
+
+* incremental subtitle sync that builds on earlier windows as the download grows ([#62](https://github.com/dodoflix/dodobox/issues/62)) ([47cb4f3](https://github.com/dodoflix/dodobox/commit/47cb4f3fe59c940680c2a289448b05c9e9c37fd1))
+* let each profile connect its own OpenSubtitles VIP account for subtitle downloads ([#55](https://github.com/dodoflix/dodobox/issues/55)) ([550b05f](https://github.com/dodoflix/dodobox/commit/550b05fb89a0cd4b2834755d021e659f12879ae2))
+* log requests, torrents, ffmpeg, and page errors to a file in the data folder ([#48](https://github.com/dodoflix/dodobox/issues/48)) ([6372227](https://github.com/dodoflix/dodobox/commit/637222794702bbe2bea3bd3bd24b98dabcdfe005))
+* measure subtitle timing against the video's built-in text track ([#63](https://github.com/dodoflix/dodobox/issues/63)) ([cd4a460](https://github.com/dodoflix/dodobox/commit/cd4a46088fbd2763c755d0667fc60428f3beb764))
+* pick releases the line can carry on slow and distant connections ([#52](https://github.com/dodoflix/dodobox/issues/52)) ([a112264](https://github.com/dodoflix/dodobox/commit/a1122640d645e751dbc8518a2a9329999d39426d))
+* rank subtitles by release match, hearing-impaired, frame rate, rating and uploader ([#51](https://github.com/dodoflix/dodobox/issues/51)) ([b39aeda](https://github.com/dodoflix/dodobox/commit/b39aeda5f35507b819e7fe743a484cd002cd452c))
+* re-sync button in the subtitle menu ([#61](https://github.com/dodoflix/dodobox/issues/61)) ([e90438f](https://github.com/dodoflix/dodobox/commit/e90438f605f2e03fb1560fa20dd8be3b95a254ac))
+* warn when forced quality or download size will not run on a slow connection ([#67](https://github.com/dodoflix/dodobox/issues/67)) ([e5fa13a](https://github.com/dodoflix/dodobox/commit/e5fa13ab1d93e64836782f6679ed46df9e77c880))
+
+
+### Bug fixes
+
+* anime subtitle lookup by TVDB numbering, drop films and specials ([#66](https://github.com/dodoflix/dodobox/issues/66)) ([3e54bd0](https://github.com/dodoflix/dodobox/commit/3e54bd0b5e136481e9903077d6d81e1095dda64e))
+* ask for the PIN when the saved session is no longer valid ([#50](https://github.com/dodoflix/dodobox/issues/50)) ([548ef62](https://github.com/dodoflix/dodobox/commit/548ef62df542df05ddb0ac4883f65e212994e2f2))
+* downloads race versions like play, show progress at once, hide racing copies ([#54](https://github.com/dodoflix/dodobox/issues/54)) ([c3cd6f0](https://github.com/dodoflix/dodobox/commit/c3cd6f048005849150af409a664f00a23e8265ce))
+* fill anime episode pictures and names from ani.zip when AniList and Kitsu have none ([#78](https://github.com/dodoflix/dodobox/issues/78)) ([cb32d66](https://github.com/dodoflix/dodobox/commit/cb32d66352f9220f404f702cc78b46ef51612d69))
+* find subtitles for anime cours filed as their own show ([#69](https://github.com/dodoflix/dodobox/issues/69)) ([f848d54](https://github.com/dodoflix/dodobox/commit/f848d54c6b93f927f3525e52a69e992e5ce272e4))
+* handle OpenSubtitles download quota, sort subtitles by rank, keep best match visible ([#53](https://github.com/dodoflix/dodobox/issues/53)) ([99734ec](https://github.com/dodoflix/dodobox/commit/99734ece73e8229fea7082289d17493c651133ef))
+* initial subtitle sync ran as a single-window probe in the worker ([#60](https://github.com/dodoflix/dodobox/issues/60)) ([f7cd6ef](https://github.com/dodoflix/dodobox/commit/f7cd6ef10b0fcff86b8f82c1530f4984bae9b32c))
+* keep downloads and watch history across restarts ([#72](https://github.com/dodoflix/dodobox/issues/72)) ([a9094ca](https://github.com/dodoflix/dodobox/commit/a9094ca1ea0b2d7fbec28b24160c97c8c5f931a0))
+* keep torrent traffic off the home line when nobody is watching ([#74](https://github.com/dodoflix/dodobox/issues/74)) ([297e31a](https://github.com/dodoflix/dodobox/commit/297e31a5f291e33d8eb3ddda6dcec7346201ebd9))
+* name saved caches and the service worker cache after the app version instead of a hand-bumped one ([#81](https://github.com/dodoflix/dodobox/issues/81)) ([763030d](https://github.com/dodoflix/dodobox/commit/763030d6e4e5adcb4d3a5d9e73f6ee850ad5a1ed))
+* only warn about missing torrent peers when no source supplied any ([#65](https://github.com/dodoflix/dodobox/issues/65)) ([64243c1](https://github.com/dodoflix/dodobox/commit/64243c13455e54a7c62aca86979d414fb4c8c052))
+* **player:** do not offer or mark a quality above the file's resolution ([#76](https://github.com/dodoflix/dodobox/issues/76)) ([f50a087](https://github.com/dodoflix/dodobox/commit/f50a0875a28f954f793ee04f8cece65146729685))
+* read the saved catalog cache only when the app version that wrote it matches ([#80](https://github.com/dodoflix/dodobox/issues/80)) ([c2775ab](https://github.com/dodoflix/dodobox/commit/c2775ab85b8d065d55d8bab3b2901fbfa723a87e))
+* remove ad cues from served subtitles ([#64](https://github.com/dodoflix/dodobox/issues/64)) ([58cbbf2](https://github.com/dodoflix/dodobox/commit/58cbbf2ef3c9a883822a940552b4eff74c33332a))
+* resume downloads and playback from the saved position ([#73](https://github.com/dodoflix/dodobox/issues/73)) ([de3e97a](https://github.com/dodoflix/dodobox/commit/de3e97a808b4a73d623ba6e584b5f5768080e536))
+* retry failed pictures and drop corrupt cached ones ([#77](https://github.com/dodoflix/dodobox/issues/77)) ([2bf5894](https://github.com/dodoflix/dodobox/commit/2bf5894c495a05fbe15716d361999730d57358b8))
+* show subtitle position and italic tags as placement instead of raw text ([#75](https://github.com/dodoflix/dodobox/issues/75)) ([6c40963](https://github.com/dodoflix/dodobox/commit/6c4096398fb7a742ca0d900555282ef799558d18))
+* show the episode number when the catalog sends it as number ([#79](https://github.com/dodoflix/dodobox/issues/79)) ([dde575e](https://github.com/dodoflix/dodobox/commit/dde575e78be1510bd2f7fbf2c47173fcbd8b606d))
+* single Download Dodobox button in Discord presence linking to the latest release ([#70](https://github.com/dodoflix/dodobox/issues/70)) ([25da36d](https://github.com/dodoflix/dodobox/commit/25da36db28e276c0f5a1dd10781466d83c8649f6))
+* subtitle sync on resume, keep sync and timing per episode, benchmark window size ([#59](https://github.com/dodoflix/dodobox/issues/59)) ([93cdcfe](https://github.com/dodoflix/dodobox/commit/93cdcfe49e2eca103c0cd6909f65cabee081fa92))
+
 ## [0.8.0](https://github.com/dodoflix/dodobox/compare/v0.7.0...v0.8.0) (2026-10-18)
 
 
