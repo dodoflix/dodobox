@@ -32,7 +32,7 @@ function attach (entry) {
   t.on('error', e => log.error('torrent', 'error', { hash: h, err: e }))
   t.on('warning', e => log.debug('torrent', 'warning', { hash: h, err: e }))
   t.on('metadata', () => log.info('torrent', 'metadata', { hash: h, name: t.name, files: t.files.length, size: t.length, ms: Date.now() - t0 }))
-  t.on('noPeers', where => log.warn('torrent', 'no peers found', { hash: h, where, afterMs: Date.now() - t0 }))
+  t.on('noPeers', where => { if (!t.numPeers) log.warn('torrent', 'no peers found', { hash: h, where, afterMs: Date.now() - t0 }) }) // fires per source, so lsd/dht/pex are empty even when the tracker supplied peers
   t.on('done', () => log.info('torrent', 'done', { hash: h, name: t.name, ms: Date.now() - t0, downloaded: t.downloaded }))
   t.on('wire', w => log.debug('torrent', 'peer connected', { hash: h, peers: t.numPeers, addr: w.remoteAddress, client: w.peerExtendedHandshake?.v }))
   t.on('ready', () => {
