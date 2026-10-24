@@ -42,3 +42,11 @@ test('subtitles for an anime episode keep only the asked show and episode', asyn
   for (let i = 0; i < 40; i++) { list = await (await fetch(`${base}/api/subs?type=anime&id=${ANIME.id}&season=1&episode=1&langs=eng&release=Moon.Station.Nine.S01E01.1080p`)).json(); if (list.length >= 2) break; await new Promise(r => setTimeout(r, 250)) }
   assert.deepEqual(list.map(s => s.url).sort(), ['https://dl.opensubtitles.org/en/download/src-api/vrf-1/sid-1.gz', 'https://subs5.strem.io/anime.srt'])
 })
+
+test('an episode AniList and Kitsu have no picture or name for gets them from ani.zip', async () => {
+  const m = await (await fetch(`${base}/api/meta/anime/${ANIME.id}`)).json()
+  const ep = m.videos.find(v => v.episode === 2)
+  assert.match(ep.thumbnail, /^\/img\?u=https%3A%2F%2Fartworks\.thetvdb\.com%2Fbanners%2Fep2\.jpg/)
+  assert.equal(ep.title, 'Night Shift')
+  assert.equal(m.videos.find(v => v.episode === 1).title, 'Episode 1')
+})

@@ -115,7 +115,7 @@ function upstream (url, init) {
   }
   if (key === 'www.netflix.com') return new Response(`week\tcategory\tweekly_rank\tshow_title\tseason_title\tweekly_hours_viewed\n2026-01-04\tFilms (English)\t1\t${MOVIE.name}\t\t900\n2026-01-04\tTV (English)\t1\t${SERIES.name}\t\t800\n`)
   if (key === 'raw.githubusercontent.com') return json([{ anilist_id: 9001, kitsu_id: 42, anidb_id: 7, imdb_id: 'tt9000009', season: { tvdb: 1 } }])
-  if (key === 'api.ani.zip') return json({ titles: { en: ANIME.name }, episodes: { 1: { anidbEid: 111, seasonNumber: 1, episodeNumber: 1, absoluteEpisodeNumber: 1 }, 2: { anidbEid: 112, seasonNumber: 1, episodeNumber: 2, absoluteEpisodeNumber: 2 } } })
+  if (key === 'api.ani.zip') return json({ titles: { en: ANIME.name }, episodes: { 1: { anidbEid: 111, seasonNumber: 1, episodeNumber: 1, absoluteEpisodeNumber: 1 }, 2: { anidbEid: 112, seasonNumber: 1, episodeNumber: 2, absoluteEpisodeNumber: 2, image: 'https://artworks.thetvdb.com/banners/ep2.jpg', title: { en: 'Night Shift' } } } })
   if (key === 'images.metahub.space' || key === 's4.anilist.co') return new Response(PNG, { headers: { 'content-type': 'image/png' } })
   return json({}, 404)
 }

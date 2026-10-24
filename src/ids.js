@@ -62,14 +62,18 @@ export async function animeIds (anilistId) {
   return map[anilistId] || null
 }
 
-// { titles, eps: { n: [anidbEpisodeId, tvdbSeason, tvdbEpisode, absolute] } } of an AniList entry, kept a few hours.
+// { titles, eps: { n: [anidbEpisodeId, tvdbSeason, tvdbEpisode, absolute] }, art: { n: { thumbnail, title } } } of an AniList entry, kept a few hours.
 export async function episodeTable (anilistId) {
   try {
-    return await cached(`anizip1:${anilistId}`, 6 * 3600e3, async () => {
+    return await cached(`anizip2:${anilistId}`, 6 * 3600e3, async () => {
       const j = await getJSON(`https://api.ani.zip/mappings?anilist_id=${anilistId}`, { tries: 2 })
-      const eps = {}
-      for (const [n, e] of Object.entries(j.episodes || {})) if (/^\d+$/.test(n)) eps[n] = [e.anidbEid || null, e.seasonNumber ?? null, e.episodeNumber ?? null, e.absoluteEpisodeNumber ?? null]
-      return { titles: Object.entries(j.titles || {}).filter(([k]) => /^(en|x-jat)/.test(k)).map(([, v]) => v), eps }
+      const eps = {}; const art = {}
+      for (const [n, e] of Object.entries(j.episodes || {})) {
+        if (!/^\d+$/.test(n)) continue
+        eps[n] = [e.anidbEid || null, e.seasonNumber ?? null, e.episodeNumber ?? null, e.absoluteEpisodeNumber ?? null]
+        art[n] = { thumbnail: e.image || '', title: e.title?.en || '' }
+      }
+      return { titles: Object.entries(j.titles || {}).filter(([k]) => /^(en|x-jat)/.test(k)).map(([, v]) => v), eps, art }
     })
   } catch { return null }
 }
