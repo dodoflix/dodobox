@@ -4,7 +4,7 @@ import './data.js'
 import { DATA } from './paths.js'
 import { proxied } from './images.js'
 import { getJSON, fetchRetry } from './http.js'
-import { animeIds } from './ids.js'
+import { animeIds, episodeTable } from './ids.js'
 import { log } from './log.js'
 
 // Metadata: a catalog service for movies and series, a separate one for anime.
@@ -238,14 +238,18 @@ export const meta = (type, id) => {
       if (!m) throw Object.assign(new Error('not found'), { code: 404 })
       const base = aniItem(m)
       const enrich = async () => {
-        const [item, found] = await Promise.all([withArt(base), !base.movie && base.videos.some(v => !v.thumbnail) ? kitsuEpisodes(m.id, base.videos.length) : {}])
+        const more = !base.movie && base.videos.some(v => !v.thumbnail)
+        const [item, found, zip] = await Promise.all([withArt(base), more ? kitsuEpisodes(m.id, base.videos.length) : {}, more ? episodeTable(m.id) : null])
         const k = found || {}
         if (!found) markPartial(item)
+        // AniList and Kitsu first; ani.zip (TVDB screencaps) covers the episodes they have no picture or name for.
         for (const v of item.videos) {
-          const e = k[v.episode]; if (!e) continue
-          if (!v.thumbnail && e.thumbnail) v.thumbnail = proxied(e.thumbnail)
-          if (/^Episode \d+$/.test(v.title) && e.title && !/^Episode \d+$/.test(e.title)) v.title = e.title
-          if (e.released) v.released = e.released
+          for (const e of [k[v.episode], zip?.art[v.episode]]) {
+            if (!e) continue
+            if (!v.thumbnail && e.thumbnail) v.thumbnail = proxied(e.thumbnail)
+            if (/^Episode \d+$/.test(v.title) && e.title && !/^Episode \d+$/.test(e.title)) v.title = e.title
+            if (e.released) v.released = e.released
+          }
         }
         return item
       }

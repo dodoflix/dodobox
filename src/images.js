@@ -10,7 +10,7 @@ import { log } from './log.js'
 
 const DIR = path.join(DATA, 'img')
 fs.mkdirSync(DIR, { recursive: true })
-const HOSTS = /(^|\.)(metahub\.space|media-amazon\.com|anilist\.co|crunchyroll\.com|kitsu\.(io|app)|myanimelist\.net|cdn\.myanimelist\.net|strem\.io|themoviedb\.org|tmdb\.org)$/
+const HOSTS = /(^|\.)(metahub\.space|media-amazon\.com|anilist\.co|crunchyroll\.com|kitsu\.(io|app)|myanimelist\.net|cdn\.myanimelist\.net|strem\.io|thetvdb\.com|themoviedb\.org|tmdb\.org)$/
 
 const WIDTHS = [64, 160, 240, 360, 480, 640, 800, 1080, 1280, 1920]
 export const snap = w => WIDTHS.find(x => x >= w) || WIDTHS.at(-1)
