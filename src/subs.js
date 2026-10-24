@@ -8,6 +8,7 @@ import { fetchRetry, once } from './http.js'
 import { yifyList, unzipFirst, yifyHeaders } from './yify.js'
 import { log } from './log.js'
 import * as account from './osaccount.js'
+import { stripAds } from './sync.js'
 
 const LEGACY = { tur: 'windows-1254', ara: 'windows-1256', per: 'windows-1256', rus: 'windows-1251', ukr: 'windows-1251', bul: 'windows-1251', srp: 'windows-1251', ell: 'windows-1253', heb: 'windows-1255', pol: 'windows-1250', cze: 'windows-1250', hun: 'windows-1250', rum: 'windows-1250', hrv: 'windows-1250', slv: 'windows-1250', tha: 'windows-874', vie: 'windows-1258' }
 
@@ -182,7 +183,7 @@ export const allowedSubUrl = u => {
 
 export async function fetchSubtitle (url, enc, profile = '') {
   const f = path.join(CACHE, crypto.createHash('sha1').update(url + (enc || '')).digest('hex') + '.vtt')
-  try { return fs.readFileSync(f, 'utf8') } catch {}
+  try { return stripAds(fs.readFileSync(f, 'utf8')) } catch {}
   return once('sub:' + f, async () => {
     // Anonymous downloads first; the household's account only takes over once this IP's quota is used up.
     let viaAcct = false
@@ -200,12 +201,13 @@ export async function fetchSubtitle (url, enc, profile = '') {
     }
     if (buf[0] === 0x50 && buf[1] === 0x4b) buf = unzipFirst(buf)
     if (buf[0] === 0x1f && buf[1] === 0x8b) buf = zlib.gunzipSync(buf)
-    const vtt = await toVtt(buf, enc)
+    const raw = await toVtt(buf, enc)
     // Downloads OpenSubtitles refuses (VIP-only) come back as one four-hour cue selling VIP: not a subtitle, and not worth keeping.
-    if (/osdb\.link\/vip/i.test(vtt) && vtt.length < 300) {
+    if (/osdb\.link\/vip/i.test(raw) && raw.length < 300) {
       if (viaAcct) account.refuse(profile); else quotaUntil = Date.now() + 3600e3
       throw quotaError()
     }
+    const vtt = stripAds(raw)
     fs.mkdirSync(CACHE, { recursive: true })
     fs.writeFileSync(f, vtt)
     return vtt
