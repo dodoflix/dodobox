@@ -450,7 +450,14 @@ const routes = [
   ['POST', /^\/api\/party\/join$/, async (req, res) => { const b = await jbody(req); json(req, res, await party.join(b.code, partyWho(req), null, b.password)) }],
   ['POST', /^\/api\/party\/leave$/, (req, res) => { party.leave(); json(req, res, { ok: true }) }],
   ['POST', /^\/api\/party\/send$/, async (req, res) => { const b = await jbody(req); party.send(b.k, b); json(req, res, { ok: true }) }],
-  ['POST', /^\/api\/play$/, async (req, res) => { const b = await jbody(req); b.mode ||= modeOf(req); b.audio ||= audioOf(req); b.sublang ||= sublangOf(req); b.safe = safeOf(req); json(req, res, await play(b)) }],
+  ['POST', /^\/api\/play$/, async (req, res) => {
+    const b = await jbody(req); b.mode ||= modeOf(req); b.audio ||= audioOf(req); b.sublang ||= sublangOf(req); b.safe = safeOf(req)
+    const st = await play(b)
+    // Where this viewer left off: the player starts there, so the download does too (same cutoffs as the player's).
+    const [pos, dur] = state.profile(pid(req))?.progress[state.progressKey(b.type, b.id, b.season, b.episode)] || []
+    if (st.hash && !st.local) engine.resumeAt(st.hash, st.fileIdx, pos > 10 && pos / dur < 0.95 ? pos / dur : 0)
+    json(req, res, st)
+  }],
   ['GET', /^\/api\/status\/(\w+)$/, (req, res, [, h], q) => { const s = statusOf(h, false, q.get('file')); if (s) speed.observe(s.speed); s ? json(req, res, s) : fail(req, res, 404, 'unknown source') }],
   // The player was left: stop converting for it.
   ['POST', /^\/api\/release\/(\w+)\/(\d+)$/, (req, res, [, h, i]) => { cancel(`${h}:${i}`); json(req, res, { ok: true }) }],

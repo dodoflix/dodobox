@@ -734,7 +734,7 @@ export async function watch (type, id, season, episode) {
       const url = `/hls/${hash}/${st.fileIdx}/index.m3u8?a=${audio}${hq()}${subQuery(attachedKey)}`
       if (engines[engineAt] !== 'hlsjs') v.src = url
       else {
-        hls = new Hls({ maxBufferLength: 40, backBufferLength: 30, manifestLoadingMaxRetry: 3, fragLoadingMaxRetry: 5, levelLoadingMaxRetry: 3 })
+        hls = new Hls({ startPosition: t > 5 ? t : -1, maxBufferLength: 40, backBufferLength: 30, manifestLoadingMaxRetry: 3, fragLoadingMaxRetry: 5, levelLoadingMaxRetry: 3 })
         let netTries = 0
         hls.on(Hls.Events.ERROR, (_, d) => {
           report(d.fatal ? 'error' : 'warn', `hls.js ${d.type}: ${d.details}`, { fatal: d.fatal, status: d.response?.code, url: d.frag?.relurl || d.url, hash, t: Math.round(v.currentTime) })

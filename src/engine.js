@@ -46,10 +46,10 @@ function attach (entry) {
     entry.fileIdx = idx
     entry.name = t.files[idx].name
     log.info('torrent', 'file chosen', { hash: h, idx, name: entry.name, size: t.files[idx].length })
-    t.files[idx].select()
+    selectRow(t, entry)
     for (const x of entry.extra || []) {
       x.fileIdx ??= pickFile(t.files.map(f => ({ name: f.path, length: f.length })), x.ctx)
-      if (x.fileIdx >= 0) { x.name = t.files[x.fileIdx].name; t.files[x.fileIdx].select() }
+      if (x.fileIdx >= 0) { x.name = t.files[x.fileIdx].name; selectRow(t, x) }
     }
     save()
   })
@@ -71,10 +71,12 @@ export function add ({ hash, magnet, ctx, fileIdx, pinned }) {
   } else if (ctx.episode != null && lib[hash].ctx?.episode !== ctx.episode && !lib[hash].pinned) {
     const t = client.torrents.find(x => x.infoHash === hash)
     Object.assign(lib[hash], { ctx, fileIdx: undefined, error: undefined })
+    resume.delete(lib[hash])
     if (t?.ready) {
+      dropRow(t, lib[hash])
       for (const f of t.files) f.deselect()
       const idx = pickFile(t.files.map(f => ({ name: f.path, length: f.length })), ctx)
-      if (idx >= 0) { lib[hash].fileIdx = idx; lib[hash].name = t.files[idx].name; t.files[idx].select() }
+      if (idx >= 0) { lib[hash].fileIdx = idx; lib[hash].name = t.files[idx].name; selectRow(t, lib[hash]) }
       save()
     }
   }
@@ -90,7 +92,7 @@ function addExtra (hash, ctx) {
   const t = torrentOf(hash)
   if (t?.ready) {
     x.fileIdx = pickFile(t.files.map(f => ({ name: f.path, length: f.length })), ctx)
-    if (x.fileIdx >= 0) { x.name = t.files[x.fileIdx].name; t.files[x.fileIdx].select() }
+    if (x.fileIdx >= 0) { x.name = t.files[x.fileIdx].name; selectRow(t, x) }
   }
   save()
 }
@@ -109,12 +111,37 @@ const paused = new Map() // `${hash}:${fileIdx}` -> 'watching' | 'idle' | 'user'
 const rowKey = (e, r) => `${e.hash}:${r.fileIdx}`
 const fileOf = (r, t) => (r.fileIdx != null ? t.files[r.fileIdx] : null)
 const pending = (r, t) => { const f = fileOf(r, t); return !!f && !f.done }
+// Playback that picks up part way through is fetched from there first, by a read of the file from that point that nobody consumes: a plain selection
+// would be merged with the whole-file one, while a read stream keeps its own higher priority. The part before it follows.
+const resume = new WeakMap() // row -> fraction of the file playback resumes at
+const ahead = new WeakMap() // row -> the read that pulls the download forward from there
+function selectRow (t, r) {
+  const f = fileOf(r, t); if (!f) return
+  f.select()
+  const at = resume.get(r)
+  if (!at || ahead.has(r) || f.done) return
+  const s = f.createReadStream({ start: Math.floor(Math.max(0, at - 0.02) * f.length) })
+  s.on('error', () => {}).resume()
+  ahead.set(r, s)
+}
+function dropRow (t, r) {
+  fileOf(r, t)?.deselect()
+  ahead.get(r)?.destroy()
+  ahead.delete(r)
+}
+export function resumeAt (hash, file, fraction) {
+  const e = lib[hash]; if (!e) return
+  const r = rowFor(e, file); const t = torrentOf(hash)
+  if ((resume.get(r) ?? 0) === fraction) return
+  resume.set(r, fraction)
+  if (t?.ready && pending(r, t) && !paused.has(rowKey(e, r))) { dropRow(t, r); selectRow(t, r) }
+}
 // Pausing is deselecting. torrent.pause() would also refuse every peer the swarm offers meanwhile, so a resumed torrent finds none until its next announce (many minutes) and playback sits on "buffering".
 function setPaused (e, t, r, reason) {
   const k = rowKey(e, r)
   if (reason === (paused.get(k) ?? null)) return
   log.debug('torrent', reason ? 'paused' : 'resumed', { key: k, reason: reason || paused.get(k) })
-  if (reason) { fileOf(r, t)?.deselect(); paused.set(k, reason) } else { paused.delete(k); fileOf(r, t)?.select() }
+  if (reason) { dropRow(t, r); paused.set(k, reason) } else { paused.delete(k); selectRow(t, r) }
 }
 function rebalance () {
   const now = Date.now()
@@ -237,9 +264,9 @@ export async function remove (hash, file) {
   const t = torrentOf(hash)
   if (file != null && e.extra?.length) {
     const k = +file
-    if (e.fileIdx === k) { const x = e.extra.shift(); t?.files[k]?.deselect(); Object.assign(e, { ctx: x.ctx, fileIdx: x.fileIdx, name: x.name, held: x.held, priority: x.priority }); save(); return true }
+    if (e.fileIdx === k) { const x = e.extra.shift(); if (t) dropRow(t, e); resume.delete(e); Object.assign(e, { ctx: x.ctx, fileIdx: x.fileIdx, name: x.name, held: x.held, priority: x.priority }); save(); return true }
     const at = e.extra.findIndex(x => x.fileIdx === k)
-    if (at >= 0) { e.extra.splice(at, 1); t?.files[k]?.deselect(); save(); return true }
+    if (at >= 0) { const [x] = e.extra.splice(at, 1); if (t) dropRow(t, x); save(); return true }
   }
   const tops = t ? new Set(t.files.map(f => f.path.split(/[\\/]/)[0])) : []
   if (t) await new Promise(resolve => client.remove(hash, { destroyStore: true }, resolve))
