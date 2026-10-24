@@ -86,3 +86,13 @@ test('subtitles: several files in one language stay in rank order, not label ord
     assert.deepEqual(list.slice(0, 3).map(s => s.label), ['Turkish', 'Turkish #2', 'Turkish #3'])
   } finally { globalThis.fetch = real }
 })
+
+test('subtitles: ad cues are dropped from the served file, dialogue and timing stay as they were', async () => {
+  const real = globalThis.fetch
+  const srt = '1\n00:00:01,000 --> 00:00:03,000\nSupport us and become VIP member\nto remove all ads from OpenSubtitles.org\n\n2\n00:00:05,000 --> 00:00:07,000\n<i>Hello there</i>\n\n3\n00:00:09,000 --> 00:00:11,000\nSee you at example.com\n'
+  globalThis.fetch = async () => new Response(srt)
+  try {
+    const vtt = await fetchSubtitle('https://subs5.strem.io/ads')
+    assert.equal(vtt, 'WEBVTT\n\n2\n00:00:05.000 --> 00:00:07.000\n<i>Hello there</i>\n\n3\n00:00:09.000 --> 00:00:11.000\nSee you at example.com')
+  } finally { globalThis.fetch = real }
+})
