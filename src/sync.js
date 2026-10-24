@@ -156,10 +156,13 @@ const spanAt = (spans, t) => spans.find(([a, b]) => t >= a && t <= b) ?? spans.r
 // opts: { url (a file on disk), duration (length of the film, or of what can be read when `ranges` is not given), ranges
 //         ([from, to] seconds that can be read; the film may be downloaded from anywhere), near (where the viewer is: that
 //         stretch is measured first), cues (the subtitle to fix), signalAt(ws, len) (speech strength frames for a stretch;
-//         reads the audio of `url` by default), isAborted, win, count }
-// Returns { ratio, anchors: [{ t, d, z }], model, confidence, windows } or null when nothing lined up.
+//         reads the audio of `url` by default), isAborted, win, count (windows measured), prior (the previous answer, whose
+//         `evidence` is kept and only stretches not yet measured are read), step (spacing of candidate windows as a share
+//         of their length) }
+// Returns { ratio, anchors: [{ t, d, z }], model, confidence, windows, evidence } or, when nothing lined up,
+// { none: true, ratio, evidence } (null when no window could be read at all).
 // A subtitle time t belongs at  t * ratio + offsetAt(anchors, model, t * ratio).
-export async function syncSubtitle ({ url, duration, ranges, near, cues, signalAt, isAborted = () => false, win = WIN, count = COUNT }) {
+export async function syncSubtitle ({ url, duration, ranges, near, cues, signalAt, isAborted = () => false, win = WIN, count = COUNT, prior, step = 0.5 }) {
   cues = withoutAds(cues)
   const spans = usable(ranges ?? [[0, duration]])
   if (!cues.length || !duration || !spans.length) return null
@@ -180,27 +183,41 @@ export async function syncSubtitle ({ url, duration, ranges, near, cues, signalA
     return r && r.z >= MIN_Z && r.peak >= MIN_PEAK ? { t: ws + l / 2, d: r.d, z: r.z, peak: r.peak } : null
   }
   // Window centres: the stretch the viewer is at first, then the ones farthest from those already taken (a drift or a splice shows between far-apart windows).
-  const cands = spans.flatMap(([a, b]) => { const l = Math.min(len, b - a); const o = []; for (let c = a + l / 2; c <= b - l / 2 + 1e-6; c += l) o.push(c); return o.length ? o : [(a + b) / 2] })
-  const inner = cands.filter(c => c >= 90 && c <= duration - 240)
-  const pool = inner.length ? inner : cands
+  // Stretches a previous pass measured are not measured again.
+  const old = prior?.evidence ?? []
+  const cands = spans.flatMap(([a, b]) => { const l = Math.min(len, b - a); const o = []; for (let c = a + l / 2; c <= b - l / 2 + 1e-6; c += l * step) o.push(c); return o.length ? o : [(a + b) / 2] })
+  const unseen = cands.filter(c => !old.some(o => Math.abs(o.t - c) < 0.6 * len))
+  const inner = unseen.filter(c => c >= 90 && c <= duration - 240)
+  const pool = inner.length >= Math.min(count, unseen.length) ? inner : unseen
   const gap = (c, t) => Math.abs(c - t)
-  const spots = [pool.reduce((x, y) => (gap(y, near ?? duration / 2) < gap(x, near ?? duration / 2) ? y : x))]
-  while (spots.length < Math.min(count, pool.length)) spots.push(pool.reduce((x, y) => (Math.min(...spots.map(s => gap(y, s))) > Math.min(...spots.map(s => gap(x, s))) ? y : x)))
+  const want = old.length ? Math.min(count, 2) : count
+  const spots = []
+  if (pool.length) spots.push(pool.reduce((x, y) => (gap(y, near ?? duration / 2) < gap(x, near ?? duration / 2) ? y : x)))
+  while (pool.length && spots.length < Math.min(want, pool.length)) {
+    const far = pool.reduce((x, y) => (Math.min(...spots.map(s => gap(y, s))) > Math.min(...spots.map(s => gap(x, s))) ? y : x))
+    if (Math.min(...spots.map(s => gap(far, s))) < 0.6 * len) break // overlapping windows add little
+    spots.push(far)
+  }
 
-  let ratio = 1; let first = null
-  try {
-    const { ws, l } = window(spots[0]); const sig = await signal(ws, l)
-    let best = null
-    for (const r of RATIOS) {
-      const m = align(sig, ws, warp(cues, r), 200)
-      if (m && m.peak >= MIN_PEAK && (!best || m.peak > best.peak * (r === 1 ? 1 : 1.12))) best = { peak: m.peak, ratio: r }
-    }
-    if (best) ratio = best.ratio
-    first = await measure(ws + l / 2, 200, ratio)
-  } catch { /* fall through to the per-window pass */ }
+  let ratio = prior?.ratio ?? 1; let first = null
+  const solid = old.length && prior.windows >= 2 // two agreeing windows settled the frame rate
+  if (!solid && spots.length) {
+    try {
+      const { ws, l } = window(spots[0]); const sig = await signal(ws, l)
+      let best = null
+      for (const r of RATIOS) {
+        const m = align(sig, ws, warp(cues, r), 200)
+        if (m && m.peak >= MIN_PEAK && (!best || m.peak > best.peak * (r === 1 ? 1 : 1.12))) best = { peak: m.peak, ratio: r }
+      }
+      ratio = best ? best.ratio : 1
+      first = await measure(ws + l / 2, 200, ratio)
+    } catch { /* fall through to the per-window pass */ }
+  }
 
-  const anchors = first ? [first] : []
-  let wide = first ? Math.abs(first.d) + 25 : 150
+  const anchors = ratio === (prior?.ratio ?? 1) ? [...old] : []
+  const top0 = anchors.reduce((x, y) => (!x || y.peak > x.peak ? y : x), null)
+  if (first) anchors.push(first)
+  let wide = first ? Math.abs(first.d) + 25 : top0 ? Math.abs(top0.d) + 25 : 150
   for (const c of spots) {
     if (isAborted()) return null
     if (first && Math.abs(window(c).ws + window(c).l / 2 - first.t) < 1) continue
@@ -209,30 +226,36 @@ export async function syncSubtitle ({ url, duration, ranges, near, cues, signalA
       const a = await measure(c, wide, ratio)
       const b = !a || a.peak < 0.35 ? (wide < 300 ? await measure(c, 300, ratio) : null) : null
       const m = a && b ? (b.peak > a.peak ? b : a) : a || b
-      if (m) { anchors.push(m); if (anchors.length === 1) wide = Math.abs(m.d) + 25 }
+      if (m && !anchors.some(x => Math.abs(x.t - m.t) < 1)) { anchors.push(m); if (anchors.length === 1) wide = Math.abs(m.d) + 25 }
     } catch { /* one unreadable stretch should not stop the rest */ }
   }
-  if (!anchors.length) return null
+  if (!anchors.length) return spots.length ? { none: true, ratio, evidence: [] } : null
   for (let round = 0; round < 3; round++) {
     anchors.sort((a, b) => a.t - b.t)
-    const gap = anchors.map((a, i) => i && Math.abs(a.d - anchors[i - 1].d) > 0.6 && a.t - anchors[i - 1].t > 2 * len ? i : 0).filter(Boolean)[0]
+    // Weak locks are as likely noise as a break; only firm ones say where to look between.
+    const firm = anchors.filter(a => a.peak >= 0.35)
+    const gap = firm.map((a, i) => i && Math.abs(a.d - firm[i - 1].d) > 0.6 && a.t - firm[i - 1].t > 2 * len ? i : 0).filter(Boolean)[0]
     if (!gap || isAborted()) break
     try {
-      const m = await measure((anchors[gap].t + anchors[gap - 1].t) / 2, Math.abs(anchors[gap].d - anchors[gap - 1].d) + 20, ratio)
+      const m = await measure((firm[gap].t + firm[gap - 1].t) / 2, Math.abs(firm[gap].d - firm[gap - 1].d) + 20, ratio)
       if (m && !anchors.some(a => Math.abs(a.t - m.t) < 1)) anchors.push(m); else break
     } catch { break }
   }
   anchors.sort((a, b) => a.t - b.t)
+  const evidence = anchors.map(({ t, d, z, peak }) => ({ t, d, z, peak }))
   const groups = anchors.map(a => anchors.filter(o => Math.abs(o.d - a.d) < 0.4))
   let kept = anchors.filter((a, i) => groups[i].length >= 2)
   if (!kept.length) {
     if (anchors.length >= 3 && isLine(anchors)) kept = anchors
-    else { const top = anchors.reduce((x, y) => (y.peak > x.peak ? y : x)); kept = top.peak >= 0.3 && top.z >= 4 ? [top] : [] }
+    else {
+      const top = anchors.reduce((x, y) => (y.peak > x.peak ? y : x))
+      kept = top.peak >= 0.3 && top.z >= 4 ? [top] : []
+    }
   }
-  if (!kept.length) return null
+  if (!kept.length) return { none: true, ratio, evidence }
   const cls = classify(kept, ratio)
   const confidence = Math.min(1, 0.25 + 0.2 * kept.length + 0.8 * median(kept.map(a => a.peak)) * (kept.length >= 2 ? 1 : 0.5))
-  return { ratio, anchors: cls.anchors, model: cls.model, points: kept.map(({ t, d, z }) => ({ t, d, z })), windows: kept.length, confidence }
+  return { ratio, anchors: cls.anchors, model: cls.model, points: kept.map(({ t, d, z, peak }) => ({ t, d, z, peak })), windows: kept.length, confidence, evidence }
 }
 
 export function shiftVtt (text, res) {

@@ -70,6 +70,25 @@ test('syncSubtitle syncs from a stretch around the playhead when the start of th
   assert.deepEqual(usable([[0, 30], [100, 400]]), [[100, 400]])
 })
 
+test('a later pass keeps what the earlier one measured and reads only stretches not yet seen', async () => {
+  const media = dialogue(7000, 61)
+  const cues = media.map(b => ({ s: b.s - 5.2, e: b.e - 5.2, t: 'x' }))
+  const read = []
+  const signalAt = (ws, len) => { read.push(ws + len / 2); return audioOf(media)(ws, len) }
+  const first = await syncSubtitle({ url: 'unused', duration: 7000, ranges: [[0, 260]], near: 100, cues, signalAt })
+  assert.ok(first && !first.none && first.evidence.length, 'no first answer')
+  const seen = first.evidence.map(e => e.t); read.length = 0
+  const second = await syncSubtitle({ url: 'unused', duration: 7000, ranges: [[0, 900]], near: 100, cues, signalAt, prior: first })
+  assert.ok(Math.abs(second.anchors[0].d - 5.2) < 0.05, `offset ${second.anchors[0].d}`)
+  assert.ok(second.evidence.length > first.evidence.length, 'the earlier windows were not kept')
+  assert.ok(read.every(t => seen.every(s => Math.abs(s - t) >= 60)), `measured again: ${read} vs ${seen}`)
+  // Nothing new to read: the answer stands without touching the audio.
+  read.length = 0
+  const third = await syncSubtitle({ url: 'unused', duration: 7000, ranges: [[0, 900]], near: 100, cues, signalAt: (ws, len) => { read.push(ws); return audioOf(media)(ws, len) }, prior: { ...second, evidence: [...second.evidence, ...Array.from({ length: 12 }, (_, i) => ({ t: 60 + i * 60, d: 5.2, z: 5, peak: 0.5 }))] } })
+  assert.equal(read.length, 0, 'read audio although every stretch was measured')
+  assert.ok(Math.abs(third.anchors[0].d - 5.2) < 0.05)
+})
+
 test('syncSubtitle works from real audio read through ffmpeg', async () => {
   const seconds = 600; const media = dialogue(seconds, 21)
   const rate = 16000; const data = new Int16Array(seconds * rate); const r = rng(1)
@@ -81,10 +100,12 @@ test('syncSubtitle works from real audio read through ffmpeg', async () => {
   const res = await syncSubtitle({ url: file, duration: seconds, cues: media.map(b => ({ s: b.s - 8.25, e: b.e - 8.25 })) })
   // The server runs it in a worker, which treats a request with `at` as a single-window probe: `near` must not be taken for it.
   const viaWorker = await syncInWorker({ url: file, duration: seconds, ranges: [[0, seconds]], near: 300, cues: media.map(b => ({ s: b.s - 8.25, e: b.e - 8.25 })) })
-  fs.rmSync(path.dirname(file), { recursive: true })
   assert.ok(res, 'no result')
   assert.ok(Math.abs(res.anchors[0].d - 8.25) < 0.06, `offset ${res.anchors[0].d}`)
   assert.ok(viaWorker?.anchors && Math.abs(viaWorker.anchors[0].d - 8.25) < 0.06, `worker answered ${JSON.stringify(viaWorker)}`)
+  const again = await syncInWorker({ url: file, duration: seconds, ranges: [[0, seconds]], near: 300, cues: media.map(b => ({ s: b.s - 8.25, e: b.e - 8.25 })), prior: viaWorker })
+  assert.ok(again?.anchors, 'the previous answer must survive the trip into the worker')
+  fs.rmSync(path.dirname(file), { recursive: true })
 })
 
 test('shiftVtt rewrites cue times and parseCues reads them back', () => {

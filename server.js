@@ -289,15 +289,18 @@ async function subtitleSync (h, i, src, near, redo) {
   if (!r || !usable(r.ranges).length) return { pending: true }
   const { file, done, available, ranges, duration } = r
   const hit = syncCache.get(key)
-  const fresh = hit && (done ? !hit.partial : !hit.partial || available < hit.available * 1.6)
-  if (fresh) return hit.res ? { ...hit.res, partial: hit.partial } : { none: true }
+  // While the file is still arriving, another pass is worth it once 40 s more can be read.
+  const fresh = hit && (done ? !hit.partial : !hit.partial || available < hit.available + 40)
+  const answer = (res, partial) => { if (!res || res.none) return { none: true, partial }; const { evidence: _, ...out } = res; return { ...out, partial } }
+  if (fresh) return answer(hit.res, hit.partial)
   return once('sync:' + key, () => (syncChain = syncChain.catch(() => {}).then(async () => {
     const t0 = Date.now()
-    const res = await syncInWorker({ url: file, duration, ranges, near, cues: await cuesOf(src) })
-    log.info('sync', res ? 'subtitle aligned' : 'no alignment found', { key: `${h}:${i}`, ms: Date.now() - t0, partial: !done, readableSec: Math.round(available), at: near && Math.round(near), ratio: res?.ratio, anchors: res?.anchors?.length, confidence: res?.confidence })
-    syncCache.set(key, { res, partial: !done, available })
+    // Each pass adds to what the last one measured instead of starting over.
+    const res = await syncInWorker({ url: file, duration, ranges, near, cues: await cuesOf(src), prior: hit?.res })
+    log.info('sync', res && !res.none ? 'subtitle aligned' : 'no alignment found', { key: `${h}:${i}`, ms: Date.now() - t0, partial: !done, readableSec: Math.round(available), at: near && Math.round(near), ratio: res?.ratio, anchors: res?.anchors?.length, windows: res?.windows, rough: res?.rough, seen: res?.evidence?.length, confidence: res?.confidence })
+    syncCache.set(key, { res: res ?? hit?.res, partial: !done, available })
     if (syncCache.size > 100) syncCache.delete(syncCache.keys().next().value)
-    return res ? { ...res, partial: !done } : { none: true }
+    return answer(res, !done)
   })))
 }
 async function subtitleProbe (h, i, src, { at, ratio, expected }) {

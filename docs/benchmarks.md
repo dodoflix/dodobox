@@ -24,7 +24,7 @@ command produces them.
 | `app` | yes | The app's own `findSources()` on the gold titles, cold: seeded results and time |
 | `scrape` | yes | Live tracker seeder counts against the numbers sources report |
 | `subs` | no (`--snapshot` needs network) | Subtitle ranking: does the top pick match the timing of the release being played; `--grid` fits the weights, `--weights` tries a set |
-| `sync` | no | Auto sync: window length, window count and where in the file the audio comes from; right, wrong or no answer, and audio read. Synthetic audio on real cue times, or your own videos with `--media a.mkv,b.mkv` (`--win`, `--count`, `--place start,resume,full`, `--verbose`) |
+| `sync` | no | Auto sync: window length, window count and where in the file the audio comes from (`--grow`: answers as the download grows); right, wrong or no answer, and audio read. Synthetic audio on real cue times, or your own videos with `--media a.mkv,b.mkv` (`--win`, `--count`, `--place start,resume,full`, `--verbose`) |
 | `search` | yes | Title search relevance and latency |
 | `idmap` | yes | Anime id mapping coverage and agreement |
 | `skips` | yes | Skip markers (intro, recap, ending): AniSkip and IntroDB coverage by popularity; with `--server url`, chapter marks and file lengths of real releases through a running app (use a throwaway `DATA_DIR`) |
@@ -331,6 +331,36 @@ full strength, since a release is never timed to the frame (the live-action trac
 Limits: the synthetic audio is not a film (its music case is the hard one and causes most of the 'none' answers), the real
 set is three films, so a row moves by 6 points per trial, and the real files are not in the repository: pass your own with
 `--media`. Dubbed audio against the original-language subtitle still correlates, as the two anime show.
+
+### Auto sync while the download grows (`sync --grow`)
+
+Question: what does it cost to answer sooner? A file is read at 2, 3, 4, 5, 7, 10 and 15 minutes of readable audio (the viewer is
+at 1:40), once by the previous pass (all or nothing, run again from scratch each time) and once by the incremental pass
+(windows measured earlier are kept, only unseen stretches are read, candidate windows overlap by half). Offsets are
+realistic: 40% within 0.3 s, 30% up to 4 s, 30% up to 25 s; half of the trials are also 23.976 to 25 fps. An answer is right
+when the subtitle is within 0.5 s from the playhead to five minutes ahead (a rough answer cannot know about drift further on).
+A second set of trials pairs the audio with another episode's subtitle, where any answer is wrong.
+
+| readable | synthetic, previous right / wrong | synthetic, incremental right / wrong | audio read per pass, previous / incremental |
+|---|---|---|---|
+| 3 min | 75 / 0 % | 72 / 0 % | 180 s / 90 s |
+| 4 min | 67 / 8 % | 67 / 6 % | 218 s / 27 s |
+| 5 min | 72 / 3 % | 75 / 0 % | 240 s / 120 s |
+| 7 min | 67 / 6 % | 78 / 3 % | 360 s / 153 s |
+| 10 min | 81 / 0 % | 83 / 0 % | 360 s / 153 s |
+| 15 min | 78 / 0 % | 86 / 0 % | 360 s / 240 s |
+
+- Carrying the evidence gives 8 to 11 points more right answers once 7 to 15 minutes are readable, and reads a third to almost nine tenths less audio
+  per pass, because a pass only measures what the last one did not.
+- On two real films (12 trials) it ends better (75 / 0 % against 50 / 25 % at 15 minutes) but is worse between 4 and 5 minutes
+  (0 to 25 % right against 25 to 50 %), so the early minutes are not faster on real audio.
+- A subtitle for another episode still gets an answer about a quarter of the time at 2 to 4 minutes readable, falling to under
+  10% at 10 minutes, with or without the change: one weak window is not enough to tell "wrong episode" from "weak speech". The
+  menu now says "Does not match this video" when nothing lined up.
+- Tried and removed: answering from one weak window (acceptable up to 3 or 12 s of offset) while waiting for more. On synthetic
+  audio it added 5 to 9 points of right answers at 2 to 5 minutes and cost 3 to 5 points of wrong answers and 5 to 14 points more
+  false answers for another episode's subtitle; on real films it added nothing. An in-step subtitle is already right with no
+  answer, so the rough answer only helps the out-of-step ones, and those are the ones noise hurts.
 
 ### Not pursued
 
