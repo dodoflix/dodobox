@@ -57,6 +57,12 @@ before(async () => {
 })
 after(async () => { await stop(); fs.rmSync(tmp, { recursive: true, force: true }) })
 
+test('the service worker is served with the app version as its cache name', async () => {
+  const version = (await call('/api/health')).body.version
+  const sw = await (await fetch(`${base}/sw.js`)).text()
+  assert.ok(sw.includes(`const VERSION = '${version}'`))
+})
+
 test('health, server details, the QR code and the speed test answer', async () => {
   assert.deepEqual((await call('/api/health')).body.app, 'dodobox')
   const info = (await call('/api/server')).body

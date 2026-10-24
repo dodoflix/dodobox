@@ -71,7 +71,7 @@ The page (`public/js/party.js`) reads `/api/party/events` (server-sent events) a
 
 ## Interface
 
-Vanilla ES modules, no build step. `nav.js` handles arrow-key navigation and the Back key for TV remotes. The player draws its own controls and subtitles and supports Cast, AirPlay, Media Session, Picture-in-Picture and wake lock. `sw.js` caches the shell, catalog data and posters for offline browsing; bump its `VERSION` when a shell file changes. Per-title player options live in `localStorage` under `title:<profile>:<type>:<id>`.
+Vanilla ES modules, no build step. `nav.js` handles arrow-key navigation and the Back key for TV remotes. The player draws its own controls and subtitles and supports Cast, AirPlay, Media Session, Picture-in-Picture and wake lock. `sw.js` caches the shell, catalog data and posters for offline browsing; its cache is named after the app version, so a release starts it empty. Per-title player options live in `localStorage` under `title:<profile>:<type>:<id>`.
 
 ## Desktop app
 
