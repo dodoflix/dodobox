@@ -181,6 +181,11 @@ test('anime subtitle lookups follow TVDB numbering, not the entry numbering', ()
   const row = { SubFormat: 'srt', SubDownloadLink: 'https://dl.opensubtitles.org/x.gz', SeriesIMDBParent: '12343534', SeriesEpisode: '3', MovieKind: 'episode' }
   assert.ok(restRow({ ...row, SeriesSeason: '2' }, 'episode-3/imdbid-12343534/season-2/sublanguageid-eng', { type: 'anime', ...jjk }))
   assert.equal(restRow({ ...row, SeriesSeason: '1' }, 'query-jujutsu%20kaisen%203/sublanguageid-eng', { type: 'anime', ...jjk }), null, 'another season with the same number')
+  // A cour with its own title is filed as its own season 1 although TVDB calls it season 2
+  const santa = { episode: 3, titles: ['Rascal Does Not Dream of Santa Claus'], imdb: 'tt8993398', tvdbSeason: 2, tvdbEpisode: 3, abs: 19 }
+  const idol = { ...row, SeriesIMDBParent: '33060122', SeriesSeason: '1', MovieName: '"Rascal Does Not Dream of Santa Claus" Idol Song', MovieReleaseName: '[Erai-raws] Seishun Buta Yarou wa Santa Claus no Yume o Minai - 03 [1080p]' }
+  assert.ok(restRow(idol, 'query-rascal%20does%20not%20dream%20of%20santa%20claus%203/sublanguageid-eng', { type: 'anime', ...santa }))
+  assert.equal(restRow({ ...idol, MovieName: '"Rascal Does Not Dream of Bunny Girl Senpai" Idol Song' }, 'query-x%203/sublanguageid-eng', { type: 'anime', ...santa }), null)
   // First-season episodes TVDB files at another number follow its air order (Cowboy Bebop 5 is S1E15): the entry's own number is kept
   const bebop = { episode: 5, titles: ['Cowboy Bebop'], imdb: 'tt0213338', tvdbSeason: 1, tvdbEpisode: 15, abs: 5 }
   assert.deepEqual(animeKeys(bebop), [[1, 5]])
