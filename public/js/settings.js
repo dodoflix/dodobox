@@ -4,6 +4,8 @@ import { $, esc, icon, bytes, store, isTV, toast } from './util.js'
 import { calm } from './ambient.js'
 import { showPicker } from './profiles.js'
 import { LANGUAGES, langOf, SOURCE_MODES } from './onboarding.js'
+import { netWarnings, notesHTML } from './netwarn.js'
+import { bandwidth } from './bandwidth.js'
 import { upgradeSelects, syncSelect } from './dropdown.js'
 import { uiLangFor } from './i18n.js'
 import { pingPresence } from './presence.js'
@@ -36,9 +38,9 @@ export async function settings (root) {
       <div class="set"><div class="l"><b>Interests</b><span>Your home screen leads with these.</span></div>
         <div class="seg" id="interests">${[['movie', 'Movies'], ['series', 'Series'], ['anime', 'Anime']].map(([t, n]) => `<button data-t="${t}" class="${(me.settings.interests || []).includes(t) ? 'on' : ''}">${n}</button>`).join('')}</div></div>
       <div class="set"><div class="l"><b>Video quality</b><span>Auto picks the best version your connection and screen can use${srv.internetMbps ? ` (this server's internet: about ${srv.internetMbps} Mbps)` : ''}. Choose a level to force it.</span></div>
-        ${seg('quality', [['auto', 'Auto'], ['2160', '4K'], ['1080', '1080p'], ['720', '720p'], ['480', 'Data saver']], ['best'].includes(me.settings.quality) ? 'auto' : me.settings.quality)}</div>
+        ${seg('quality', [['auto', 'Auto'], ['2160', '4K'], ['1080', '1080p'], ['720', '720p'], ['480', 'Data saver']], ['best'].includes(me.settings.quality) ? 'auto' : me.settings.quality)}<div class="netnotes" id="nn-quality"></div></div>
       <div class="set"><div class="l"><b>Download size</b><span>Balanced avoids huge files. Smallest starts fastest. Best quality accepts very large files.</span></div>
-        ${seg('sourceMode', SOURCE_MODES, me.settings.sourceMode || 'balanced')}</div>
+        ${seg('sourceMode', SOURCE_MODES, me.settings.sourceMode || 'compact')}<div class="netnotes" id="nn-size"></div></div>
       <div class="set"><div class="l"><b>Adult content filter</b><span>Hide titles that are marked as adult. Off by default.</span></div>
         <button class="switch" role="switch" data-k="adultFilter" aria-checked="${!!me.settings.adultFilter}" aria-label="Adult content filter"></button></div>
       <div class="set"><div class="l"><b>Best translation quality</b><span>Auto-translated subtitles use a larger translator. It downloads about 2 GB the first time, and each subtitle improves gradually while you watch.</span><span id="hqstat" class="dim"></span></div>
@@ -86,6 +88,12 @@ export async function settings (root) {
   </div>`
 
   upgradeSelects(root)
+  const drawNotes = () => {
+    const w = netWarnings({ quality: S.me.settings.quality, mode: S.me.settings.sourceMode || 'compact', serverMbps: srv.internetMbps, linkMbps: bandwidth() })
+    $('#nn-quality').innerHTML = notesHTML(w.filter(x => x.k === 'quality'))
+    $('#nn-size').innerHTML = notesHTML(w.filter(x => x.k === 'sourceMode'))
+  }
+  drawNotes()
   root.onchange = async e => {
     const t = e.target
     if (t.id === 'lang') {
@@ -119,7 +127,13 @@ export async function settings (root) {
     const it = e.target.closest('#interests button')
     if (it) { it.classList.toggle('on'); setSetting('interests', [...root.querySelectorAll('#interests .on')].map(b => b.dataset.t)); return }
     const sg = e.target.closest('[data-seg] button')
-    if (sg) { const k = sg.parentElement.dataset.seg; setSetting(k, sg.dataset.v); sg.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === sg)) }
+    if (sg) { const k = sg.parentElement.dataset.seg; setSetting(k, sg.dataset.v); sg.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === sg)); drawNotes() }
+    const fx = e.target.closest('[data-fix]')
+    if (fx) {
+      const [k, v] = fx.dataset.fix.split(':'); setSetting(k, v)
+      root.querySelectorAll(`[data-seg="${k}"] button`).forEach(b => b.classList.toggle('on', b.dataset.v === v))
+      drawNotes()
+    }
     const ob = e.target.closest('[data-os]')
     if (ob) {
       if (ob.dataset.os === 'remove') await api('/api/opensubtitles', { method: 'DELETE' })
