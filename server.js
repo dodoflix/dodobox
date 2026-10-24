@@ -413,6 +413,7 @@ const routes = [
   ['GET', /^\/api\/settings$/, (req, res) => json(req, res, state.settings())],
   ['PUT', /^\/api\/settings$/, async (req, res) => {
     const s = state.setSettings(await jbody(req))
+    engine.applySharing()
     local.rescan().catch(swallow('rescan'))
     json(req, res, s)
   }],

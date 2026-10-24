@@ -175,10 +175,11 @@ export const me = id => {
   return p && { id: p.id, name: p.name, color: p.color, hasPin: !!p.pin, settings: p.settings, list: p.list, progress: p.progress, recent: Object.values(p.recent).sort((a, b) => b.at - a.at).slice(0, 20), history: Object.values(p.history).sort((a, b) => b.at - a.at).slice(0, 200), ratings: p.ratings }
 }
 
-const GLOBAL = { maxStorageGB: 40, mediaDirs: null }
+const GLOBAL = { maxStorageGB: 40, mediaDirs: null, shareUploads: false }
 export const settings = () => ({ ...GLOBAL, ...db.settings })
 export function setSettings (patch) {
   if (patch.maxStorageGB != null) db.settings.maxStorageGB = Math.max(2, Math.min(5000, +patch.maxStorageGB || GLOBAL.maxStorageGB))
+  if (typeof patch.shareUploads === 'boolean') db.settings.shareUploads = patch.shareUploads
   if ('mediaDirs' in patch) db.settings.mediaDirs = Array.isArray(patch.mediaDirs) ? patch.mediaDirs.map(String).filter(Boolean) : null
   log.info('state', 'server settings changed', patch)
   persist()

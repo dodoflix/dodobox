@@ -115,10 +115,11 @@ Dodobox looks in your Videos and Movies folders (and `MEDIA_DIR`) and matches fi
 | `NO_DISCORD` | unset | Do not show what is playing in Discord |
 | `ALLOWED_HOSTS` | unset | Comma-separated extra hostnames the server answers to (a reverse proxy or tunnel name). Addresses, `localhost`, single-word names and `.local`, `.lan` names always work; other names are refused to stop DNS rebinding |
 | `NO_MDNS` | unset | Do not announce `dodobox.local` on the network |
+| `UPLOAD_KBPS` | `512` | Upload cap in KB/s while something is being watched or prioritized and Share while downloading is on; otherwise uploads are held to 32 KB/s and downloads to half of the measured line, so a housemate's game or call keeps its ping |
 | `NO_SPEEDTEST` | unset | Skip measuring the server's internet speed at start |
 | `NO_UPDATE_CHECK` | unset | Do not look for a newer release |
 
-Everything else (storage limit, subtitle language, quality, download size) is in Settings. Quality is Auto by default: Dodobox picks the best version your line and screen can use. Choose 4K, 1080p, 720p or Data saver to force it.
+Everything else (storage limit, sharing while downloading, subtitle language, quality, download size) is in Settings. Quality is Auto by default: Dodobox picks the best version your line and screen can use. Choose 4K, 1080p, 720p or Data saver to force it.
 
 ## Troubleshooting
 

@@ -50,7 +50,9 @@ export const rows = [
   'Đồng bộ lại',
   'Đang tìm khớp...',
   'Không khớp với video này',
-  'Dùng Tự động', 'Dùng Cân bằng', 'Chất lượng quá cao so với kết nối này. Dùng Tự động', 'Dùng Nhỏ nhất'
+  'Dùng Tự động', 'Dùng Cân bằng', 'Chất lượng quá cao so với kết nối này. Dùng Tự động', 'Dùng Nhỏ nhất',
+  'Chia sẻ khi đang tải', 'Cho phép người khác trên mạng torrent tải từ máy tính này. Khi tắt, đường tải lên của bạn dành cho game và cuộc gọi. Một số bản tải có thể bắt đầu chậm hơn một chút.',
+  'Chia sẻ'
 ]
 export const patterns = [
   'Chào $1, hãy biến nó thành của bạn', 'Mùa $1', 'Mùa $1 · Tập $2', 'Tiếp tục S$1 E$2', 'S$1 E$2$3', 'Phát sóng $1', '$1 giờ $2 phút', '$1 phút', '$1còn $2 giờ $3 phút', '$1còn $2 phút',

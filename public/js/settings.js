@@ -75,6 +75,11 @@ export async function settings (root) {
         <select class="field" data-g="maxStorageGB">${CAPS.map(c => `<option value="${c}" ${c === g.maxStorageGB ? 'selected' : ''}>${c >= 1000 ? c / 1000 + ' TB' : c + ' GB'} limit</option>`).join('')}</select></div>
     </div>
 
+    <div class="group"><h3>Sharing</h3>
+      <div class="set"><div class="l"><b>Share while downloading</b><span>Lets other people on the torrent network download from this computer. Off keeps your upload line free for games and calls. Some downloads may start a little slower.</span></div>
+        <button class="switch" role="switch" data-g="shareUploads" aria-checked="${!!g.shareUploads}" aria-label="Share while downloading"></button></div>
+    </div>
+
     <div class="group"><h3>Your own files</h3>
       <div class="set"><div class="l"><b>${srv.localCount} titles found</b><span>${dirs.length ? 'Looking in: ' + dirs.map(esc).join(', ') : 'Dodobox checks your Videos and Movies folders automatically.'}</span></div>
         <button class="btn btn-ghost sm" id="rescan">${icon('refresh')}Scan now</button></div>
@@ -124,6 +129,7 @@ export async function settings (root) {
   if (me.settings.bestTranslation) hqStatus()
   root.onclick = async e => {
     const sw = e.target.closest('.switch')
+    if (sw && sw.dataset.g) { const v = sw.getAttribute('aria-checked') !== 'true'; sw.setAttribute('aria-checked', v); api('/api/settings', { method: 'PUT', body: { [sw.dataset.g]: v } }); return }
     if (sw && sw.dataset.k) { const v = sw.getAttribute('aria-checked') !== 'true'; sw.setAttribute('aria-checked', v); setSetting(sw.dataset.k, v); if (sw.dataset.k === 'bestTranslation') hqStatus(v); if (sw.dataset.k === 'discordPresence') pingPresence() }
     if (sw && sw.id === 'tv') { const v = sw.getAttribute('aria-checked') !== 'true'; store.set('tv', v); location.reload() }
     const it = e.target.closest('#interests button')

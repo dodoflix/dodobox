@@ -50,7 +50,9 @@ export const rows = [
   'Opnieuw synchroniseren',
   'Zoeken naar een match...',
   'Past niet bij deze video',
-  'Auto gebruiken', 'Gebalanceerd gebruiken', 'De kwaliteit is te hoog voor deze verbinding. Auto gebruiken', 'Kleinste gebruiken'
+  'Auto gebruiken', 'Gebalanceerd gebruiken', 'De kwaliteit is te hoog voor deze verbinding. Auto gebruiken', 'Kleinste gebruiken',
+  'Delen tijdens het downloaden', 'Laat anderen op het torrentnetwerk van deze computer downloaden. Uit houdt je uploadlijn vrij voor games en gesprekken. Sommige downloads starten iets trager.',
+  'Delen'
 ]
 export const patterns = [
   'Hoi $1, maak het van jou', 'Seizoen $1', 'Seizoen $1 · Aflevering $2', 'Hervat S$1 A$2', 'S$1 A$2$3', 'Verschijnt $1', '$1 u $2 min', '$1 min', '$1nog $2 u $3 min', '$1nog $2 min',

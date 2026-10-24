@@ -50,7 +50,9 @@ export const rows = [
   'Risincronizza',
   'Ricerca di una corrispondenza...',
   'Non corrisponde a questo video',
-  'Usa Automatica', 'Usa Bilanciato', 'La qualità è troppo alta per questa connessione. Usa Automatica', 'Usa Più piccolo'
+  'Usa Automatica', 'Usa Bilanciato', 'La qualità è troppo alta per questa connessione. Usa Automatica', 'Usa Più piccolo',
+  'Condividi durante il download', 'Permette ad altre persone sulla rete torrent di scaricare da questo computer. Disattivato, la tua linea in upload resta libera per giochi e chiamate. Alcuni download possono partire un po\' più lentamente.',
+  'Condivisione'
 ]
 export const patterns = [
   'Ciao $1, rendilo tuo', 'Stagione $1', 'Stagione $1 · Episodio $2', 'Riprendi S$1 E$2', 'S$1 E$2$3', 'Esce il $1', '$1 h $2 min', '$1 min', '$1restano $2 h $3 min', '$1restano $2 min',
