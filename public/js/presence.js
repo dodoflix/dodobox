@@ -6,7 +6,7 @@ let source = null; let allowed = () => true; let sent = false
 // The words Discord shows, in the page's language; the server only fits them into the activity.
 const words = b => ({
   browsing: tr('Browsing'), looking: tr('Looking for something to watch'), party: tr('In a watch party'), picking: tr('Picking something to watch'),
-  paused: tr('Paused'), episode: b.season != null ? tr(`Season ${b.season} · Episode ${b.episode}`) : '', get: tr('Get Dodobox'), releases: tr('Releases')
+  paused: tr('Paused'), episode: b.season != null ? tr(`Season ${b.season} · Episode ${b.episode}`) : '', get: tr('Download Dodobox')
 })
 const put = body => api('/api/presence', { method: 'PUT', body: body.state === 'off' ? body : { ...body, t: words(body) } }).catch(() => {})
 const beat = () => {

@@ -40,7 +40,7 @@ export const rows = [
 /*more*/ 'Nonton bareng', 'Mulai sesi nonton', 'Kode sesi', 'Gabung', 'Temanmu juga perlu Dodobox. Bagikan kodenya kepada mereka.', 'Mencari temanmu...', 'Salin kode', 'Kode disalin', 'Keluar dari sesi', 'Menonton', 'Tonton bersama', 'Itu bukan kode sesi', 'Kamu sudah berada di sesi', 'Kamu tidak berada di sesi',
 /*more*/ 'Dapatkan kode untuk dibagikan, lalu tonton apa saja bersama, episode demi episode.', 'atau', 'Gabung dengan kode', 'Pilih tontonan dan semua ikut.', 'Kirim pesan ke pesta', 'Pesan', 'Kirim', 'Tampilkan gambar', 'Emoji', 'Obrolan disembunyikan di layar penuh iPhone',
 /*more*/ 'Status Discord', 'Menampilkan tontonanmu di Discord jika Discord berjalan di komputer ini.',
-/*more*/ 'Menjelajah', 'Mencari tontonan', 'Sedang nonton bareng', 'Memilih tontonan', 'Dapatkan Dodobox', 'Rilis',
+/*more*/ 'Menjelajah', 'Mencari tontonan', 'Sedang nonton bareng', 'Memilih tontonan', 'Dapatkan Dodobox',
 /*more*/ 'Kata sandi (opsional)', 'Teman-temanmu juga membutuhkan kata sandi.',
 /*more*/ 'Tampilkan kata sandi', 'Sembunyikan kata sandi',
 /*more*/ 'Tempel',

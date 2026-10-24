@@ -40,7 +40,7 @@ export const rows = [
 /*more*/ 'Visione di gruppo', 'Avvia una sessione', 'Codice sessione', 'Unisciti', 'Anche i tuoi amici devono avere Dodobox. Condividi il codice con loro.', 'Cerco i tuoi amici...', 'Copia codice', 'Codice copiato', 'Esci dalla sessione', 'In visione', 'Guarda insieme', 'Non è un codice sessione', 'Sei già in una sessione', 'Non sei in una sessione',
 /*more*/ 'Ottieni un codice da condividere e guardate tutto insieme, episodio dopo episodio.', 'oppure', 'Unisciti con un codice', 'Scegli cosa guardare e tutti ti seguono.', 'Scrivi al gruppo', 'Messaggi', 'Invia', 'Mostra immagine', 'Emoji', 'La chat è nascosta a schermo intero su iPhone',
 /*more*/ 'Presenza su Discord', 'Mostra su Discord cosa stai guardando, se è in esecuzione su questo computer.',
-/*more*/ 'Sta sfogliando', 'Cerca qualcosa da guardare', 'In una visione di gruppo', 'Sceglie cosa guardare', 'Scarica Dodobox', 'Versioni',
+/*more*/ 'Sta sfogliando', 'Cerca qualcosa da guardare', 'In una visione di gruppo', 'Sceglie cosa guardare', 'Scarica Dodobox',
 /*more*/ 'Password (facoltativa)', 'Anche i tuoi amici hanno bisogno della password.',
 /*more*/ 'Mostra password', 'Nascondi password',
 /*more*/ 'Incolla',

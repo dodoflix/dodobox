@@ -40,7 +40,7 @@ export const rows = [
 /*more*/ 'Tittarfest', 'Starta en tittarfest', 'Partykod', 'Gå med', 'Dina vänner behöver också Dodobox. Dela koden med dem.', 'Letar efter dina vänner...', 'Kopiera koden', 'Koden kopierad', 'Lämna tittarfesten', 'Tittar på', 'Titta tillsammans', 'Det där är ingen partykod', 'Du är redan i en tittarfest', 'Du är inte i en tittarfest',
 /*more*/ 'Skaffa en kod att dela och titta på vad som helst tillsammans, avsnitt för avsnitt.', 'eller', 'Gå med med en kod', 'Välj något att titta på så följer alla med.', 'Meddela sällskapet', 'Meddelanden', 'Skicka', 'Visa bild', 'Emoji', 'Chatten är dold i helskärm på iPhone',
 /*more*/ 'Discord-status', 'Visar i Discord vad du tittar på, om Discord körs på den här datorn.',
-/*more*/ 'Bläddrar', 'Letar efter något att titta på', 'På en tittarfest', 'Väljer vad de ska titta på', 'Hämta Dodobox', 'Versioner',
+/*more*/ 'Bläddrar', 'Letar efter något att titta på', 'På en tittarfest', 'Väljer vad de ska titta på', 'Hämta Dodobox',
 /*more*/ 'Lösenord (valfritt)', 'Dina vänner behöver också lösenordet.',
 /*more*/ 'Visa lösenord', 'Dölj lösenord',
 /*more*/ 'Klistra in',

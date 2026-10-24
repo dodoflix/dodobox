@@ -40,7 +40,7 @@ export const rows = [
 /*more*/ 'Wspólny seans', 'Rozpocznij seans', 'Kod seansu', 'Dołącz', 'Znajomi też potrzebują Dodobox. Udostępnij im kod.', 'Szukamy twoich znajomych...', 'Kopiuj kod', 'Skopiowano kod', 'Opuść seans', 'Oglądają', 'Oglądaj razem', 'To nie jest kod seansu', 'Jesteś już w seansie', 'Nie jesteś w seansie',
 /*more*/ 'Zdobądź kod do udostępnienia i oglądajcie razem wszystko, odcinek po odcinku.', 'lub', 'Dołącz z kodem', 'Wybierz, co oglądać, a wszyscy dołączą.', 'Napisz do grupy', 'Wiadomości', 'Wyślij', 'Pokaż obraz', 'Emoji', 'Czat jest ukryty na pełnym ekranie w iPhonie',
 /*more*/ 'Status w Discordzie', 'Pokazuje w Discordzie, co oglądasz, jeśli działa na tym komputerze.',
-/*more*/ 'Przegląda', 'Szuka czegoś do obejrzenia', 'We wspólnym seansie', 'Wybiera, co obejrzeć', 'Pobierz Dodobox', 'Wydania',
+/*more*/ 'Przegląda', 'Szuka czegoś do obejrzenia', 'We wspólnym seansie', 'Wybiera, co obejrzeć', 'Pobierz Dodobox',
 /*more*/ 'Hasło (opcjonalne)', 'Twoi znajomi też potrzebują hasła.',
 /*more*/ 'Pokaż hasło', 'Ukryj hasło',
 /*more*/ 'Wklej',

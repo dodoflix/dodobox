@@ -40,7 +40,7 @@ export const rows = [
 /*more*/ 'Xem chung', 'Bắt đầu phòng xem chung', 'Mã phòng', 'Tham gia', 'Bạn bè cũng cần có Dodobox. Hãy chia sẻ mã với họ.', 'Đang tìm bạn bè của bạn...', 'Sao chép mã', 'Đã sao chép mã', 'Rời phòng', 'Đang xem', 'Xem cùng', 'Đó không phải mã phòng', 'Bạn đã ở trong một phòng', 'Bạn không ở trong phòng nào',
 /*more*/ 'Lấy một mã để chia sẻ, rồi cùng xem bất cứ thứ gì, hết tập này đến tập khác.', 'hoặc', 'Tham gia bằng mã', 'Chọn nội dung bất kỳ, mọi người sẽ cùng xem.', 'Nhắn cho nhóm', 'Tin nhắn', 'Gửi', 'Hiện ảnh', 'Biểu tượng cảm xúc', 'Trò chuyện bị ẩn khi toàn màn hình trên iPhone',
 /*more*/ 'Trạng thái Discord', 'Hiển thị trên Discord nội dung bạn đang xem, nếu Discord chạy trên máy tính này.',
-/*more*/ 'Đang duyệt', 'Đang tìm thứ gì đó để xem', 'Đang xem chung', 'Đang chọn nội dung để xem', 'Tải Dodobox', 'Bản phát hành',
+/*more*/ 'Đang duyệt', 'Đang tìm thứ gì đó để xem', 'Đang xem chung', 'Đang chọn nội dung để xem', 'Tải Dodobox',
 /*more*/ 'Mật khẩu (tùy chọn)', 'Bạn bè của bạn cũng cần mật khẩu.',
 /*more*/ 'Hiện mật khẩu', 'Ẩn mật khẩu',
 /*more*/ 'Dán',
