@@ -67,6 +67,8 @@ export async function api (path, { method = 'GET', body, raw, ref, headers } = {
     try {
       const r = await fetch(path, { signal: ref?.signal, method, headers: { ...(id && { 'x-rid': id }), 'x-profile': profile, ...(token && { 'x-token': token }), 'x-lang': lang, 'x-adult-filter': safe ? '1' : '0', ...(body && !raw && { 'content-type': 'application/json' }), ...headers }, body: body && !raw ? JSON.stringify(body) : body, keepalive: method !== 'GET' && !raw })
       const j = await r.json().catch(() => ({}))
+      // Leaving the page while the body is still arriving cuts it short: that is a cancelled request, not an answer of {}.
+      if (ref?.signal?.aborted) throw cancelled()
       if (r.ok) return j
       lastErr = Object.assign(new Error(j.error || r.statusText), { status: r.status })
       if (r.status === 401 && j.error === 'Locked' && armed) { setToken(profile, ''); location.reload(); throw lastErr }

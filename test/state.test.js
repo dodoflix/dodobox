@@ -1,10 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
+import { tmpdir } from './support/tmp.js'
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-state-'))
+const tmp = tmpdir('state')
 process.env.DATA_DIR = tmp
 process.env.NO_DHT = '1'
 const state = await import('../src/state.js')
@@ -128,7 +128,7 @@ test('what a client sends is checked: wrong shapes are cut, colours and pictures
 
 test('data saved before values were checked is cleaned when the server starts', async () => {
   const { execFileSync } = await import('node:child_process')
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-scrub-'))
+  const dir = tmpdir('scrub')
   const bad = { type: 'movie', id: 'tt1', name: 'x', poster: "/img?u=x');background:red", rating: '9<b>', year: '<svg>' }
   fs.writeFileSync(path.join(dir, 'state.json'), JSON.stringify({ profiles: { a1: { id: 'a1', name: 'A', color: 'red;x:y', progress: {}, recent: { 'movie:tt1': bad }, history: {}, ratings: { x: { type: 'game', id: 'z' } }, list: [bad, { type: 'bogus' }, null], settings: { lang: '<b>', legacy: 'keep' } } }, settings: {} }))
   const out = execFileSync(process.execPath, ['--input-type=module', '-e', "const s = await import('./src/state.js'); process.stdout.write('\\nRESULT' + JSON.stringify(s.profile('a1')))"], { env: { ...process.env, DATA_DIR: dir, NO_DHT: '1' }, encoding: 'utf8' })

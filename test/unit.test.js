@@ -7,6 +7,7 @@ import { upstream } from '../src/images.js'
 import * as updates from '../src/update.js'
 import { parseProbe } from '../src/transcode.js'
 import { ENCODERS } from '../src/bin.js'
+import { tmpdir } from './support/tmp.js'
 const { newer } = updates
 
 test('ranking prefers healthy 1080p over huge, dead or cam releases', () => {
@@ -55,9 +56,9 @@ test('ranking favors H.264 and compact encodes over heavy HEVC at equal health',
 
 test('only real mp4/webm count as browser-direct; mkv with H.264/AAC does not', async () => {
   const { execFileSync } = await import('node:child_process')
-  const fs = await import('node:fs'); const os = await import('node:os'); const path = await import('node:path')
+  const fs = await import('node:fs'); const path = await import('node:path')
   const { probe } = await import('../src/transcode.js')
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-probe-'))
+  const dir = tmpdir('probe')
   const src = ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc=size=160x90:rate=10:duration=1', '-f', 'lavfi', '-i', 'sine=duration=1']
   const mkv = path.join(dir, 'a.mkv'); const mp4 = path.join(dir, 'a.mp4'); const webm = path.join(dir, 'a.webm')
   execFileSync('ffmpeg', [...src, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', mkv])

@@ -1,11 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import zlib from 'node:zlib'
+import { tmpdir } from './support/tmp.js'
 
-process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-osaccount-'))
+process.env.DATA_DIR = tmpdir('osaccount')
 const { fetchSubtitle, resetQuota } = await import('../src/subs.js')
 const account = await import('../src/osaccount.js')
 

@@ -1,10 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
+import { tmpdir } from './support/tmp.js'
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-race-'))
+const tmp = tmpdir('race')
 process.env.DATA_DIR = tmp
 process.env.NO_DHT = '1'
 const { race, rivalsOf, racing } = await import('../src/race.js')

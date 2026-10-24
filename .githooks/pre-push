@@ -1,0 +1,3 @@
+#!/bin/sh
+# Same gates as CI: unit and e2e tests, each with its own 90% coverage floor. Skip once with `git push --no-verify`.
+npm run test:coverage

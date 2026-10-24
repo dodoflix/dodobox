@@ -3,11 +3,11 @@ import test, { before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import WebTorrent from 'webtorrent'
+import { tmpdir } from '../test/support/tmp.js'
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-e2e-'))
+const tmp = tmpdir('e2e')
 process.env.DATA_DIR = path.join(tmp, 'data')
 process.env.NO_SPEEDTEST = '1'
 process.env.NO_UPDATE_CHECK = '1'
@@ -127,6 +127,35 @@ test('embedded subtitle extracts as WebVTT', async () => {
   assert.match(vtt, /^WEBVTT/)
   assert.match(vtt, /00:01\.0\d\d --> 00:03\.0\d\d/)
   assert.match(vtt, /Hello e2e/)
+})
+
+test('HLS master playlist can carry a subtitle rendition, served as WebVTT aligned to the stream', async () => {
+  const sub = `/api/sub/embedded/${hash}/0/0`
+  const master = await (await get(`/hls/${hash}/0/index.m3u8?sub=${encodeURIComponent(sub)}&sl=eng&sn=English`)).text()
+  assert.match(master, /TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",LANGUAGE="eng"/)
+  assert.match(master, /SUBTITLES="subs"\nmedia\.m3u8/)
+  assert.match(await (await get(`/hls/${hash}/0/media.m3u8`)).text(), /seg0\.ts/)
+  const subs = await (await get(`/hls/${hash}/0/subs.m3u8?sub=${encodeURIComponent(sub)}`)).text()
+  assert.match(subs, /#EXT-X-ENDLIST/)
+  const vtt = await (await get(`/hls/${hash}/0/sub.vtt?sub=${encodeURIComponent(sub)}`)).text()
+  assert.match(vtt, /^WEBVTT\nX-TIMESTAMP-MAP=MPEGTS:0,LOCAL:00:00:00\.000\n/)
+  assert.match(vtt, /Hello e2e/)
+})
+
+test('HLS subtitle requests that name no real subtitle are refused', async () => {
+  assert.equal((await get(`/hls/${hash}/0/sub.vtt?sub=${encodeURIComponent('http://evil.example/x.srt')}`)).status, 400)
+  assert.equal((await get(`/hls/${hash}/0/sub.vtt`)).status, 400)
+})
+
+test('subtitle sync has nothing to measure in a file too short for any audio window', async () => {
+  const q = new URLSearchParams({ hash, file: '0', src: `/api/sub/embedded/${hash}/0/0` })
+  assert.deepEqual(await (await get(`/api/sub/sync?${q}`)).json(), { pending: true })
+  assert.deepEqual(await (await get(`/api/sub/sync?${q}&at=5`)).json(), { probe: null, ahead: true })
+})
+
+test('translation endpoints answer while nothing is translating', async () => {
+  assert.deepEqual(await (await get('/api/sub/translate/status?src=%2Fnothing&to=tr')).json(), { stage: 'idle', pct: 0 })
+  assert.equal(typeof (await (await get('/api/translate/better')).json()), 'object')
 })
 
 test('uploaded SRT and ASS convert to WebVTT', async () => {

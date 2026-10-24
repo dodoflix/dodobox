@@ -1,4 +1,4 @@
-import { api } from './api.js'
+import { api, NOW } from './api.js'
 import { S, setSetting } from './session.js'
 import { $, esc, icon, bytes, store, isTV, toast } from './util.js'
 import { calm } from './ambient.js'
@@ -23,7 +23,9 @@ let stopPolling = () => {}
 export async function settings (root) {
   stopPolling() // a redraw of the page replaces the previous one's follow-up calls
   calm()
-  const [srv, g, st, os] = await Promise.all([api('/api/server'), api('/api/settings'), api('/api/storage'), accountStatus()])
+  // Scoped to the page: leaving before they arrive cancels them, so a slow page cannot draw over the one that replaced it.
+  const get = path => api(path, { ref: { prio: NOW } })
+  const [srv, g, st, os] = await Promise.all([get('/api/server'), get('/api/settings'), get('/api/storage'), get('/api/opensubtitles').catch(e => { if (e.name === 'AbortError') throw e; return { user: null } })])
   const me = S.me
   const url = srv.urls[0] || `http://localhost:${srv.port}`
   const dirs = srv.mediaDirs

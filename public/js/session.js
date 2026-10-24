@@ -37,6 +37,11 @@ export function recordProgress (b) {
   S.me.progress[pk(b.type, b.id, b.season, b.episode)] = [b.pos, b.dur, Date.now()]
   const rest = S.me.recent.filter(r => !(r.type === b.type && r.id === b.id))
   S.me.recent = b.pos / b.dur > 0.95 ? rest : [{ ...b, at: Date.now() }, ...rest]
+  // The server keeps a history entry for anything played; the library and the title page read it without a reload.
+  const old = S.me.history.find(x => x.type === b.type && x.id === b.id)
+  const entry = { ...old, type: b.type, id: b.id, name: b.name, poster: b.poster, at: Date.now(), season: b.season ?? null, episode: b.episode ?? null }
+  if (b.season == null && b.pos / b.dur > 0.9) entry.finished = true
+  S.me.history = [entry, ...S.me.history.filter(x => x !== old)]
   api('/api/progress', { method: 'PUT', body: b }).catch(() => {})
 }
 

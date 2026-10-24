@@ -28,7 +28,12 @@
     "watch": "node --watch server.js",
     "lint": "eslint .",
     "bench": "node bench/run.js",
-    "test": "node --test",
+    "test": "node --test test/*.test.js",
+    "test:e2e": "node --test --test-timeout=120000 e2e/*.spec.js",
+    "test:coverage:unit": "node --test --experimental-test-coverage --test-coverage-include=server.js --test-coverage-include=src/** --test-coverage-exclude=src/translate.js --test-coverage-exclude=src/translate-hq.js --test-coverage-exclude=src/presence.js --test-coverage-exclude=src/net.js --test-coverage-exclude=src/data.js --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage-unit.lcov test/*.test.js && node scripts/coverage-floor.js coverage-unit.lcov 90",
+    "test:coverage:e2e": "node --test --test-timeout=120000 --experimental-test-coverage --test-coverage-include=server.js --test-coverage-include=src/** --test-coverage-exclude=src/translate.js --test-coverage-exclude=src/translate-hq.js --test-coverage-exclude=src/presence.js --test-coverage-exclude=src/net.js --test-coverage-exclude=src/data.js --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage-e2e.lcov e2e/*.spec.js && node scripts/coverage-floor.js coverage-e2e.lcov 90",
+    "test:coverage": "npm run test:coverage:unit && npm run test:coverage:e2e",
+    "prepare": "git config core.hooksPath .githooks || exit 0",
     "desktop": "electron .",
     "dist": "electron-builder --publish never"
   },
@@ -46,10 +51,12 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "bittorrent-tracker": "^11.2.3",
     "electron": "^44.9.0",
     "electron-builder": "^26.15.3",
     "eslint": "^10.13.0",
-    "globals": "^17.13.0"
+    "globals": "^17.13.0",
+    "playwright-core": "^1.64.1"
   },
   "author": "Dodobox contributors <43419555+dodoflix@users.noreply.github.com>",
   "build": {

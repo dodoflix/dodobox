@@ -32,7 +32,7 @@ import { race, rivalsOf, racing } from './src/race.js'
 import { localizeItems, localizeMeta } from './src/locale.js'
 import { syncInWorker, parseCues, shiftVtt, usable } from './src/sync.js'
 import * as better from './src/translate-hq.js'
-import { translateSubtitle, translateBetter, stopBetter, targets as translateTargets, modelLang } from './src/translate.js'
+import { translateSubtitle, translateBetter, stopBetter, stopPool, targets as translateTargets, modelLang } from './src/translate.js'
 import { once } from './src/http.js'
 import { langOfName } from './src/sidecar.js'
 import { DATA } from './src/paths.js'
@@ -767,6 +767,7 @@ export async function stop () {
   server.closeAllConnections()
   await new Promise(r => server.close(r))
   await engine.shutdown()
+  await stopPool()
 }
 
 // A bad torrent peer or a dead API must never take the server down.

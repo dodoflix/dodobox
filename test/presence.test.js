@@ -2,11 +2,11 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import net from 'node:net'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
+import { tmpdir } from './support/tmp.js'
 
 test('report sends playing, paused and browsing activities after the handshake', { skip: process.platform === 'win32' }, async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ipc-'))
+  const dir = tmpdir('ipc')
   process.env.XDG_RUNTIME_DIR = dir
   process.env.DISCORD_CLIENT_ID = '123'
   const send = (s, op, o) => { const b = Buffer.from(JSON.stringify(o)); const h = Buffer.alloc(8); h.writeInt32LE(op, 0); h.writeInt32LE(b.length, 4); s.write(Buffer.concat([h, b])) }
