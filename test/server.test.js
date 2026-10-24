@@ -3,10 +3,10 @@ import test, { before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
+import { tmpdir } from './support/tmp.js'
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-server-'))
+const tmp = tmpdir('server')
 Object.assign(process.env, { DATA_DIR: path.join(tmp, 'data'), HOME: tmp, MEDIA_DIR: path.join(tmp, 'media'), MIN_LOCAL_BYTES: '1000', NO_SPEEDTEST: '1', NO_UPDATE_CHECK: '1', NO_DHT: '1', NO_MDNS: '1', NO_DISCORD: '1', ALLOWED_HOSTS: 'localhost' })
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64')
@@ -32,7 +32,8 @@ globalThis.fetch = (input, init) => {
   if (url.hostname === 'opensubtitles-v3.strem.io') return Promise.resolve(json({ subtitles: [{ lang: 'eng', url: 'https://subs5.strem.io/a.srt', movieReleaseName: 'Film.0.2000.1080p', g: '3' }] }))
   if (url.hostname === 'subs5.strem.io') return Promise.resolve(new Response('1\n00:00:01,000 --> 00:00:02,000\nA line\n'))
   if (url.hostname === 'torrentio.strem.fun') return Promise.resolve(json({ streams: [] }))
-  if (url.hostname === 'query.wikidata.org') return Promise.resolve(json({ results: { bindings: [{ id: { value: 'tt700000' }, label: { value: 'Film Sifir' } }] } }))
+  if (url.hostname === 'tr.wikipedia.org') return Promise.resolve(json({ type: 'standard', extract: 'Bu, ozeti Vikipedi tarafindan verilen ve altmis karakterden uzun olan bir aciklama metnidir.' }))
+  if (url.hostname === 'query.wikidata.org') return Promise.resolve(json({ results: { bindings: [{ id: { value: 'tt700000' }, label: { value: 'Film Sifir' }, an: { value: 'Film Sifir (film)' } }] } }))
   return Promise.resolve(json({}, 404))
 }
 
@@ -51,7 +52,7 @@ before(async () => {
   stop = mod.stop
   local = await import('../src/local.js')
   state = await import('../src/state.js')
-  local.hooks.match = async p => ({ type: 'movie', mid: 'tt700000', name: p.title, poster: null, year: p.year })
+  local.hooks.match = async p => ({ type: 'movie', mid: /spicy/i.test(p.title) ? 'tt700099' : 'tt700000', name: p.title, poster: null, year: p.year })
   base = `http://localhost:${(await mod.start(0)).address().port}`
 })
 after(async () => { await stop(); fs.rmSync(tmp, { recursive: true, force: true }) })
@@ -118,19 +119,25 @@ test('titles and descriptions are shown in the profile language when the wiki kn
   assert.equal(items.find(i => i.id === 'tt700000').name, 'Film Sifir')
   const one = (await call('/api/meta/movie/tt700000', { headers: { 'x-lang': 'tr' } })).body
   assert.equal(one.name, 'Film Sifir')
+  assert.match(one.description, /Vikipedi/)
+  assert.equal(one.localized, true)
   assert.equal((await call('/api/meta/movie/tt700000', { headers: { 'x-lang': 'en' } })).body.name, 'Film 0')
 })
 
 test('files in the media folder are matched to titles, listed and served with range support', async () => {
   const file = path.join(process.env.MEDIA_DIR, 'Film.Zero.2000.1080p.mkv')
-  execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'testsrc=size=160x90:rate=10:duration=3', '-f', 'lavfi', '-i', 'sine=duration=3', '-c:v', 'libx264', '-c:a', 'aac', '-t', '3', file])
+  // Long enough (over two minutes) for subtitle sync to have something to measure, with a built-in text track that has enough cues to be a reference.
+  const cues = Array.from({ length: 45 }, (_, n) => `${n + 1}\n00:${String(Math.floor(n * 3 / 60)).padStart(2, '0')}:${String(n * 3 % 60).padStart(2, '0')},000 --> 00:${String(Math.floor((n * 3 + 1) / 60)).padStart(2, '0')}:${String((n * 3 + 1) % 60).padStart(2, '0')},000\nLine ${n + 1}\n`).join('\n')
+  fs.writeFileSync(path.join(tmp, 'cues.srt'), cues)
+  fs.writeFileSync(path.join(process.env.MEDIA_DIR, 'Film.Zero.2000.1080p.en.srt'), cues)
+  execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'testsrc=size=160x90:rate=2:duration=140', '-f', 'lavfi', '-i', 'sine=duration=140', '-i', path.join(tmp, 'cues.srt'), '-c:v', 'libx264', '-c:a', 'aac', '-c:s', 'srt', '-metadata:s:s:0', 'language=eng', '-t', '140', file])
   assert.equal((await call('/api/local/rescan', { method: 'POST' })).body.count, 1)
   const [entry] = (await call('/api/local')).body
   assert.equal(entry.mid, 'tt700000')
   const part = await fetch(`${base}/raw/${entry.id}/0`, { headers: { range: 'bytes=0-9' } })
   assert.equal(part.status, 206)
   const info = (await call(`/api/info/${entry.id}`)).body
-  assert.ok(info.duration > 2 && info.direct === false)
+  assert.ok(info.duration > 130 && info.direct === false)
   assert.equal((await call(`/api/status/${entry.id}`)).body.phase, 'done')
   assert.equal((await call(`/api/skips/${entry.id}`)).status, 200)
   assert.equal((await call('/api/status/' + 'a'.repeat(40))).status, 404)
@@ -189,4 +196,105 @@ test('a request with a broken body or an unknown route is answered, not dropped'
   assert.equal(bad.status, 400)
   assert.equal((await call('/api/nothing-here')).status, 404)
   assert.equal(state.profiles().length >= 0, true)
+})
+
+const localFilm = async () => (await call('/api/local')).body[0]
+
+test('subtitles beside a local film and inside it are served as WebVTT', async () => {
+  const film = await localFilm()
+  const info = (await call(`/api/info/${film.id}`)).body
+  assert.equal(info.sidecar[0].lang, 'eng')
+  assert.match(await (await fetch(`${base}/api/sub/file/${film.id}/${info.sidecar[0].i}`)).text(), /^WEBVTT[\s\S]*Line 1/)
+  const embedded = await fetch(`${base}/api/sub/embedded/${film.id}/0/0`)
+  assert.match(await embedded.text(), /Line 45/)
+  assert.equal(embedded.headers.get('x-covered'), 'full')
+  assert.match(await (await fetch(`${base}/api/sub/embedded/${film.id}/0/0`)).text(), /Line 1/, 'the second read comes from the saved copy')
+})
+
+test('the HLS playlist can carry a subtitle rendition, from a file or from a language search', async () => {
+  const film = await localFilm()
+  const sub = `/api/sub/embedded/${film.id}/0/0`
+  const master = await (await fetch(`${base}/hls/${film.id}/0/index.m3u8?sub=${encodeURIComponent(sub)}&sl=eng&sn=English&a=0&h=360`)).text()
+  assert.match(master, /TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",LANGUAGE="eng"/)
+  assert.match(await (await fetch(`${base}/hls/${film.id}/0/media.m3u8?a=0`)).text(), /#EXT-X-ENDLIST/)
+  assert.match(await (await fetch(`${base}/hls/${film.id}/0/subs.m3u8?sub=${encodeURIComponent(sub)}`)).text(), /sub\.vtt\?sub=/)
+  const own = await (await fetch(`${base}/hls/${film.id}/0/sub.vtt?sub=${encodeURIComponent(sub)}`)).text()
+  assert.match(own, /^WEBVTT\nX-TIMESTAMP-MAP=MPEGTS:0,LOCAL:00:00:00.000\n/)
+  const found = await (await fetch(`${base}/hls/${film.id}/0/sub.vtt?sl=eng&t=movie&mid=tt700000`)).text()
+  assert.match(found, /A line/)
+  assert.equal((await fetch(`${base}/hls/${film.id}/0/sub.vtt?sl=tur&t=movie&mid=tt700000`)).status, 404)
+  assert.equal((await fetch(`${base}/hls/${film.id}/0/sub.vtt?sl=eng`)).status, 400)
+  assert.equal((await fetch(`${base}/hls/${film.id}/0/sub.vtt?sub=${encodeURIComponent('/api/other')}`)).status, 400)
+  assert.equal((await fetch(`${base}/hls/${film.id}/0/sub.vtt?sub=${encodeURIComponent('/api/sub/file/zzz/0')}`)).status >= 400, true)
+})
+
+test('subtitle sync measures a subtitle against the film and the built-in track, and answers for the playhead', async () => {
+  const film = await localFilm()
+  const info = (await call(`/api/info/${film.id}`)).body
+  const q = new URLSearchParams({ hash: film.id, file: '0', src: `/api/sub/file/${film.id}/${info.sidecar[0].i}` })
+  const first = (await call(`/api/sub/sync?${q}`)).body
+  assert.equal(first.pending, undefined, JSON.stringify(first))
+  assert.equal(first.partial, false)
+  assert.deepEqual((await call(`/api/sub/sync?${q}`)).body, first, 'the second ask is the cached answer')
+  assert.equal(JSON.stringify((await call(`/api/sub/sync?${q}&fresh=1&near=60`)).body).includes('pending'), false)
+  const probe = (await call(`/api/sub/sync?${q}&at=70&ratio=1&expected=0`)).body
+  assert.ok('probe' in probe, JSON.stringify(probe))
+})
+
+test('translation is refused for languages it has no model for and fails cleanly when no model can be fetched', async () => {
+  const film = await localFilm()
+  const src = encodeURIComponent(`/api/sub/embedded/${film.id}/0/0`)
+  assert.equal((await call(`/api/sub/translate?src=${src}&to=xx`)).status, 400)
+  assert.equal((await call(`/api/sub/translate?src=${encodeURIComponent('/api/other')}&to=tr`)).status, 400)
+  assert.equal((await call(`/api/sub/translate?src=${src}&to=tr`)).status >= 400, true)
+  assert.deepEqual((await call('/api/translate/langs')).body, [])
+  assert.deepEqual((await call(`/api/sub/translate/status?src=${src}&to=tr`)).body.stage !== undefined, true)
+  assert.equal((await call('/api/sub/translate/stop', { method: 'POST', body: { src: `/api/sub/embedded/${film.id}/0/0`, to: 'tr' } })).status, 200)
+  assert.equal(typeof (await call('/api/translate/better')).body, 'object')
+})
+
+test('a profile PIN is set, checked, throttled and removed', async () => {
+  const { body: { id } } = await call('/api/profiles', { method: 'POST', body: { name: 'Locked' } })
+  assert.equal((await call(`/api/profiles/${id}/unlock`, { method: 'POST', body: {} })).body.token, '', 'no PIN: nothing to unlock')
+  assert.equal((await call('/api/profiles/nobody/unlock', { method: 'POST', body: { pin: '1' } })).status, 404)
+  assert.equal((await call('/api/me/pin', { method: 'PUT', headers: { 'x-profile': id }, body: { pin: '12' } })).status, 400)
+  const set = await call('/api/me/pin', { method: 'PUT', headers: { 'x-profile': id }, body: { pin: '2468' } })
+  assert.ok(set.body.token)
+  const auth = { 'x-profile': id, 'x-token': set.body.token }
+  assert.equal((await call('/api/me/pin', { method: 'PUT', headers: auth, body: { pin: '1357', current: '0000' } })).status, 403)
+  assert.equal((await call(`/api/profiles/${id}/unlock`, { method: 'POST', body: { pin: '2468' } })).status, 200)
+  for (let i = 0; i < 5; i++) await call(`/api/profiles/${id}/unlock`, { method: 'POST', body: { pin: '9999' } })
+  assert.equal((await call(`/api/profiles/${id}/unlock`, { method: 'POST', body: { pin: '2468' } })).status, 429)
+  assert.equal((await call('/api/me/pin', { method: 'PUT', headers: auth, body: { pin: '', current: '2468' } })).status, 429)
+})
+
+test('the adult filter hides adult titles from the library and local files', async () => {
+  const { cached } = await import('../src/meta.js')
+  await cached('meta6:movie:tt700099', 1e6, async () => ({ id: 'tt700099', name: 'Spicy', genres: ['Adult'] }))
+  execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'testsrc=size=160x90:rate=2:duration=2', '-t', '2', path.join(process.env.MEDIA_DIR, 'Spicy.Film.2001.mkv')])
+  assert.equal((await call('/api/local/rescan', { method: 'POST' })).body.count, 2)
+  const hidden = { 'x-adult-filter': '1' }
+  assert.deepEqual((await call('/api/local', { headers: hidden })).body.map(e => e.mid), ['tt700000'])
+  assert.equal((await call('/api/local')).body.length, 2)
+  assert.deepEqual((await call('/api/library', { headers: hidden })).body, [])
+  assert.deepEqual((await call('/api/downloads', { headers: hidden })).body.queue, [])
+})
+
+test('a watch party can be started as a lobby, followed over server-sent events and left', async () => {
+  const { party } = await import('../src/party.js')
+  party.options = { trackers: [], dht: false }
+  const started = await call('/api/party/start', { method: 'POST', body: { password: 'pw' } })
+  assert.equal(started.body.active, true)
+  assert.equal(started.body.locked, true)
+  const events = await fetch(`${base}/api/party/events`)
+  const reader = events.body.getReader()
+  const first = new TextDecoder().decode((await reader.read()).value)
+  assert.match(first, /"type":"status"[\s\S]*"active":true/)
+  await reader.cancel()
+  assert.equal((await call('/api/party/start', { method: 'POST', body: { item: { type: 'movie', id: 'tt700000', title: 'Film 0' }, hash: 'f'.repeat(40) } })).status, 409)
+  assert.equal((await call('/api/party/leave', { method: 'POST', body: {} })).status, 200)
+  const again = await call('/api/party/start', { method: 'POST', body: { item: { type: 'movie', id: 'tt700000', title: 'Film 0' }, hash: 'f'.repeat(40), pos: 12 } })
+  assert.equal(again.body.now.item.id, 'tt700000')
+  assert.equal(again.body.now.source, null, 'an unknown torrent is not shared')
+  await call('/api/party/leave', { method: 'POST', body: {} })
 })

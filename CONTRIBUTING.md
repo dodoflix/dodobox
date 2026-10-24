@@ -12,8 +12,8 @@ npm run dist    # build installers for this OS into dist/
 npm test
 npm run lint
 npm run test:e2e      # real server and browser, no internet needed
-npm run test:coverage:unit # unit tests, fails under 90% line coverage
-npm run test:coverage:e2e  # e2e specs, fails under 90% line coverage
+npm run test:coverage:unit # unit tests, fails when any file is under 90% line coverage
+npm run test:coverage:e2e  # e2e specs, fails when any file is under 90% line coverage
 npm run test:coverage      # both, one after the other
 ```
 
@@ -37,7 +37,7 @@ Keep a pull request to one change. Add or update a test when behaviour changes, 
 
 - A behaviour change or a bug fix comes with a test, and a bug fix with one that fails without the fix.
 - `test/*.test.js` are unit tests: one module, no browser, no network. `e2e/*.spec.js` run the real server with Chrome and answer every outside service from fixtures in `e2e/harness.js` (`stub()` replaces one host), so they pass offline. A new flow a viewer can take gets an e2e spec; logic with edge cases gets a unit test.
-- Unit and e2e coverage are each measured separately and must each stay at 90% of lines (`npm run test:coverage:unit`, `npm run test:coverage:e2e`). New code arrives with its tests; do not lower a threshold or exclude a file to get under it. The only files left out of the measurement cannot run offline: `translate.js` and `translate-hq.js` (download translation models), `presence.js` (Discord), `net.js` (opens the browser) and `data.js` (exits the process on a bad data folder).
+- Unit and e2e coverage are each measured separately, and every file in `server.js` and `src/` must stay at 90% of lines in each (`npm run test:coverage:unit`, `npm run test:coverage:e2e`; the per-file check is `scripts/coverage-floor.js`). A new file brings enough tests of both kinds to reach it on its own; a good average does not excuse a weak file. New code arrives with its tests; do not lower a threshold or exclude a file to get under it. The only files left out of the measurement cannot run offline: `translate.js` and `translate-hq.js` (download translation models), `presence.js` (Discord), `net.js` (opens the browser) and `data.js` (exits the process on a bad data folder).
 - When a test fails, suspect the code before the test. Fix the code, and change a test only when the test itself is wrong. Never skip, loosen or delete a test to make a run pass.
 - Tests must be deterministic: wait for a condition rather than a fixed delay, give each test its own data folder and ports, and do not depend on the real network, clock or machine (GPU, installed encoders).
 - Test names say the behaviour ("a download that finds no source is listed as failed"), not the function.

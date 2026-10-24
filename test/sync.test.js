@@ -1,9 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import { align, syncSubtitle, syncInWorker, usable, offsetAt, mapTime, shiftVtt, parseCues, isAd, withoutAds } from '../src/sync.js'
+import { tmpdir } from './support/tmp.js'
 
 const rng = seed => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32
 function dialogue (seconds, seed = 7) {
@@ -117,7 +117,7 @@ test('syncSubtitle works from real audio read through ffmpeg', async () => {
   for (let i = 0; i < data.length; i++) data[i] = Math.round((r() - 0.5) * 600)
   for (const b of media) for (let i = Math.floor(b.s * rate); i < Math.min(data.length, Math.floor(b.e * rate)); i++) { const t = i / rate; data[i] += Math.round(9000 * Math.sin(2 * Math.PI * (300 + 60 * Math.sin(t * 5)) * t) * (0.6 + 0.4 * Math.sin(t * 11))) }
   const hdr = Buffer.alloc(44); hdr.write('RIFF', 0); hdr.writeUInt32LE(36 + data.length * 2, 4); hdr.write('WAVEfmt ', 8); hdr.writeUInt32LE(16, 16); hdr.writeUInt16LE(1, 20); hdr.writeUInt16LE(1, 22); hdr.writeUInt32LE(rate, 24); hdr.writeUInt32LE(rate * 2, 28); hdr.writeUInt16LE(2, 32); hdr.writeUInt16LE(16, 34); hdr.write('data', 36); hdr.writeUInt32LE(data.length * 2, 40)
-  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-sync-')), 'a.wav')
+  const file = path.join(tmpdir('sync'), 'a.wav')
   fs.writeFileSync(file, Buffer.concat([hdr, Buffer.from(data.buffer)]))
   const res = await syncSubtitle({ url: file, duration: seconds, cues: media.map(b => ({ s: b.s - 8.25, e: b.e - 8.25 })) })
   // The server runs it in a worker, which treats a request with `at` as a single-window probe: `near` must not be taken for it.
@@ -170,12 +170,12 @@ test('classify turns measured points into a model, and a later point can change 
 
 test('syncProbe finds how far a stretch has moved from what the model expects', async () => {
   const { syncProbe } = await import('../src/sync.js')
-  const fs = await import('node:fs'); const os = await import('node:os'); const path = await import('node:path')
+  const fs = await import('node:fs'); const path = await import('node:path')
   const seconds = 400; const media = dialogue(seconds, 41); const rate = 16000; const data = new Int16Array(seconds * rate); const r = rng(2)
   for (let i = 0; i < data.length; i++) data[i] = Math.round((r() - 0.5) * 600)
   for (const b of media) for (let i = Math.floor(b.s * rate); i < Math.min(data.length, Math.floor(b.e * rate)); i++) { const t = i / rate; data[i] += Math.round(9000 * Math.sin(2 * Math.PI * (300 + 60 * Math.sin(t * 5)) * t) * (0.6 + 0.4 * Math.sin(t * 11))) }
   const hdr = Buffer.alloc(44); hdr.write('RIFF', 0); hdr.writeUInt32LE(36 + data.length * 2, 4); hdr.write('WAVEfmt ', 8); hdr.writeUInt32LE(16, 16); hdr.writeUInt16LE(1, 20); hdr.writeUInt16LE(1, 22); hdr.writeUInt32LE(rate, 24); hdr.writeUInt32LE(rate * 2, 28); hdr.writeUInt16LE(2, 32); hdr.writeUInt16LE(16, 34); hdr.write('data', 36); hdr.writeUInt32LE(data.length * 2, 40)
-  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-probe-')), 'a.wav')
+  const file = path.join(tmpdir('probe'), 'a.wav')
   fs.writeFileSync(file, Buffer.concat([hdr, Buffer.from(data.buffer)]))
   // The subtitle was off by 4.0 s but the model believes 3.0 s: the probe should report 4.0.
   const cues = media.map(b => ({ s: b.s - 4, e: b.e - 4, t: 'x' }))

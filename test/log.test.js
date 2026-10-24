@@ -1,13 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { CURRENT } from '../src/migrate.js'
+import { tmpdir } from './support/tmp.js'
 
 function run (code, env = {}) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-log-'))
+  const dir = tmpdir('log')
   execFileSync(process.execPath, ['--input-type=module', '-e', `const { log } = await import('./src/log.js'); ${code}`], { env: { ...process.env, DATA_DIR: dir, ...env }, stdio: 'pipe' })
   const lines = fs.readFileSync(path.join(dir, 'logs', 'dodobox.log'), 'utf8').trim().split('\n')
   return { dir, lines }

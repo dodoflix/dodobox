@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { boot, newPage, shutdown, signIn, HOME, SERIES } from './harness.js'
 
 let base
-before(async () => { ({ base } = await boot({ seed: false, media: true })) })
+before(async () => { ({ base } = await boot({ media: true })) })
 after(shutdown)
 
 const playing = page => page.waitForFunction(() => { const v = document.querySelector('.pl video'); return v && v.currentTime > 1.5 && !v.paused }, null, { timeout: 60000 })

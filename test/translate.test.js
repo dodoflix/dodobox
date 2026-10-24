@@ -1,10 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import fs from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
+import { tmpdir } from './support/tmp.js'
 
-process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-translate-'))
+process.env.DATA_DIR = tmpdir('translate')
 const { parseVtt, plan, share, modelLang } = await import('../src/translate.js')
 
 const vtt = `WEBVTT

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { boot, newPage, shutdown, signIn, stub, resetStubs, json, MOVIE, SERIES, ANIME, TWIN } from './harness.js'
 
 let base
-before(async () => { ({ base } = await boot()) })
+before(async () => { ({ base } = await boot({ seed: ['twin'] })) })
 after(shutdown)
 afterEach(resetStubs)
 

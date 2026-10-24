@@ -4,7 +4,7 @@ import { boot, newPage, shutdown, signIn, MOVIE } from './harness.js'
 
 let base; let friend; let Party; let party
 before(async () => {
-  ({ base } = await boot({ seed: false }))
+  ({ base } = await boot())
   // after boot: the harness points DATA_DIR at a temp folder, and a static import would load the module before that
   ;({ Party, party } = await import('../src/party.js'))
   // No public trackers or DHT: the friend connects straight to this server's party port.

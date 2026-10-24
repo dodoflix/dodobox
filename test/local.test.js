@@ -2,10 +2,10 @@ import test, { before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
+import { tmpdir } from './support/tmp.js'
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-local-'))
+const tmp = tmpdir('local')
 process.env.DATA_DIR = path.join(tmp, 'data'); process.env.HOME = tmp
 process.env.NO_SPEEDTEST = '1'
 process.env.NO_UPDATE_CHECK = '1'; process.env.NO_DHT = '1'; process.env.NO_MDNS = '1'; process.env.MIN_LOCAL_BYTES = '1000'

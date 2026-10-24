@@ -1,9 +1,9 @@
 import test, { before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { boot, newPage, shutdown, signIn, stub, resetStubs, json, MOVIE, SERIES } from './harness.js'
+import { boot, newPage, shutdown, signIn, stub, resetStubs, json, MOVIE, SERIES, ORCHARD } from './harness.js'
 
 let base
-before(async () => { ({ base } = await boot()) })
+before(async () => { ({ base } = await boot({ seed: ['movie', 'series', 'pack'] })) })
 after(shutdown)
 
 const video = page => page.locator('.pl video')
@@ -48,6 +48,10 @@ test('leaving the player saves progress and the title offers Resume', async () =
   await page.locator('#play', { hasText: 'Resume' }).waitFor()
   await page.goto(`${base}/#/library`)
   await page.locator('#l-recent .poster', { hasText: MOVIE.name }).waitFor()
+  await page.click(`#l-history [data-hist^="movie/${MOVIE.id}"]`)
+  await page.locator('#l-history').waitFor({ state: 'detached' })
+  await page.reload()
+  await page.locator('#l-recent').waitFor({ state: 'detached' })
   await ctx.close()
 })
 
@@ -74,4 +78,14 @@ test('a title with no source tells the viewer instead of hanging', async () => {
   await page.locator('#retry').waitFor()
   await ctx.close()
   resetStubs()
+})
+
+test('the opening an episode marks as a chapter can be skipped', async () => {
+  const { ctx, page } = await newPage(base)
+  await signIn(page, base, 'Ada')
+  await page.goto(`${base}/#/watch/series/${ORCHARD.id}/1/1`)
+  await playing(page)
+  await page.locator('#skip', { hasText: /Skip intro/ }).click()
+  await page.waitForFunction(() => document.querySelector('.pl video').currentTime >= 8)
+  await ctx.close()
 })

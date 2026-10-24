@@ -104,6 +104,12 @@ async function spawn () {
   await w.call('initialize', {})
   return w
 }
+// The server stops with its workers: a pool left running keeps the process from exiting.
+export async function stopPool () {
+  clearTimeout(idle)
+  const running = pool; pool = null
+  for (const w of await Promise.resolve(running ?? []).catch(() => [])) w.worker.terminate()
+}
 async function ready (code, report) {
   pool ||= Promise.all(Array.from({ length: SIZE }, spawn))
   const workers = await pool

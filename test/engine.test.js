@@ -4,11 +4,11 @@ import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import http from 'node:http'
-import os from 'node:os'
 import path from 'node:path'
 import WebTorrent from 'webtorrent'
+import { tmpdir } from './support/tmp.js'
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-engine-'))
+const tmp = tmpdir('engine')
 Object.assign(process.env, { DATA_DIR: path.join(tmp, 'data'), NO_DHT: '1' })
 
 let seeder; let engine; let magnet; let hash; let web; let base

@@ -1,12 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { migrate, MIGRATIONS, CURRENT } from '../src/migrate.js'
+import { tmpdir } from './support/tmp.js'
 
-const dirOf = () => fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-migrate-'))
+const dirOf = () => tmpdir('migrate')
 const read = (dir, f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'))
 const version = dir => read(dir, 'schema.json').version
 

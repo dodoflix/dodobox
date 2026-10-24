@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { boot, newPage, shutdown, signIn, MOVIE, SERIES, ANIME } from './harness.js'
 
 let base
-before(async () => { ({ base } = await boot({ seed: false })) })
+before(async () => { ({ base } = await boot()) })
 after(shutdown)
 
 test('first run: create a profile, finish onboarding, land on a populated home', async () => {
@@ -128,5 +128,23 @@ test('rating a title fills the home page with picks like it', async () => {
   await page.click('.rate [data-r="2"]')
   await page.goto(`${base}/#/`)
   await page.locator('#s-picks .shelf h2', { hasText: `Because you liked ${MOVIE.name}` }).waitFor()
+  await page.goto(`${base}/#/title/movie/${MOVIE.id}`)
+  await page.click('.rate [data-r="2"]') // the same rating again takes it back
+  await page.goto(`${base}/#/library`)
+  await page.locator('#l-loved').waitFor({ state: 'detached' })
+  await ctx.close()
+})
+
+test('a profile can be deleted from the profile picker, and its data goes with it', async () => {
+  const { ctx, page } = await newPage(base)
+  await signIn(page, base, 'Ada')
+  await page.hover('#me-btn')
+  await page.click('.pmenu [data-switch]')
+  await page.click('[data-manage]')
+  await page.locator('.pf', { hasText: 'Bo' }).click()
+  await page.click('[data-del]')
+  await page.click('[data-del]') // asks to be tapped again
+  await page.locator('.pf[data-id]', { hasText: 'Bo' }).waitFor({ state: 'detached' })
+  assert.deepEqual((await (await fetch(`${base}/api/profiles`)).json()).map(p => p.name), ['Ada'])
   await ctx.close()
 })

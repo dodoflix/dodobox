@@ -11,6 +11,7 @@ import { Server as Tracker } from 'bittorrent-tracker'
 import WebTorrent from 'webtorrent'
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-ui-'))
+process.on('exit', () => fs.rmSync(tmp, { recursive: true, force: true })) // also after a run that was cut short
 Object.assign(process.env, {
   DATA_DIR: path.join(tmp, 'data'), HOME: tmp, NO_SPEEDTEST: '1', MIN_LOCAL_BYTES: '1000', MEDIA_DIR: path.join(tmp, 'media'), NO_UPDATE_CHECK: '1', NO_DHT: '1', NO_MDNS: '1', NO_DISCORD: '1', ALLOWED_HOSTS: 'localhost'
 })
@@ -21,6 +22,7 @@ export const ANIME = { id: 'al:9001', name: 'Moon Station Nine', year: 2022, gen
 // A longer film with speech-like audio and its own subtitle file, for the automatic subtitle sync. The subtitle runs SYNC_LAG seconds late.
 export const LONG = { id: 'tt9000004', type: 'movie', name: 'Long Take', year: 2018, file: 'Long.Take.2018.1080p.WEB-DL.mkv', genres: ['Drama'], description: 'One scene, many minutes.' }
 export const SYNC_LAG = 3.2
+export const ANIME_FILE = '[Grp] Moon Station Nine - 01 [1080p].mkv'
 // Two torrents of the same film, so playing it starts a race between versions.
 export const TWIN = { id: 'tt9000005', type: 'movie', name: 'Twin Streams', year: 2017, file: 'Twin.Streams.2017.1080p.WEB-DL.mkv', alt: 'Twin.Streams.2017.1080p.BluRay.mkv', genres: ['Drama'], description: 'Same story, two sources.' }
 export const ORCHARD = { id: 'tt9000006', type: 'series', name: 'Glass Orchard', year: 2020, genres: ['Drama'], description: 'A greenhouse that remembers.' }
@@ -64,15 +66,20 @@ function upstream (url, init) {
     }
   }
   if (key === 'torrentio.strem.fun') {
-    const t = [MOVIE, SERIES, LONG, TWIN].find(c => u.pathname.includes(c.id))
-    const wanted = t && (t.type === 'movie' || u.pathname.includes(`${t.id}:1:1`))
-    const streams = !wanted || !seeded ? [] : [].concat(seeded[t.id]).map((h, n) => ({ name: 'Torrentio\n1080p', title: `${(n ? t.alt : t.file).replace(/\.mkv$/, '')}\n\u{1F464} ${25 - n} \u{1F4BE} 1.2 GB ⚙️ Fixture`, infoHash: h.infoHash, sources: [`tracker:${seeded.announce}`] }))
-    return json({ streams })
+    const stream = (name, file, hash, seeders = 25) => ({ name: 'Torrentio\n1080p', title: `${file.replace(/\.mkv$/, '')}\n\u{1F464} ${seeders} \u{1F4BE} 1.2 GB ⚙️ Fixture`, infoHash: hash.infoHash, sources: [`tracker:${seeded.announce}`] })
+    if (!seeded) return json({ streams: [] })
+    if (/kitsu:42:1\.json$/.test(u.pathname)) return json({ streams: seeded.anime ? [stream('anime', `[Grp] Moon Station Nine - 01 [1080p].mkv`, seeded.anime)] : [] })
+    const t = [MOVIE, SERIES, LONG, TWIN, ORCHARD].find(c => u.pathname.includes(c.id))
+    if (!t || !seeded[t.id]) return json({ streams: [] })
+    if (t === ORCHARD) return json({ streams: [stream('pack', 'Glass.Orchard.S01.1080p.WEB-DL', seeded[t.id])] })
+    if (t.type === 'series' && !u.pathname.includes(`${t.id}:1:1`)) return json({ streams: [] })
+    return json({ streams: [].concat(seeded[t.id]).map((h, n) => stream('v', n ? t.alt : t.file, h, 25 - n)) })
   }
   if (key === 'graphql.anilist.co') {
     const id = JSON.parse(init.body).variables.id
     const media = [{ id: 9001, idMal: 1, title: { romaji: ANIME.name, english: ANIME.name }, coverImage: { extraLarge: 'https://s4.anilist.co/cover.png' }, seasonYear: ANIME.year, averageScore: 80, genres: ANIME.genres, description: ANIME.description, episodes: 2, duration: 24, format: 'TV', status: 'FINISHED', countryOfOrigin: 'JP' }]
-    return json({ data: { Page: { media: id && id !== 9001 ? [] : media } } })
+    const page = JSON.parse(init.body).variables.page || 1
+    return json({ data: { Page: { media: (id && id !== 9001) || page > 1 ? [] : media } } })
   }
   if (key === 'www.netflix.com' && u.pathname.endsWith('all-weeks-countries.tsv')) {
     const line = (category, rank, title) => `United States\tUS\t2026-01-04\t${category}\t${rank}\t${title}\t`
@@ -101,15 +108,18 @@ let seeder, tracker, srv, browser
 const udp = []
 
 // H.264 + AC3 in MKV with an embedded subtitle: not browser-direct, so playback goes through the HLS transcoder.
-function makeVideo (file, subtitle) {
+// chapters: [[title, startSec, endSec]] written into the file, the way a release marks its opening and credits.
+function makeVideo (file, subtitle, { chapters = [] } = {}) {
   const srt = path.join(tmp, 'sub.srt')
   fs.writeFileSync(srt, `1\n00:00:01,000 --> 00:00:04,000\n${subtitle}\n`)
-  execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'testsrc=size=320x180:rate=24:duration=20', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=20', '-i', srt,
-    '-c:v', 'libx264', '-g', '24', '-c:a', 'ac3', '-c:s', 'srt', '-metadata:s:s:0', 'language=eng', '-t', '20', file])
+  const meta = path.join(tmp, 'chapters.txt')
+  fs.writeFileSync(meta, `;FFMETADATA1\n${chapters.map(([title, a, b]) => `[CHAPTER]\nTIMEBASE=1/1000\nSTART=${a * 1000}\nEND=${b * 1000}\ntitle=${title}\n`).join('')}`)
+  execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'testsrc=size=320x180:rate=24:duration=20', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=20', '-i', srt, ...(chapters.length ? ['-i', meta, '-map_metadata', '3'] : []),
+    '-map', '0:v', '-map', '1:a', '-map', '2:s', '-c:v', 'libx264', '-g', '24', '-c:a', 'ac3', '-c:s', 'srt', '-metadata:s:s:0', 'language=eng', '-t', '20', file])
 }
 
 const rng = seed => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32
-// Four minutes of noise bursts (the "speech") with a subtitle whose cues start SYNC_LAG seconds after each burst does.
+// Four minutes of noise bursts (the "speech"), a built-in subtitle track timed to them, and a sidecar subtitle SYNC_LAG seconds late.
 function makeSpeechVideo (file, srtFile) {
   const rate = 16000; const seconds = 240; const r = rng(11)
   const samples = new Int16Array(rate * seconds)
@@ -128,12 +138,45 @@ function makeSpeechVideo (file, srtFile) {
   header.writeUInt16LE(1, 22); header.writeUInt32LE(rate, 24); header.writeUInt32LE(rate * 2, 28); header.writeUInt16LE(2, 32); header.writeUInt16LE(16, 34); header.write('data', 36); header.writeUInt32LE(samples.length * 2, 40)
   const wav = path.join(tmp, 'speech.wav'); fs.writeFileSync(wav, Buffer.concat([header, Buffer.from(samples.buffer)]))
   const stamp = x => { const ms = Math.round(x * 1000); const p = (n, w) => String(n).padStart(w, '0'); return `${p(Math.floor(ms / 3600000), 2)}:${p(Math.floor(ms / 60000) % 60, 2)}:${p(Math.floor(ms / 1000) % 60, 2)},${p(ms % 1000, 3)}` }
-  fs.writeFileSync(srtFile, bursts.map(([a, b], n) => `${n + 1}\n${stamp(a + SYNC_LAG)} --> ${stamp(b + SYNC_LAG)}\nLine ${n + 1}\n`).join('\n'))
-  execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', `testsrc=size=160x90:rate=10:duration=${seconds}`, '-i', wav, '-c:v', 'libx264', '-g', '20', '-c:a', 'ac3', '-t', String(seconds), file])
+  const srt = lag => bursts.map(([a, b], n) => `${n + 1}\n${stamp(a + lag)} --> ${stamp(b + lag)}\nLine ${n + 1}\n`).join('\n')
+  fs.writeFileSync(srtFile, srt(SYNC_LAG))
+  const builtIn = path.join(tmp, 'builtin.srt'); fs.writeFileSync(builtIn, srt(0))
+  execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', `testsrc=size=160x90:rate=10:duration=${seconds}`, '-i', wav, '-i', builtIn, '-c:v', 'libx264', '-g', '20', '-c:a', 'ac3', '-c:s', 'srt', '-metadata:s:s:0', 'language=eng', '-t', String(seconds), file])
 }
 
-// seed: start the torrent fixtures; data(dir): put files in the data folder before the server reads it (an install from an older release).
-export async function boot ({ seed = true, data, media = false } = {}) {
+// What can be seeded; boot({ seed: [...names] }) builds only what a spec needs, because every film is an ffmpeg run.
+const FIXTURES = {
+  movie: async ctx => { ctx.single(MOVIE) },
+  series: async ctx => { ctx.single(SERIES) },
+  long: async ctx => {
+    const dir = path.join(tmp, 'seed', LONG.id); fs.mkdirSync(dir, { recursive: true })
+    makeSpeechVideo(path.join(dir, LONG.file), path.join(dir, LONG.file.replace(/mkv$/, 'en.srt')))
+    seeded[LONG.id] = await ctx.add(dir)
+  },
+  twin: async ctx => {
+    const dir = path.join(tmp, 'seed', TWIN.id); fs.mkdirSync(dir, { recursive: true })
+    makeVideo(path.join(dir, TWIN.file), 'Hello twins')
+    fs.copyFileSync(path.join(dir, TWIN.file), path.join(dir, TWIN.alt))
+    seeded[TWIN.id] = await Promise.all([TWIN.file, TWIN.alt].map(f => ctx.add(path.join(dir, f))))
+  },
+  // A season pack with chapters marking the opening and the credits.
+  pack: async ctx => {
+    const dir = path.join(tmp, 'seed', ORCHARD.id, 'Glass.Orchard.S01.1080p.WEB-DL'); fs.mkdirSync(dir, { recursive: true })
+    const first = path.join(dir, 'Glass.Orchard.S01E01.mkv')
+    makeVideo(first, 'Hello from the orchard', { chapters: [['Cold open', 0, 1], ['Opening', 1, 8], ['Episode', 8, 12], ['Ending Credits', 12, 20]] })
+    fs.copyFileSync(first, path.join(dir, 'Glass.Orchard.S01E02.mkv'))
+    seeded[ORCHARD.id] = await ctx.add(dir)
+  },
+  anime: async ctx => {
+    const file = path.join(tmp, 'seed', 'anime', ANIME_FILE); fs.mkdirSync(path.dirname(file), { recursive: true })
+    makeVideo(file, 'Hello from the moon')
+    seeded.anime = await ctx.add(file)
+  }
+}
+
+// seed: names of the torrent fixtures to start (true: all); data(dir): files for the data folder before the server reads it (an install from an
+// older release); media: files in MEDIA_DIR; speedtest: leave the internet speed test on; updates: leave the update check on.
+export async function boot ({ seed = false, data, media = false, speedtest = false, updates = false } = {}) {
   if (seed) {
     tracker = new Tracker({ udp: false, ws: false, http: true, stats: false })
     await new Promise(r => tracker.listen(0, '127.0.0.1', r))
@@ -150,19 +193,16 @@ export async function boot ({ seed = true, data, media = false } = {}) {
     const announces = [announce, ...udp.map(t => `udp://127.0.0.1:${t.udp.address().port}`)]
     seeder = new WebTorrent({ dht: false, lsd: false, utp: false })
     seeded = { announce }
-    const long = path.join(tmp, 'seed', LONG.id); fs.mkdirSync(long, { recursive: true })
-    makeSpeechVideo(path.join(long, LONG.file), path.join(long, LONG.file.replace(/mkv$/, 'en.srt')))
-    seeded[LONG.id] = await new Promise(r => seeder.seed(long, { announce: announces }, r))
-    const twin = path.join(tmp, 'seed', TWIN.id); fs.mkdirSync(twin, { recursive: true })
-    makeVideo(path.join(twin, TWIN.file), 'Hello twins')
-    fs.copyFileSync(path.join(twin, TWIN.file), path.join(twin, TWIN.alt))
-    seeded[TWIN.id] = await Promise.all([TWIN.file, TWIN.alt].map(f => new Promise(r => seeder.seed(path.join(twin, f), { announce: announces }, r))))
-    for (const t of [MOVIE, SERIES]) {
-      const dir = path.join(tmp, 'seed', t.id); fs.mkdirSync(dir, { recursive: true })
-      const file = path.join(dir, t.file)
-      makeVideo(file, `Hello from ${t.name}`)
-      seeded[t.id] = await new Promise(r => seeder.seed(file, { announce: announces }, r))
+    const ctx = {
+      add: path_ => new Promise(r => seeder.seed(path_, { announce: announces }, r)),
+      async single (t) {
+        const dir = path.join(tmp, 'seed', t.id); fs.mkdirSync(dir, { recursive: true })
+        const file = path.join(dir, t.file)
+        makeVideo(file, `Hello from ${t.name}`)
+        seeded[t.id] = await this.add(file)
+      }
     }
+    for (const name of seed === true ? Object.keys(FIXTURES) : seed) await FIXTURES[name](ctx)
   }
   if (media) {
     const dir = process.env.MEDIA_DIR; fs.mkdirSync(path.join(dir, 'Paper Lanterns', 'Subs'), { recursive: true })
@@ -170,6 +210,8 @@ export async function boot ({ seed = true, data, media = false } = {}) {
     fs.writeFileSync(path.join(dir, 'Home.Movie.2015.1080p.en.srt'), '1\n00:00:01,000 --> 00:00:03,000\nBeside the file\n')
     makeVideo(path.join(dir, 'Paper Lanterns', 'Paper.Lanterns.S01E02.mkv'), 'Hello from the disk')
   }
+  if (speedtest) delete process.env.NO_SPEEDTEST
+  if (updates) delete process.env.NO_UPDATE_CHECK
   if ((await import('../src/paths.js')).DATA !== process.env.DATA_DIR) throw new Error('a module read the data folder before the harness set DATA_DIR')
   if (data) { fs.mkdirSync(process.env.DATA_DIR, { recursive: true }); data(process.env.DATA_DIR) }
   // Live seeder counts are read from the two local UDP trackers, never from the real ones.
@@ -182,6 +224,9 @@ export async function boot ({ seed = true, data, media = false } = {}) {
   browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH, args: ['--no-sandbox'] } : { channel: 'chrome' })
   return { base, browser }
 }
+
+// Slows what the seeder sends (bytes per second; 0 lifts it), so a download can be caught half way.
+export const throttleSeeder = rate => seeder.throttleUpload(rate || -1)
 
 export async function shutdown () {
   await browser?.close()

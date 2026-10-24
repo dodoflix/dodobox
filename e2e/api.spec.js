@@ -3,11 +3,11 @@ import test, { before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import WebTorrent from 'webtorrent'
+import { tmpdir } from '../test/support/tmp.js'
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dodobox-e2e-'))
+const tmp = tmpdir('e2e')
 process.env.DATA_DIR = path.join(tmp, 'data')
 process.env.NO_SPEEDTEST = '1'
 process.env.NO_UPDATE_CHECK = '1'
