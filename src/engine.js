@@ -5,6 +5,8 @@ import path from 'node:path'
 import { pickFile } from './release.js'
 import { sidecarsFor, SUB_FILE } from './sidecar.js'
 import { sendRange, MIME } from './range.js'
+import { downMbps } from './speed.js'
+import * as state from './state.js'
 
 import './data.js'
 import { log } from './log.js'
@@ -27,8 +29,13 @@ try { lib = JSON.parse(fs.readFileSync(STATE, 'utf8')) } catch (e) {
 }
 const save = () => { fs.writeFileSync(STATE + '.tmp', JSON.stringify(lib, null, 1)); fs.renameSync(STATE + '.tmp', STATE) }
 
+// Unchoking nobody is how a BitTorrent client leeches only: peers get no pieces from us, we still ask for and receive theirs.
+const slots = () => (state.settings().shareUploads ? 10 : 0)
+// webtorrent has no public switch for this; the value is read on every rechoke (10 s), so a change reaches running torrents too.
+export const applySharing = () => { for (const t of client.torrents) t._rechokeNumSlots = slots() }
+
 function attach (entry) {
-  const t = client.add(entry.magnet, { path: DL })
+  const t = client.add(entry.magnet, { path: DL, uploads: slots() })
   const t0 = Date.now(); const h = entry.hash.slice(0, 8)
   log.info('torrent', 'add', { hash: entry.hash, ctx: entry.ctx && `${entry.ctx.type}:${entry.ctx.id}:${entry.ctx.season ?? ''}:${entry.ctx.episode ?? ''}`, trackers: (entry.magnet.match(/&tr=/g) || []).length })
   t.setMaxListeners(50) // every open read of the file listens for verified pieces
@@ -143,11 +150,21 @@ function setPaused (e, t, r, reason) {
   log.debug('torrent', reason ? 'paused' : 'resumed', { key: k, reason: reason || paused.get(k) })
   if (reason) { dropRow(t, r); paused.set(k, reason) } else { paused.delete(k); selectRow(t, r) }
 }
+// Torrent traffic nobody is waiting on must not fill the line: a full uplink or downlink queues at the router and every other device's ping climbs.
+// Unthrottled, finished torrents seed at whatever the uplink allows and queued downloads take the whole line while nobody is watching.
+const UP_KBPS = Number(process.env.UPLOAD_KBPS) || 512
+export const limits = (active, lineMbps, upKBps = UP_KBPS) => active
+  ? { up: upKBps * 1024, down: -1 }
+  : { up: Math.min(upKBps, 32) * 1024, down: lineMbps > 0 ? Math.round(lineMbps * 1e6 / 16) : -1 }
+let capped = false
 function rebalance () {
   const now = Date.now()
   const live = Object.values(lib).map(e => ({ e, t: torrentOf(e.hash) })).filter(x => x.t?.ready)
   const watching = live.some(({ e, t }) => now - (e.lastUsed || 0) < WATCH_MS && rowsOf(e).some(r => pending(r, t)))
   const urgent = live.some(({ e, t }) => rowsOf(e).some(r => r.priority && !r.held && pending(r, t)))
+  capped = !(watching || urgent)
+  const cap = limits(!capped, downMbps())
+  client.throttleUpload(cap.up); client.throttleDownload(cap.down)
   for (const { e, t } of live) {
     for (const r of rowsOf(e)) {
       // A paused download that is the one being watched plays, then is paused again.
@@ -342,6 +359,7 @@ export function touch (hash, file) {
   if (file != null) e.lastFile = file
   const t = torrentOf(hash)
   if (t?.ready) for (const r of rowsOf(e)) if (paused.has(rowKey(e, r)) && (r.fileIdx === file || !r.held)) setPaused(e, t, r, null) // someone is watching again: continue at once
+  if (capped && t?.ready && rowsOf(e).some(r => pending(r, t))) rebalance() // and at full speed, not at the next tick
 }
 
 export function findEntry (ctx) {

@@ -31,7 +31,7 @@ export const downMbps = () => Math.max(probe.down, peak)
 
 export function start () {
   measure()
-  setInterval(measure, 30 * 60e3).unref()
+  setInterval(measure, 6 * 3600e3).unref() // each run fills the line for up to 8 s, which every other device on it feels as lag
 }
 
 const chunk = Buffer.alloc(256 * 1024).map(() => Math.floor(Math.random() * 256))

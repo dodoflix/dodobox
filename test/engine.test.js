@@ -132,6 +132,20 @@ test('the idle and watching rules decide who pauses', () => {
   assert.equal(engine.pauseReason({ pinned: true, lastUsed: now - 1e3, held: true }, now, true, true), null)
 })
 
+test('torrents unchoke nobody unless sharing is on', async () => {
+  const state = await import('../src/state.js')
+  assert.equal(state.settings().shareUploads, false)
+  state.setSettings({ shareUploads: true }); engine.applySharing()
+  state.setSettings({ shareUploads: false }); engine.applySharing()
+})
+
+test('background torrent traffic is held below the line, watching is not', () => {
+  assert.deepEqual(engine.limits(true, 300), { up: 512 * 1024, down: -1 })
+  assert.deepEqual(engine.limits(false, 300), { up: 32 * 1024, down: 18750000 })
+  assert.deepEqual(engine.limits(false, 0), { up: 32 * 1024, down: -1 })
+  assert.equal(engine.limits(false, 100, 16).up, 16 * 1024)
+})
+
 test('a torrent without metadata is only given up on after ten minutes of this run, not of the last one', () => {
   const now = 1e9; const boot = now - 5e3
   const old = { pinned: false, added: now - 3600e3, lastUsed: now - 1800e3 }
