@@ -21,7 +21,10 @@ client.on('listening', () => log.info('torrent', 'client listening', { port: cli
 client.on('warning', e => log.debug('torrent', 'client warning', { err: e }))
 
 let lib = {}
-try { lib = JSON.parse(fs.readFileSync(STATE, 'utf8')) } catch {}
+try { lib = JSON.parse(fs.readFileSync(STATE, 'utf8')) } catch (e) {
+  // The next save would replace a file that merely could not be read with an empty library, and every started download would be forgotten.
+  if (e.code !== 'ENOENT') { const to = `${STATE}.unreadable-${Date.now()}`; try { fs.copyFileSync(STATE, to) } catch { /* nothing readable to keep */ } log.error('torrent', 'library.json could not be read, starting empty', { copy: to, err: e }) }
+}
 const save = () => { fs.writeFileSync(STATE + '.tmp', JSON.stringify(lib, null, 1)); fs.renameSync(STATE + '.tmp', STATE) }
 
 function attach (entry) {
@@ -130,13 +133,15 @@ function rebalance () {
 // A torrent someone is waiting on that gets nothing asks the trackers and the DHT for peers again, and a torrent that never found its metadata is dropped.
 const stalled = new Map() // hash -> { since, askedAt }
 const NO_METADATA_MS = 10 * 60e3
+const STARTED = Date.now() // a restart clears every torrent's metadata, so the wait is counted from boot, not from the last time it was used
+export const lostMetadata = (e, now, since = STARTED) => !e.pinned && now - Math.max(e.lastUsed || 0, e.added || 0, since) > NO_METADATA_MS
 function heal () {
   const now = Date.now()
   for (const e of Object.values(lib)) {
     const t = torrentOf(e.hash)
     if (!t) continue
     if (!t.ready) {
-      if (!e.pinned && now - Math.max(e.lastUsed || 0, e.added || 0) > NO_METADATA_MS) { log.warn('torrent', 'no metadata after 10 minutes, dropping', { hash: e.hash }); remove(e.hash).catch(() => {}) }
+      if (lostMetadata(e, now)) { log.warn('torrent', 'no metadata after 10 minutes, dropping', { hash: e.hash }); remove(e.hash).catch(() => {}) }
       continue
     }
     const wanted = now - (e.lastUsed || 0) < WATCH_MS && rowsOf(e).some(r => pending(r, t) && !paused.has(rowKey(e, r)))
