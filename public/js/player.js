@@ -257,7 +257,7 @@ export async function watch (type, id, season, episode) {
       ['Audio', info ? `${info.acodec || '?'}, track ${audio + 1} of ${info.audio?.length || 1}` : '-'],
       ['Decoded', v.videoWidth ? `${v.videoWidth}x${v.videoHeight}` : '-'],
       ['Shown in', `${v.clientWidth}x${v.clientHeight} at ${devicePixelRatio || 1}x`],
-      ['Quality', `${quality === 'auto' ? 'Auto' : quality + 'p'}${cap() ? `, capped at ${cap()}p` : ''}${lvl?.bitrate ? `, ${(lvl.bitrate / 1e6).toFixed(1)} Mbps` : ''}`],
+      ['Quality', `${shownQ() === 'auto' ? 'Auto' : shownQ() + 'p'}${cap() ? `, capped at ${cap()}p` : ''}${lvl?.bitrate ? `, ${(lvl.bitrate / 1e6).toFixed(1)} Mbps` : ''}`],
       ['Frames', q ? `${q.droppedVideoFrames} dropped of ${q.totalVideoFrames}` : '-'],
       ['Buffer', `${buffered().toFixed(1)} s ahead`],
       ['Position', `${clock(v.currentTime)} of ${clock(v.duration || info?.duration || 0)}${v.playbackRate !== 1 ? ` at ${v.playbackRate}x` : ''}`],
@@ -295,12 +295,12 @@ export async function watch (type, id, season, episode) {
     if (!menuKind) return
     let h = ''
     if (menuKind === 'speed') h = '<h4>Speed</h4>' + SPEEDS.map(s => row(s === 1 ? 'Normal' : s + '×', { on: v.playbackRate === s, data: `data-speed="${s}"` })).join('')
-    if (menuKind === 'quality') h = '<h4>Quality</h4>' + QUALITIES.filter(([q]) => q === 'auto' || +q <= (info?.tier || 2160) || q === quality).map(([q, n]) => row(n, { on: quality === q, data: `data-q="${q}"`, extra: q === 'auto' && autoH ? `<small>${autoH}p for your connection</small>` : '' })).join('') + notesHTML(qualityWarn()) +
+    if (menuKind === 'quality') h = '<h4>Quality</h4>' + QUALITIES.filter(([q]) => q === 'auto' || +q <= (info?.tier || 2160)).map(([q, n]) => row(n, { on: shownQ() === q, data: `data-q="${q}"`, extra: q === 'auto' && autoH ? `<small>${autoH}p for your connection</small>` : '' })).join('') + notesHTML(qualityWarn()) +
       '<hr><h4>Speed</h4>' + SPEEDS.map(sp => row(sp === 1 ? 'Normal' : sp + '×', { on: v.playbackRate === sp, data: `data-speed="${sp}"` })).join('') +
       '<hr>' + row('Try another version', { data: 'data-another' }) + row('Playback stats', { on: statsOn, data: 'data-stats' })
     // On a phone the audio, subtitles, quality, speed and party buttons are one Settings button that lists them.
     if (menuKind === 'settings') {
-      const q = QUALITIES.find(x => x[0] === quality)
+      const q = QUALITIES.find(x => x[0] === shownQ())
       h = '<h4>Settings</h4>' + [
         ['subs', 'Subtitles', subSel ? subSel.label : 'Off'],
         info?.audio?.length > 1 ? ['audio', 'Audio', LANG(info.audio.find(a => a.i === audio)?.lang || 'und')] : null,
@@ -658,10 +658,12 @@ export async function watch (type, id, season, episode) {
     subsDone = true
   }
 
-  const cap = () => (quality !== 'auto' ? +quality : autoH)
+  // A forced level above the file's own resolution is not upscaled: the file's tier is what plays.
+  const shownQ = () => (quality !== 'auto' && info?.tier ? String(Math.min(+quality, info.tier)) : quality)
+  const cap = () => (quality !== 'auto' ? +shownQ() : autoH)
   // A forced level the connection cannot carry. A source below the forced level is not upscaled, so it needs only its own tier. A finished download or a local file needs no server internet.
   let srvMbps = 0; let warned = false
-  const playWarn = () => netWarnings({ quality: quality !== 'auto' && info?.tier ? String(Math.min(+quality, info.tier)) : quality, mode: S.me.settings.sourceMode || 'compact', serverMbps: st?.phase === 'done' ? 0 : srvMbps, linkMbps: bandwidth() })
+  const playWarn = () => netWarnings({ quality: shownQ(), mode: S.me.settings.sourceMode || 'compact', serverMbps: st?.phase === 'done' ? 0 : srvMbps, linkMbps: bandwidth() })
   const qualityWarn = () => playWarn().filter(w => w.k === 'quality')
   // Before the video is known there is nothing to re-attach: the version is asked for again under the new setting.
   const restart = () => { if (hash) tried.add(hash); if (info) startAt = v.currentTime; start() }
