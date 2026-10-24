@@ -71,12 +71,15 @@ export function sameShow (s, q) {
   const { tvdbSeason, tvdbEpisode, abs } = numbering(q)
   const wanted = q.wanted || episodeNumbers(q)
   if (+s.SeriesEpisode && !wanted.has(+s.SeriesEpisode)) return false
+  const name = fold((String(s.MovieName || '').match(/"([^"]+)"/) || [])[1])
+  // A later TVDB season with a title of its own ("Rascal Does Not Dream of Santa Claus") is filed as a show of its own, with its own
+  // IMDb id and season 1: the file's show named after this entry is the proof, since season and parent id then differ from TVDB's.
+  if (tvdbSeason > 1 && name && titles.some(t => fold(t) === name)) return true
   // A file filed under another season is another cour's episode with the same number (the absolute number is unique, and may sit under any).
   if (+s.SeriesSeason && tvdbSeason != null && +s.SeriesSeason !== tvdbSeason && !(+s.SeriesEpisode === abs && abs !== tvdbEpisode)) return false
   // Files for a whole show (named only by episode number, "600.ass") are filed as the show itself: parent "0", the show's own id.
   const parent = +s.SeriesIMDBParent || (s.MovieKind === 'tv series' ? +s.IDMovieImdb : 0)
   if (imdb && parent) return parent === +imdb.slice(2)
-  const name = fold((String(s.MovieName || '').match(/"([^"]+)"/) || [])[1])
   return !name || !titles.some(fold) || titles.some(t => fold(t) === name)
 }
 // The lookup paths for one language, best first. Anime: by catalog id when known, then by title. The title is searched as plain
