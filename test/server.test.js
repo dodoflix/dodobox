@@ -13,7 +13,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 const film = (n, genre = 'Drama', extra = {}) => ({ id: `tt70000${n}`, imdb_id: `tt70000${n}`, name: `Film ${n}`, year: String(2000 + n), releaseInfo: String(2000 + n), genres: [genre], description: `Story ${n}`, poster: `https://images.metahub.space/poster/medium/${n}/img`, imdbRating: '7.1', ...extra })
 const FILMS = Array.from({ length: 10 }, (_, n) => film(n))
-const SHOW = { ...film(20, 'Comedy'), videos: [{ season: 1, episode: 1, name: 'One', released: '2020-01-01T00:00:00Z' }, { season: 1, episode: 2, name: 'Two', released: '2099-01-01T00:00:00Z' }] }
+const SHOW = { ...film(20, 'Comedy'), videos: [{ season: 1, episode: 1, name: 'One', released: '2020-01-01T00:00:00Z' }, { season: 1, number: 2, name: 'Two', released: '2099-01-01T00:00:00Z' }] }
 const FUTURE = film(21, 'Drama', { year: '2099', releaseInfo: '2099' })
 const real = globalThis.fetch
 const asked = []
@@ -270,7 +270,7 @@ test('a profile PIN is set, checked, throttled and removed', async () => {
 
 test('the adult filter hides adult titles from the library and local files', async () => {
   const { cached } = await import('../src/meta.js')
-  await cached('meta7:movie:tt700099', 1e6, async () => ({ id: 'tt700099', name: 'Spicy', genres: ['Adult'] }))
+  await cached('meta8:movie:tt700099', 1e6, async () => ({ id: 'tt700099', name: 'Spicy', genres: ['Adult'] }))
   execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'testsrc=size=160x90:rate=2:duration=2', '-t', '2', path.join(process.env.MEDIA_DIR, 'Spicy.Film.2001.mkv')])
   assert.equal((await call('/api/local/rescan', { method: 'POST' })).body.count, 2)
   const hidden = { 'x-adult-filter': '1' }

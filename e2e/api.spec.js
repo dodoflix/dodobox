@@ -195,10 +195,10 @@ test('deleting from the library removes files', async () => {
 
 test('the adult filter hides adult-marked titles from the viewer\'s lists', async () => {
   const { cached } = await import('../src/meta.js')
-  await cached('meta7:anime:al:900001', 1e6, async () => ({ id: 'al:900001', genres: ['Comedy', 'Hentai'] }))
-  await cached('meta7:anime:al:900002', 1e6, async () => ({ id: 'al:900002', genres: ['Comedy'] }))
-  await cached('meta7:movie:tt9000001', 1e6, async () => ({ id: 'tt9000001', genres: ['Adult', 'Comedy'] }))
-  await cached('meta7:series:tt9000002', 1e6, async () => ({ id: 'tt9000002', genres: ['Drama'] }))
+  await cached('meta8:anime:al:900001', 1e6, async () => ({ id: 'al:900001', genres: ['Comedy', 'Hentai'] }))
+  await cached('meta8:anime:al:900002', 1e6, async () => ({ id: 'al:900002', genres: ['Comedy'] }))
+  await cached('meta8:movie:tt9000001', 1e6, async () => ({ id: 'tt9000001', genres: ['Adult', 'Comedy'] }))
+  await cached('meta8:series:tt9000002', 1e6, async () => ({ id: 'tt9000002', genres: ['Drama'] }))
   const { id } = await (await get('/api/profiles', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Adult filter' }) })).json()
   for (const [type, tid] of [['anime', 'al:900001'], ['anime', 'al:900002'], ['movie', 'tt9000001'], ['series', 'tt9000002']]) await get('/api/list', { method: 'PUT', headers: { 'content-type': 'application/json', 'x-profile': id }, body: JSON.stringify({ item: { type, id: tid, name: tid }, on: true }) })
   const ids = async () => (await (await get('/api/me', { headers: { 'x-profile': id } })).json()).list.map(x => x.id).sort()
