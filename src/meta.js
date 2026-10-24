@@ -232,7 +232,7 @@ async function kitsuEpisodes (anilistId, count) {
 
 export const meta = (type, id) => {
   checkType(type)
-  return cached(`meta6:${type}:${id}`, 12 * 3600e3, async () => {
+  return cached(`meta7:${type}:${id}`, 12 * 3600e3, async () => {
     if (type === 'anime') {
       const [m] = await anilist({ page: 1, perPage: 1, id: +id.replace('al:', '') })
       if (!m) throw Object.assign(new Error('not found'), { code: 404 })
@@ -258,7 +258,7 @@ export const meta = (type, id) => {
       const full = enrich()
       const quick = await Promise.race([full, new Promise(resolve => setTimeout(resolve, 800))])
       if (quick) return quick
-      full.then(item => { ttl.set(`meta6:${type}:${id}`, { at: Date.now(), v: item, ...(partial.has(item) && { short: true }) }); saveCache() }).catch(() => {})
+      full.then(item => { ttl.set(`meta7:${type}:${id}`, { at: Date.now(), v: item, ...(partial.has(item) && { short: true }) }); saveCache() }).catch(() => {})
       return markPartial(base)
     }
     const { meta: m } = await getJSON(`${CINEMETA}/meta/${type}/${id}.json`)

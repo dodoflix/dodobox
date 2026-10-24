@@ -270,7 +270,7 @@ test('a profile PIN is set, checked, throttled and removed', async () => {
 
 test('the adult filter hides adult titles from the library and local files', async () => {
   const { cached } = await import('../src/meta.js')
-  await cached('meta6:movie:tt700099', 1e6, async () => ({ id: 'tt700099', name: 'Spicy', genres: ['Adult'] }))
+  await cached('meta7:movie:tt700099', 1e6, async () => ({ id: 'tt700099', name: 'Spicy', genres: ['Adult'] }))
   execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'testsrc=size=160x90:rate=2:duration=2', '-t', '2', path.join(process.env.MEDIA_DIR, 'Spicy.Film.2001.mkv')])
   assert.equal((await call('/api/local/rescan', { method: 'POST' })).body.count, 2)
   const hidden = { 'x-adult-filter': '1' }
