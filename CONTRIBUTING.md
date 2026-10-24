@@ -17,7 +17,7 @@ npm run test:coverage:e2e  # e2e specs, fails when any file is under 90% line co
 npm run test:coverage      # both, one after the other
 ```
 
-Needs Node.js 24+ and `ffmpeg` on the path for the end-to-end tests. The browser tests drive Google Chrome (the H.264 video needs its codecs); set `CHROME_PATH` to a Chrome or Chromium binary if it is not installed. `npm install` points git at `.githooks`: lint and unit tests run before every commit, both coverage gates before every push (`--no-verify` skips them). The frontend is plain ES modules with no build step.
+Needs Node.js 24+ and `ffmpeg` on the path for the end-to-end tests. The browser tests drive Google Chrome (the H.264 video needs its codecs); set `CHROME_PATH` to a Chrome or Chromium binary if it is not installed. `npm install` points git at `.githooks`: lint (staged files) and unit tests run before every commit, both coverage gates (floor checked on changed source files) before every push (`--no-verify` skips them). The frontend is plain ES modules with no build step.
 
 ## Commits and pull requests
 

@@ -1,3 +1,10 @@
 #!/bin/sh
-# Same gates as CI: unit and e2e tests, each with its own 90% coverage floor. Skip once with `git push --no-verify`.
-npm run test:coverage
+# Coverage gates on what the push changes. CI still checks every file. Skip once with `git push --no-verify`.
+base=$(git merge-base origin/main HEAD 2>/dev/null) || exec npm run test:coverage
+changed=$(git diff --name-only --diff-filter=ACMR "$base" HEAD)
+src=$(echo "$changed" | grep -E '^(server\.js|src/[^/]+\.js)$')
+echo "$changed" | grep -qE '^(server\.js|src/|test/|e2e/|public/)' || exit 0
+# whole suites run (a file's coverage comes from any test); only the 90% floor is limited to changed source files
+npm run test:coverage:unit -- $src || exit 1
+echo "$changed" | grep -qE '^(server\.js|src/|e2e/|public/)' || exit 0
+npm run test:coverage:e2e -- $src
