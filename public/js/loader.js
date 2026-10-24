@@ -43,7 +43,21 @@ const watch = el => {
   }
 }
 
+// A picture that fails is asked for again (twice, a little later) under a new address, so neither a hiccup nor a bad copy in the
+// browser cache leaves it blank for good. Only when the retries are spent does the failure reach the tile's own onerror.
+const RETRY = [1500, 5000]
+function retryFailed (e) {
+  const im = e.target
+  if (im.tagName !== 'IMG' || !im.dataset.src || !im.getAttribute('src')) return
+  const n = +im.dataset.tries || 0
+  if (n >= RETRY.length) return
+  e.stopPropagation()
+  im.dataset.tries = n + 1
+  setTimeout(() => { if (im.isConnected) im.src = im.dataset.src + (im.dataset.src.includes('?') ? '&' : '?') + 'r=' + (n + 1) }, RETRY[n])
+}
+
 export function initLoader () {
+  addEventListener('error', retryFailed, true)
   new MutationObserver(ms => { for (const m of ms) m.addedNodes.forEach(n => { if (n.nodeType === 1) watch(n) }) }).observe(document.body, { childList: true, subtree: true })
   watch(document.body)
 }
