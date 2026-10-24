@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.9.0](https://github.com/dodoflix/dodobox/compare/v0.8.0...v0.9.0) (2026-10-24)
+
+
+### Features
+
+* incremental subtitle sync that builds on earlier windows as the download grows ([#62](https://github.com/dodoflix/dodobox/issues/62)) ([47cb4f3](https://github.com/dodoflix/dodobox/commit/47cb4f3fe59c940680c2a289448b05c9e9c37fd1))
+* let each profile connect its own OpenSubtitles VIP account for subtitle downloads ([#55](https://github.com/dodoflix/dodobox/issues/55)) ([550b05f](https://github.com/dodoflix/dodobox/commit/550b05fb89a0cd4b2834755d021e659f12879ae2))
+* log requests, torrents, ffmpeg, and page errors to a file in the data folder ([#48](https://github.com/dodoflix/dodobox/issues/48)) ([6372227](https://github.com/dodoflix/dodobox/commit/637222794702bbe2bea3bd3bd24b98dabcdfe005))
+* measure subtitle timing against the video's built-in text track ([#63](https://github.com/dodoflix/dodobox/issues/63)) ([cd4a460](https://github.com/dodoflix/dodobox/commit/cd4a46088fbd2763c755d0667fc60428f3beb764))
+* pick releases the line can carry on slow and distant connections ([#52](https://github.com/dodoflix/dodobox/issues/52)) ([a112264](https://github.com/dodoflix/dodobox/commit/a1122640d645e751dbc8518a2a9329999d39426d))
+* rank subtitles by release match, hearing-impaired, frame rate, rating and uploader ([#51](https://github.com/dodoflix/dodobox/issues/51)) ([b39aeda](https://github.com/dodoflix/dodobox/commit/b39aeda5f35507b819e7fe743a484cd002cd452c))
+* re-sync button in the subtitle menu ([#61](https://github.com/dodoflix/dodobox/issues/61)) ([e90438f](https://github.com/dodoflix/dodobox/commit/e90438f605f2e03fb1560fa20dd8be3b95a254ac))
+* warn when forced quality or download size will not run on a slow connection ([#67](https://github.com/dodoflix/dodobox/issues/67)) ([e5fa13a](https://github.com/dodoflix/dodobox/commit/e5fa13ab1d93e64836782f6679ed46df9e77c880))
+
+
+### Bug fixes
+
+* anime subtitle lookup by TVDB numbering, drop films and specials ([#66](https://github.com/dodoflix/dodobox/issues/66)) ([3e54bd0](https://github.com/dodoflix/dodobox/commit/3e54bd0b5e136481e9903077d6d81e1095dda64e))
+* ask for the PIN when the saved session is no longer valid ([#50](https://github.com/dodoflix/dodobox/issues/50)) ([548ef62](https://github.com/dodoflix/dodobox/commit/548ef62df542df05ddb0ac4883f65e212994e2f2))
+* downloads race versions like play, show progress at once, hide racing copies ([#54](https://github.com/dodoflix/dodobox/issues/54)) ([c3cd6f0](https://github.com/dodoflix/dodobox/commit/c3cd6f048005849150af409a664f00a23e8265ce))
+* find subtitles for anime cours filed as their own show ([#69](https://github.com/dodoflix/dodobox/issues/69)) ([f848d54](https://github.com/dodoflix/dodobox/commit/f848d54c6b93f927f3525e52a69e992e5ce272e4))
+* handle OpenSubtitles download quota, sort subtitles by rank, keep best match visible ([#53](https://github.com/dodoflix/dodobox/issues/53)) ([99734ec](https://github.com/dodoflix/dodobox/commit/99734ece73e8229fea7082289d17493c651133ef))
+* initial subtitle sync ran as a single-window probe in the worker ([#60](https://github.com/dodoflix/dodobox/issues/60)) ([f7cd6ef](https://github.com/dodoflix/dodobox/commit/f7cd6ef10b0fcff86b8f82c1530f4984bae9b32c))
+* only warn about missing torrent peers when no source supplied any ([#65](https://github.com/dodoflix/dodobox/issues/65)) ([64243c1](https://github.com/dodoflix/dodobox/commit/64243c13455e54a7c62aca86979d414fb4c8c052))
+* remove ad cues from served subtitles ([#64](https://github.com/dodoflix/dodobox/issues/64)) ([58cbbf2](https://github.com/dodoflix/dodobox/commit/58cbbf2ef3c9a883822a940552b4eff74c33332a))
+* single Download Dodobox button in Discord presence linking to the latest release ([#70](https://github.com/dodoflix/dodobox/issues/70)) ([25da36d](https://github.com/dodoflix/dodobox/commit/25da36db28e276c0f5a1dd10781466d83c8649f6))
+* subtitle sync on resume, keep sync and timing per episode, benchmark window size ([#59](https://github.com/dodoflix/dodobox/issues/59)) ([93cdcfe](https://github.com/dodoflix/dodobox/commit/93cdcfe49e2eca103c0cd6909f65cabee081fa92))
+
 ## [0.8.0](https://github.com/dodoflix/dodobox/compare/v0.7.0...v0.8.0) (2026-10-18)
 
 
