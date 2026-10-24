@@ -24,6 +24,7 @@ command produces them.
 | `app` | yes | The app's own `findSources()` on the gold titles, cold: seeded results and time |
 | `scrape` | yes | Live tracker seeder counts against the numbers sources report |
 | `subs` | no (`--snapshot` needs network) | Subtitle ranking: does the top pick match the timing of the release being played; `--grid` fits the weights, `--weights` tries a set |
+| `subid` | no (`--snapshot` needs network) | Subtitle identity: are the served files for the asked title and episode (wrong show, season, episode, films, length); `--show n` prints wrong top picks |
 | `sync` | no | Auto sync: window length, window count and where in the file the audio comes from (`--grow`: answers as the download grows, `--track`: with the built-in track); right, wrong or no answer, and audio read. Synthetic audio on real cue times, or your own videos with `--media a.mkv,b.mkv` (`--win`, `--count`, `--place start,resume,full`, `--verbose`) |
 | `search` | yes | Title search relevance and latency |
 | `idmap` | yes | Anime id mapping coverage and agreement |
@@ -287,6 +288,43 @@ Limits: films only (the download host stopped answering after about 220 files, a
 `--snapshot` resumes), and the oracle shares the ranker's idea that a similar release name means a similar cut and treats
 sound-effect lines as a defect, which is also what the hearing-impaired penalty encodes. The film frame-rate penalty is
 untested on TV releases, where 25 fps is common.
+
+### Subtitle identity (`subid`)
+
+Question: does the subtitle list hold files for another title or episode? The ranking benchmark above assumes every file is for
+the right content.
+
+Snapshot: the 40 core gold titles (8 films, 12 episodes, 20 anime), English, every OpenSubtitles path either lookup asks plus the
+addon's answers. Both lookups are replayed on the stored rows with the shipped score. OpenSubtitles files each upload under a
+show, season and episode and records the last cue time; a served file is wrong when it sits under another show, season or
+episode (TVDB's numbering, the absolute number and, in season 1, the entry's own all count as right), is a film, or ends at a
+time that is not the episode's length. Addon files are judged through the same row (99% of the anime ones join).
+
+| group | lookup | titles | with files | top-1 wrong | served files wrong |
+|---|---|---|---|---|---|
+| anime | before | 20 | 13 | 2 | 11 of 90 |
+| anime | shipped | 20 | 19 | 0 | 0 of 118 |
+| series | both | 12 | 12 | 0 | 0 of 100 |
+| movie | both | 8 | 8 | 0 | 0 of 80 |
+
+Films and series are filed by the exact catalog id, season and episode, so their lists were already clean. The anime defects:
+
+- The entry's own episode number was looked up as season 1. A cour that continues a TVDB season has another number there:
+  86 Part 2 episode 3 is S1E14, and the old lookup served Part 1's episode 3.
+- Later seasons (7 of the 10 in the set) dropped the catalog id and were searched by name: no files at all for Jujutsu Kaisen S2,
+  Attack on Titan Final Season, Re:Zero S3, Kaguya-sama S3, My Hero Academia 7, Slime S3 and Frieren S2. By id with TVDB's
+  season and episode they have 1 to 7 files each, all filed under that season.
+- Files uploaded under an episode number but meant as films or specials ("Cowboy Bebop The Movie", "One Piece Special 6",
+  "ONE PIECE MOVIE 05") ranked first for One Piece 5 and Cowboy Bebop 5 in a live run; films are dropped, and names naming a
+  movie, special, OVA or recap are dropped.
+- Long shows file the absolute number as season 1 (One Piece S01E1100), so the absolute number is asked too.
+
+Not solved: Bleach: Thousand-Year Blood War has no file under any numbering that is consistent with the entry, so it gets none
+(before: files named S01E02 to S04E02, most of them other cours). ani.zip's TVDB number for a first-season episode is not always the
+content order (Cowboy Bebop episode 5 is S1E15, "My Funny Valentine"); such an episode keeps the old lookup. The oracle trusts
+the same labels, so a file uploaded under the right label with the wrong content passes: in a timing check of the English
+files of the 12 episodes, Money Heist S2E1 was the only one with two incompatible groups of files (an S01E10-named group ending
+at 54 min and S02E01-named files at 42 min), the other 11 agreed on length.
 
 ### Auto sync (`sync`)
 
