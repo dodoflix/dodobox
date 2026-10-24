@@ -75,6 +75,21 @@ test('subtitles from the addon, OpenSubtitles and yify are merged, ranked and se
   resetStubs()
 })
 
+test('a provider file with ASS overrides is served placed and clean, and a file cached before that is cleaned when read', async () => {
+  stub('subs5.strem.io', () => new Response(`1\n00:00:01,000 --> 00:00:03,000\n{\\an8}Top {\\i1}sign{\\i0}{\\fad(100,100)}\n\n2\n00:00:04,000 --> 00:00:05,000\n{\\an4}Middle\n`))
+  const get = async (url, enc = '') => (await (await fetch(`${base}/api/sub?url=${encodeURIComponent(url)}&enc=${enc}`)).text()).trim()
+  const want = 'WEBVTT\n\n1\n00:00:01.000 --> 00:00:03.000 line:0\nTop <i>sign</i>\n\n2\n00:00:04.000 --> 00:00:05.000 line:50% align:start\nMiddle'
+  assert.equal(await get('https://subs5.strem.io/placed.srt'), want)
+  stub('subs5.strem.io', () => new Response('gone', { status: 500 }))
+  assert.equal(await get('https://subs5.strem.io/placed.srt'), want, 'the second ask is answered from disk')
+  const { DATA } = await import('../src/paths.js')
+  const crypto = await import('node:crypto'); const fs = await import('node:fs'); const path = await import('node:path')
+  fs.mkdirSync(path.join(DATA, 'subs'), { recursive: true })
+  fs.writeFileSync(path.join(DATA, 'subs', crypto.createHash('sha1').update('https://subs5.strem.io/stale.srt').digest('hex') + '.vtt'), 'WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n{\\an9}Cached before\n')
+  assert.equal(await get('https://subs5.strem.io/stale.srt'), 'WEBVTT\n\n00:00:01.000 --> 00:00:02.000 line:0 align:end\nCached before')
+  resetStubs()
+})
+
 test('once the anonymous download quota is used up, the profile account takes over and others see the files as limited', async () => {
   const rpc = (status, data = '') => new Response(`<methodResponse><params><param><value><struct><member><name>status</name><value><string>${status}</string></value></member><member><name>token</name><value><string>tok</string></value></member><member><name>data</name><value><string>${data}</string></value></member></struct></value></param></params></methodResponse>`)
   stub('opensubtitles-v3.strem.io', () => json({ subtitles: [] }))

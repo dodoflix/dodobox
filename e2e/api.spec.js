@@ -34,7 +34,7 @@ before(async () => {
   // A pack with subtitle files next to the videos: one for the episode being watched, one for another episode.
   const pack = path.join(tmp, 'Pack'); fs.mkdirSync(path.join(pack, 'Subs', 'Show.S01E05'), { recursive: true })
   for (const n of [5, 6]) fs.copyFileSync(path.join(src, 'Show.S01E02.mkv'), path.join(pack, `Show.S01E0${n}.mkv`))
-  fs.writeFileSync(path.join(pack, 'Show.S01E05.en.srt'), '1\n00:00:01,000 --> 00:00:03,000\nHello sidecar\n')
+  fs.writeFileSync(path.join(pack, 'Show.S01E05.en.srt'), '1\n00:00:01,000 --> 00:00:03,000\n{\\an8}Hello {\\i1}sidecar{\\i0}\n')
   fs.writeFileSync(path.join(pack, 'Show.S01E06.en.srt'), '1\n00:00:01,000 --> 00:00:03,000\nWrong episode\n')
   fs.writeFileSync(path.join(pack, 'Subs', 'Show.S01E05', '2_Turkish.srt'), '1\n00:00:01,000 --> 00:00:03,000\nMerhaba\n')
   const pt = await new Promise(r => seeder.seed(pack, { announce: [] }, r))
@@ -94,7 +94,7 @@ test('subtitle files inside the torrent are listed for the episode and served as
   assert.equal(r.status, 200)
   const vtt = await r.text()
   assert.match(vtt, /^WEBVTT/)
-  assert.match(vtt, /00:00:01\.000 --> 00:00:03\.000\nHello sidecar/)
+  assert.match(vtt, /00:00:01\.000 --> 00:00:03\.000 line:0\nHello <i>sidecar<\/i>/)
 })
 
 test('watch party endpoints: idle by default, bad requests refused, events stream', async () => {
@@ -125,7 +125,7 @@ test('HLS playlist and a segment decode to valid MPEG-TS H.264/AAC', async () =>
 test('embedded subtitle extracts as WebVTT', async () => {
   const vtt = await (await get(`/api/sub/embedded/${hash}/0/0`)).text()
   assert.match(vtt, /^WEBVTT/)
-  assert.match(vtt, /00:01\.0\d\d --> 00:03\.0\d\d/)
+  assert.match(vtt, /00:(00:)?01\.0\d\d --> 00:(00:)?03\.0\d\d/)
   assert.match(vtt, /Hello e2e/)
 })
 
@@ -165,6 +165,16 @@ test('uploaded SRT and ASS convert to WebVTT', async () => {
   const vtt = await (await get('/api/sub/convert', { method: 'POST', body: ass })).text()
   assert.match(vtt, /^WEBVTT/)
   assert.match(vtt, /ASS line/)
+})
+
+test('uploaded subtitles keep where each cue sits and drop the other overrides', async () => {
+  const srt = await (await get('/api/sub/convert', { method: 'POST', body: '1\n00:00:01,000 --> 00:00:02,000\n{\\an8}Up {\\i1}there{\\i0}{\\pos(1,2)}\n\n2\n00:00:03,000 --> 00:00:04,000\nDown\n' })).text()
+  assert.equal(srt, 'WEBVTT\n\n1\n00:00:01.000 --> 00:00:02.000 line:0\nUp <i>there</i>\n\n2\n00:00:03.000 --> 00:00:04.000\nDown')
+  const head = '[Script Info]\nScriptType: v4.00+\n\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\nStyle: Default,Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n'
+  const ass = await (await get('/api/sub/convert', { method: 'POST', body: head + 'Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,{\\an7}Sign\nDialogue: 0,0:00:02.00,0:00:03.00,Default,,0,0,0,,{\\an6\\i1}Side{\\i0}\n' })).text()
+  assert.match(ass, /00:00:01\.000 --> 00:00:02\.000 line:0 align:start\nSign/)
+  assert.match(ass, /00:00:02\.000 --> 00:00:03\.000 line:50% align:end\n<i>Side<\/i>/)
+  assert.ok(!ass.includes('{') && !ass.includes('<font'))
 })
 
 test('subtitle proxy rejects foreign hosts', async () => {

@@ -20,8 +20,30 @@ const PER_LANG = 10
 const names = new Intl.DisplayNames(['en'], { type: 'language' })
 const langName = code => code === 'pob' ? 'Portuguese (Brazil)' : (() => { try { return names.of(code) } catch { return code } })()
 
+// SRT files made from ASS carry its override blocks inside the text. WebVTT has no such syntax, so they would show as text. Alignment
+// ({\an1}-{\an9}, or the older SSA {\a1}-{\a11}) becomes the cue's line (top, middle) and align (left, right) setting, {\i1}/{\i0}
+// become <i>, the rest ({\pos}, {\fad}, colours, fonts) is dropped. Cue settings travel with the cue through translation and sync,
+// which keep the timing line.
+const SSA = { 1: 1, 2: 2, 3: 3, 5: 7, 6: 8, 7: 9, 9: 4, 10: 5, 11: 6 }
+const alignOf = tags => +tags.match(/\\an([1-9])(?!\d)/)?.[1] || SSA[tags.match(/\\a(\d+)(?!\w)/)?.[1]] || 0
+function overrides (block) {
+  const lines = block.split('\n'); const k = lines.findIndex(l => l.includes('-->'))
+  if (k < 0) return block
+  // ffmpeg's SRT writer wraps every ASS line in <font size="20">; the player draws its own type and a translator would be handed the tag.
+  const text = lines.slice(k + 1).join('\n').replace(/<\/?font\b[^>]*>/gi, '')
+  if (!block.includes('{\\')) return lines.length > k + 1 ? [...lines.slice(0, k + 1), text].join('\n') : block
+  let an = 0
+  const body = text.replace(/\{(\\[^}\n]*)\}/g, (_, tags) => {
+    an ||= alignOf(tags)
+    const i = [...tags.matchAll(/\\i([01])(?!\d)/g)].at(-1)?.[1]
+    return i === '1' ? '<i>' : i === '0' ? '</i>' : ''
+  })
+  const timing = lines[k].trim()
+  const set = an && /^[\d:.,]+ --> [\d:.,]+$/.test(timing) ? [an > 6 ? 'line:0' : an > 3 ? 'line:50%' : '', an % 3 === 1 ? 'align:start' : an % 3 === 0 ? 'align:end' : ''].filter(Boolean) : []
+  return [...lines.slice(0, k), [timing, ...set].join(' '), body].join('\n')
+}
 export function srtToVtt (text) {
-  text = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').trim()
+  text = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').trim().split(/\n{2,}/).map(overrides).join('\n\n')
   if (/^WEBVTT/.test(text)) return text + '\n'
   return 'WEBVTT\n\n' + text.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2')
 }
@@ -233,7 +255,7 @@ export const allowedSubUrl = u => {
 
 export async function fetchSubtitle (url, enc, profile = '') {
   const f = path.join(CACHE, crypto.createHash('sha1').update(url + (enc || '')).digest('hex') + '.vtt')
-  try { return stripAds(fs.readFileSync(f, 'utf8')) } catch {}
+  try { return stripAds(srtToVtt(fs.readFileSync(f, 'utf8'))) } catch {} // files cached before overrides were read still carry them
   return once('sub:' + f, async () => {
     // Anonymous downloads first; the household's account only takes over once this IP's quota is used up.
     let viaAcct = false

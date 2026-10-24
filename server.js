@@ -616,7 +616,7 @@ const routes = [
     // Files from a torrent are kept as WebVTT on disk; a local file is read again each time (it may be edited).
     const isLocal = local.isLocal(h)
     const file = path.join(DATA, 'subs', `side-${h}-${n}.vtt`)
-    const vtt = (!isLocal && fs.existsSync(file) && fs.readFileSync(file, 'utf8')) || await once(`side:${h}:${n}`, async () => {
+    const vtt = (!isLocal && fs.existsSync(file) && srtToVtt(fs.readFileSync(file, 'utf8'))) || await once(`side:${h}:${n}`, async () => {
       const { name, buf } = isLocal ? local.readSidecar(h, +n) : await engine.readSidecar(h, +n)
       const text = await toVtt(buf, legacyEncoding(langOfName(name)))
       if (!isLocal) { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, text) }

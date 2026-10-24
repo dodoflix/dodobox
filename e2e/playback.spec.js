@@ -33,7 +33,7 @@ test('pause, seek and the embedded subtitle track work', async () => {
   await page.click('#m-subs')
   await page.locator('#menu .sm-langs button', { hasText: 'English' }).click()
   await page.locator('#menu .sm-files button').first().click()
-  await page.locator('.pl-subs', { hasText: `Hello from ${MOVIE.name}` }).waitFor()
+  await page.locator('.pl-subs .top', { hasText: `Hello from ${MOVIE.name}` }).waitFor() // the track's {\\an8} puts it at the top
   await ctx.close()
 })
 
