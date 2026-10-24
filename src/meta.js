@@ -13,14 +13,16 @@ const PAGE = 36
 
 // Stale-while-revalidate cache on disk: served at once, refreshed in the background, kept up to a week if the provider fails.
 const FILE = path.join(DATA, 'meta-cache.json')
+// The saved file is only read by the version of the app that wrote it: a release may change what an entry holds, and an old copy would be served as if it were current.
+const APP = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version
 const MAX_STALE = 7 * 24 * 3600e3
 const ttl = new Map()
 // Deep catalog pages are re-fetched when needed; keeping them made the file (and every save) many MB.
 const persist = k => { const m = k.match(/^cat\d+:.*:(\d+):[a-z]+$/); return !m || +m[1] <= 3 }
-try { for (const [k, v] of Object.entries(JSON.parse(fs.readFileSync(FILE, 'utf8')))) if (!/^(cat[3-6]|meta2):/.test(k) && persist(k)) ttl.set(k, v) } catch {}
+try { const saved = JSON.parse(fs.readFileSync(FILE, 'utf8')); if (saved.app === APP) for (const [k, v] of Object.entries(saved.entries)) if (persist(k)) ttl.set(k, v) } catch {}
 let saveT = null
 // Saved at most every 20 s (stringifying a big cache blocks the server for a moment).
-const saveCache = () => { if (saveT) return; saveT = setTimeout(() => { saveT = null; fs.writeFile(FILE, JSON.stringify(Object.fromEntries([...ttl].filter(([k]) => persist(k)))), () => {}) }, 20000).unref() }
+const saveCache = () => { if (saveT) return; saveT = setTimeout(() => { saveT = null; fs.writeFile(FILE, JSON.stringify({ app: APP, entries: Object.fromEntries([...ttl].filter(([k]) => persist(k))) }), () => {}) }, 20000).unref() }
 const refreshing = new Set()
 // A value built while a source failed (artwork missing, an episode list absent) is marked, and is kept only briefly: it is better
 // than nothing now, but must not stand in for the real answer for hours.
