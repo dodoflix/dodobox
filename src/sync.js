@@ -31,7 +31,7 @@ export function isAd (cue, end) {
   return AD_EDGE.test(cue.t) && (cue.s < 180 || cue.e > end - 240)
 }
 // Whole cue blocks of a WebVTT text whose words name an ad site or sell VIP, wherever they sit. Other cues, ids and times are untouched.
-export const stripAds = vtt => vtt.split(/\n{2,}/).filter(b => !(b.includes('-->') && AD_ANYWHERE.test(b.replace(/<[^>]*>/g, '')))).join('\n\n')
+export const stripAds = vtt => vtt.split(/\n{2,}/).filter(b => !(b.includes('-->') && AD_ANYWHERE.test(b))).join('\n\n')
 export const withoutAds = cues => { const end = cues.length ? cues.at(-1).e : 0; return cues.filter(c => !isAd(c, end)) }
 
 function fft (re, im, inverse) {
