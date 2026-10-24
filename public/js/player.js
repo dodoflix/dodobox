@@ -1,6 +1,6 @@
 import { api, cget, getProfile, getToken } from './api.js'
 import { report } from './report.js'
-import { S, progress, recordProgress } from './session.js'
+import { S, progress, recordProgress, setSetting } from './session.js'
 import { nowPlaying, pingPresence } from './presence.js'
 import { mapTime, offsetAt, classify } from './syncmap.js'
 import { $, EP_PAGE, esc, icon, enc, clock, bytes, store, sleep, toast, isTV, isSafari, lowres, sized, thumbW, hue } from './util.js'
@@ -12,6 +12,7 @@ import { loadCast, castTo } from './cast.js'
 import { LANGUAGES, langOf } from './onboarding.js'
 import { volumeHTML, bindVolume } from './volume.js'
 import { bandwidth, saveData, displayPx, measure as measureBandwidth } from './bandwidth.js'
+import { netWarnings, notesHTML } from './netwarn.js'
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2]
 const QUALITIES = [['auto', 'Auto'], ['2160', '4K'], ['1080', '1080p'], ['720', '720p'], ['480', '480p, data saver']]
@@ -86,7 +87,7 @@ export async function watch (type, id, season, episode) {
     <div class="pl-cast" id="casting" hidden></div>
     <div class="pl-load" id="load"><div class="bg" style="background-image:url('${esc(lowres(m.poster) || m.poster || '')}')"></div>
       <button class="cbtn pl-back" id="back2" aria-label="Back">${icon('left')}</button>
-      <div class="msg"><h2 id="l-title" translate="no">${esc(m.name)}</h2><p id="l-line">Getting ready...</p><div class="hair"><i id="l-bar"></i></div><div class="actions" id="l-act"></div></div></div>
+      <div class="msg"><h2 id="l-title" translate="no">${esc(m.name)}</h2><p id="l-line">Getting ready...</p><div class="hair"><i id="l-bar"></i></div><div class="netnotes" id="l-net"></div><div class="actions" id="l-act"></div></div></div>
     <input type="file" id="subfile" accept=".srt,.vtt,.ass,.ssa,.sub" hidden>
   </div>`
 
@@ -166,7 +167,7 @@ export async function watch (type, id, season, episode) {
   v.addEventListener('playing', () => { clearTimeout(wd); clearTimeout(slowT); $('#slow', root).hidden = true; hideLoad(); $('.pl-spin', root).hidden = true; sync(); wake(); wakeLock() })
   let spinT
   let slowT
-  v.addEventListener('waiting', () => { clearTimeout(spinT); spinT = setTimeout(() => { $('.pl-spin', root).hidden = false }, 450); clearTimeout(slowT); slowT = setTimeout(() => { if (!v.paused && v.readyState < 3 && info) $('#slow', root).hidden = false }, 9000) })
+  v.addEventListener('waiting', () => { clearTimeout(spinT); spinT = setTimeout(() => { $('.pl-spin', root).hidden = false }, 450); clearTimeout(slowT); slowT = setTimeout(() => { if (!v.paused && v.readyState < 3 && info) { const w = qualityWarn().length; const el = $('#slow', root); el.dataset.fix = w ? '1' : ''; el.textContent = w ? 'Quality is too high for this connection. Use Auto' : 'Slow connection. Try another version'; el.hidden = false } }, 9000) })
   v.addEventListener('canplay', () => { clearTimeout(spinT); clearTimeout(slowT); $('.pl-spin', root).hidden = true; $('#slow', root).hidden = true })
   v.addEventListener('seeked', () => { clearTimeout(spinT); $('.pl-spin', root).hidden = true })
   v.volume = store.get('vol', 1); v.muted = store.get('muted', false)
@@ -294,7 +295,7 @@ export async function watch (type, id, season, episode) {
     if (!menuKind) return
     let h = ''
     if (menuKind === 'speed') h = '<h4>Speed</h4>' + SPEEDS.map(s => row(s === 1 ? 'Normal' : s + '×', { on: v.playbackRate === s, data: `data-speed="${s}"` })).join('')
-    if (menuKind === 'quality') h = '<h4>Quality</h4>' + QUALITIES.filter(([q]) => q === 'auto' || +q <= (info?.tier || 2160) || q === quality).map(([q, n]) => row(n, { on: quality === q, data: `data-q="${q}"`, extra: q === 'auto' && autoH ? `<small>${autoH}p for your connection</small>` : '' })).join('') +
+    if (menuKind === 'quality') h = '<h4>Quality</h4>' + QUALITIES.filter(([q]) => q === 'auto' || +q <= (info?.tier || 2160) || q === quality).map(([q, n]) => row(n, { on: quality === q, data: `data-q="${q}"`, extra: q === 'auto' && autoH ? `<small>${autoH}p for your connection</small>` : '' })).join('') + notesHTML(qualityWarn()) +
       '<hr><h4>Speed</h4>' + SPEEDS.map(sp => row(sp === 1 ? 'Normal' : sp + '×', { on: v.playbackRate === sp, data: `data-speed="${sp}"` })).join('') +
       '<hr>' + row('Try another version', { data: 'data-another' }) + row('Playback stats', { on: statsOn, data: 'data-stats' })
     // On a phone the audio, subtitles, quality, speed and party buttons are one Settings button that lists them.
@@ -395,7 +396,8 @@ export async function watch (type, id, season, episode) {
     if (d.stats != null) return toggleStats()
     if (d.another != null) { closeMenu(); if (!hash) return; toast('Looking for another version...'); tried.add(hash); startAt = v.currentTime; return start() }
     if (d.speed) { v.defaultPlaybackRate = v.playbackRate = +d.speed; keep('speed', +d.speed); closeMenu() }
-    if (d.q) { quality = d.q; keep('quality', quality); closeMenu(); startAt = v.currentTime; if (info) { chooseMode(); attach() } }
+    if (d.q) setQuality(d.q)
+    if (d.fix) applyFix(d.fix)
     if (d.a) { audio = +d.a; const t = info.audio.find(x => x.i === audio); keep('audio', { lang: t?.lang || null, title: t?.title || '' }); closeMenu(); startAt = v.currentTime; chooseMode(); attach() }
     if (d.es != null) { epSeason = +d.es; epPage = pageOf(epSeason); menu.scrollTop = 0; drawMenu(); return }
     if (d.ep != null) { epPage = +d.ep; menu.scrollTop = 0; drawMenu(); return }
@@ -647,6 +649,19 @@ export async function watch (type, id, season, episode) {
   }
 
   const cap = () => (quality !== 'auto' ? +quality : autoH)
+  // A forced level the connection cannot carry. A source below the forced level is not upscaled, so it needs only its own tier. A finished download or a local file needs no server internet.
+  let srvMbps = 0; let warned = false
+  const playWarn = () => netWarnings({ quality: quality !== 'auto' && info?.tier ? String(Math.min(+quality, info.tier)) : quality, mode: S.me.settings.sourceMode || 'compact', serverMbps: st?.phase === 'done' ? 0 : srvMbps, linkMbps: bandwidth() })
+  const qualityWarn = () => playWarn().filter(w => w.k === 'quality')
+  // Before the video is known there is nothing to re-attach: the version is asked for again under the new setting.
+  const restart = () => { if (hash) tried.add(hash); if (info) startAt = v.currentTime; start() }
+  const setQuality = q => { quality = q; keep('quality', quality); closeMenu(); if (!info) return restart(); startAt = v.currentTime; chooseMode(); attach() }
+  const applyFix = fix => { const [k, val] = fix.split(':'); if (k === 'quality') setQuality(val); else { closeMenu(); setSetting(k, val).then(restart) } }
+  // Runs from both chooseMode and the server speed reply: a local file starts before the reply arrives. The loading screen shows the same warning, so a toast would repeat it.
+  const warnOnce = () => { const w = playWarn()[0]; if (!warned && info && w) { warned = true; toast(w.text, { action: { label: w.label, run: () => applyFix(w.k + ':' + w.v) } }) } }
+  let loadNet = ''
+  const showLoadWarn = () => { const w = playWarn(); const html = notesHTML(w); if (html !== loadNet) { loadNet = html; $('#l-net', root).innerHTML = html } if (w.length) warned = true }
+  cget('/api/server', 60e3).then(x => { srvMbps = x.internetMbps || 0; if (!$('#load', root).hidden) showLoadWarn(); warnOnce() }, () => {})
   const hq = () => (cap() ? `&h=${cap()}` : '')
   function chooseMode () {
     autoH = null
@@ -655,6 +670,7 @@ export async function watch (type, id, season, episode) {
       if (b && bitrate > b * 0.75) autoH = b >= 15 ? 1080 : b >= 7 ? 720 : 480
       if (saveData()) autoH = Math.min(autoH || 720, 720)
     }
+    warnOnce()
     const needScale = cap() && (!info.height || cap() < info.height)
     mode = needScale || !info.direct || audio !== defaultAudio() ? 'hls' : 'direct'
   }
@@ -775,6 +791,7 @@ export async function watch (type, id, season, episode) {
       if (probing && Date.now() - probeAt > 18000) showSlowLink()
       if (probing && Date.now() - probeAt > 120000) throw Object.assign(new Error('probe timeout'), { stall: true })
       const need = Math.min(st.length || 3e6, 3e6)
+      showLoadWarn()
       setLoad({
         line: st.phase === 'metadata' ? (waited < 8 ? 'Finding a source...' : 'Connecting...') : st.downloaded > 0 ? `Buffering · ${bytes(st.speed)}/s` : 'Starting the stream...',
         pct: st.phase === 'metadata' || !st.downloaded ? null : Math.min(1, st.downloaded / need)
@@ -789,6 +806,7 @@ export async function watch (type, id, season, episode) {
     try {
       hls?.destroy(); v.removeAttribute('src'); v.load(); info = null; subSel = null; subs = []; marks = {}; paintSkip()
       setLoad({ title: m.name, line: 'Finding the best version...', pct: null, actions: '' })
+      showLoadWarn()
       const began = Date.now()
       report('info', 'player: opening', { type, id, season, episode, quality, forced, display: displayPx() })
       for (let attempt = 0; attempt < 5 && !dead; attempt++) {
@@ -842,8 +860,13 @@ export async function watch (type, id, season, episode) {
       if (was !== 'done' && st.phase === 'done') { if (subSel?.embedded) loadEntry(subSel); drawMenu(); autoSub() } else if (subs.filter(s => s.embedded && embeddedOk(s)).length !== unlocked) { drawMenu(); autoSub() }
     } catch {}
   }, 2500))
-  $('#slow', root).onclick = () => { $('#slow', root).hidden = true; tried.add(hash); startAt = v.currentTime; start() }
+  $('#slow', root).onclick = () => {
+    $('#slow', root).hidden = true
+    if ($('#slow', root).dataset.fix) return setQuality('auto')
+    tried.add(hash); startAt = v.currentTime; start()
+  }
   root.addEventListener('click', e => {
+    const fx = e.target.closest('#l-net [data-fix]'); if (fx) applyFix(fx.dataset.fix)
     if (e.target.closest('#retry')) { tried.clear(); start() }
     if (e.target.closest('#another')) { tried.add(hash); $('#slow', root).hidden = true; start() }
   })

@@ -24,7 +24,7 @@ export const rows = [
 /*220*/ 'Đánh giá tựa này', 'Không hợp với tôi', 'Tôi thích', 'Tôi rất thích', 'Tệp phụ đề', 'Có sẵn', 'Từ tệp', 'Từ thiết bị của bạn', 'sau khi tải thêm', 'Phụ đề đang tắt',
 /*230*/ 'Phụ đề có sẵn sẽ sẵn sàng sau khi tải thêm một chút.', 'Không tải được phụ đề này.', 'Tiểu sử', 'Phim đen', 'Game show', 'Nhạc kịch', 'Tin tức', 'Truyền hình thực tế', 'Phim ngắn', 'Thể thao',
 /*240*/ 'Talk show', 'Ecchi', 'Mahou shoujo', 'đang phát sóng', 'chưa phát hành', 'đã hủy', 'tạm ngưng', 'Hãy chọn hồ sơ trước',
-/*new*/ 'Kích thước tải xuống', 'Cân bằng tránh các tệp khổng lồ. Nhỏ nhất bắt đầu nhanh nhất. Chất lượng tốt nhất chấp nhận tệp rất lớn.', 'Cân bằng', 'Nhỏ nhất', 'Chất lượng tốt nhất', 'Sắp xếp theo', 'Phổ biến', 'Đánh giá cao', 'Mới nhất', 'Top 10 phim tuần này', 'Top 10 series tuần này', 'Top 10 anime hiện nay', 'Phim mới', 'Series mới', 'Anime mới', 'Phim đánh giá cao', 'Series đánh giá cao', 'Anime đánh giá cao', 'Đang phát sóng', 'Isekai', 'Học đường', 'Shounen', 'Seinen', 'Shoujo', 'Quân sự', 'Lịch sử', 'Siêu năng lực', 'Võ thuật', 'Thao túng thời gian',
+/*new*/ 'Kích thước tải xuống', 'Nhỏ nhất bắt đầu nhanh nhất. Cân bằng tránh các tệp khổng lồ. Chất lượng tốt nhất chấp nhận tệp rất lớn.', 'Cân bằng', 'Nhỏ nhất', 'Chất lượng tốt nhất', 'Sắp xếp theo', 'Phổ biến', 'Đánh giá cao', 'Mới nhất', 'Top 10 phim tuần này', 'Top 10 series tuần này', 'Top 10 anime hiện nay', 'Phim mới', 'Series mới', 'Anime mới', 'Phim đánh giá cao', 'Series đánh giá cao', 'Anime đánh giá cao', 'Đang phát sóng', 'Isekai', 'Học đường', 'Shounen', 'Seinen', 'Shoujo', 'Quân sự', 'Lịch sử', 'Siêu năng lực', 'Võ thuật', 'Thao túng thời gian',
 /*sync*/ 'Tự động đồng bộ', 'Đang đồng bộ...', 'Cần tải thêm', 'Đã đồng bộ', 'Đã đồng bộ xong',
 /*type pages*/ 'Khám phá', 'Duyệt tất cả',
 /*paused*/ 'Tạm dừng khi bạn đang xem', 'Đã tạm dừng',
@@ -49,7 +49,8 @@ export const rows = [
 /*+*/ 'PIN gồm 4 đến 8 chữ số', 'Đổi PIN', 'Chọn PIN', 'Xóa chữ số cuối', 'Nhập PIN để mở hồ sơ này.', 'Nhập PIN hiện tại.', 'Tiếp', 'PIN', 'Mã PIN', 'Đã lưu PIN', 'Đã gỡ PIN', 'Khóa hồ sơ', 'Gỡ PIN', 'Gỡ', 'Nhập lại PIN', 'Đặt PIN', 'Đặt PIN', 'Hai mã PIN không giống nhau', 'Mở khóa', 'Đã khóa bằng PIN', '4 đến 8 chữ số. Bất kỳ ai dùng Dodobox đều bị hỏi trước khi mở hồ sơ này.', 'Bật. Bất kỳ ai mở hồ sơ này đều được hỏi PIN. Lượt tải vẫn mở cho mọi người.', 'Tắt. Đặt một mã để giữ danh sách, lịch sử và cài đặt của bạn riêng tư. Lượt tải vẫn mở cho mọi người.', 'Tùy chọn. Giữ danh sách, lịch sử và cài đặt của bạn riêng tư: mã được hỏi khi ai đó mở hồ sơ này. Lượt tải vẫn mở cho mọi người.', 'Sở thích của bạn', 'Quyền riêng tư của bạn', 'Bày tỏ cảm xúc', 'Cuộn sang trái', 'Cuộn sang phải', 'Đã xóa khỏi lịch sử xem', 'Có trong lịch sử xem của bạn', 'Tải các tập', 'Đã tải các tập', 'Đang chờ những mục đầu hàng đợi', 'Đang tìm phiên bản khác...', 'Sai PIN', 'Quá nhiều hồ sơ', 'Đã rời phiên', 'Chưa kết nối', 'Bộ chuyển đổi đang bận, hãy thử lại sau giây lát', 'Video này là một tựa khác', 'Không có hồ sơ như vậy', 'Thống kê phát', 'Sao chép thống kê', 'Đóng thống kê', 'Đã sao chép thống kê', 'Không sao chép được', '1 tập',
   'Đồng bộ lại',
   'Đang tìm khớp...',
-  'Không khớp với video này'
+  'Không khớp với video này',
+  'Dùng Tự động', 'Dùng Cân bằng', 'Chất lượng quá cao so với kết nối này. Dùng Tự động', 'Dùng Nhỏ nhất'
 ]
 export const patterns = [
   'Chào $1, hãy biến nó thành của bạn', 'Mùa $1', 'Mùa $1 · Tập $2', 'Tiếp tục S$1 E$2', 'S$1 E$2$3', 'Phát sóng $1', '$1 giờ $2 phút', '$1 phút', '$1còn $2 giờ $3 phút', '$1còn $2 phút',
@@ -62,5 +63,7 @@ export const patterns = [
   'Đang cài đặt... $1%',
   'Dodobox $1 đã có sẵn', 'Phiên bản $1 đã có sẵn', 'Bạn đang dùng phiên bản $1.', 'Kéo image mới và tạo lại container: $1', 'Chỉ phụ đề bắt buộc: $1', 'Không tìm thấy phụ đề $1', 'Mã QR cho $1', '$1 đã vào phòng', '$1 đã rời phòng', '$1 đang xem $2', '$1 đã tạm dừng phát', '$1 đã tiếp tục phát', '$1 đã tua đến $2',
   'Đã đăng nhập là $1. Được dùng khi đạt giới hạn tải dùng chung.', 'Đã đăng nhập là $1. Giới hạn tải hôm nay đã hết.', '$1 không đăng nhập được. Hãy kết nối lại.', 'Đã đăng nhập là $1, nhưng tài khoản này không phải VIP nên OpenSubtitles không cho tải và nó không được dùng.',
-  '$1 trên $2 trong phiên', 'PIN của $1', 'Quá nhiều lần thử. Hãy chờ $1 giây.', 'Quá nhiều lần thử. Hãy chờ $1 phút.', 'Bạn bè cũng cần Dodobox. Hãy chia sẻ mã với họ. Một phiên có tối đa $1 người.', 'Xóa $1 khỏi lịch sử xem', '$1 mùa', '$1 tập', 'Có sẵn đến $1, thêm khi tải về', '~$1 phút'
+  '$1 trên $2 trong phiên', 'PIN của $1', 'Quá nhiều lần thử. Hãy chờ $1 giây.', 'Quá nhiều lần thử. Hãy chờ $1 phút.', 'Bạn bè cũng cần Dodobox. Hãy chia sẻ mã với họ. Một phiên có tối đa $1 người.', 'Xóa $1 khỏi lịch sử xem', '$1 mùa', '$1 tập', 'Có sẵn đến $1, thêm khi tải về', '~$1 phút',
+  '$1 nghĩa là một bản tải rất lớn, và internet của máy chủ này khoảng $2 Mbps. Phát sẽ bắt đầu muộn và có thể bị dừng.', '$1 cần khoảng $2 Mbps trong khi thiết bị này đo được $3. Hình ảnh sẽ liên tục bị giật.', 'Chất lượng tốt nhất chấp nhận tệp hàng chục GB, và internet của máy chủ này khoảng $1 Mbps. Tải xuống sẽ chậm.',
+  'Cân bằng chọn các tệp cần khoảng $1 Mbps, và internet của máy chủ này khoảng $2 Mbps. Tải xuống sẽ chậm.'
 ]

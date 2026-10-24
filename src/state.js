@@ -12,7 +12,7 @@ const COLORS = ['#f2a65a', '#e5646e', '#6fb7e9', '#7ad3a0', '#b58cf0', '#f0d264'
 let db = { profiles: {}, settings: {} }
 try { db = { ...db, ...JSON.parse(fs.readFileSync(FILE, 'utf8')) } } catch (e) { if (e.code !== 'ENOENT') log.error('state', 'state.json could not be read, starting empty', { err: e }) }
 
-function DEFAULTS_INIT () { return { sublang: 'off', lang: 'en', interests: [], quality: 'auto', sourceMode: 'balanced', adultFilter: false, bestTranslation: false, discordPresence: true, onboarded: false } }
+function DEFAULTS_INIT () { return { sublang: 'off', lang: 'en', interests: [], quality: 'auto', sourceMode: 'compact', adultFilter: false, bestTranslation: false, discordPresence: true, onboarded: false } }
 
 // Everything a client sends is checked on the way in: the pages draw these values (colours go into style attributes, a rating is called
 // toFixed on), so a wrong shape breaks a profile's pages and a free-form string is a way to inject CSS.

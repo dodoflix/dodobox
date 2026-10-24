@@ -263,7 +263,7 @@ export const ROWS = [
   ['hiatus', 'ara verildi', 'en pausa', 'en pause', 'pausiert'],
   ['Choose a profile first', 'Önce bir profil seç', 'Elige primero un perfil', "Choisissez d'abord un profil", 'Wähle zuerst ein Profil'],
   ['Download size', 'İndirme boyutu', 'Tamaño de descarga', 'Taille des téléchargements', 'Downloadgröße'],
-  ['Balanced avoids huge files. Smallest starts fastest. Best quality accepts very large files.', 'Dengeli dev dosyalardan kaçınır. En küçük en hızlı başlar. En iyi kalite çok büyük dosyaları kabul eder.', 'Equilibrado evita archivos enormes. Más pequeño empieza más rápido. Mejor calidad acepta archivos muy grandes.', 'Équilibré évite les fichiers énormes. Le plus petit démarre le plus vite. Meilleure qualité accepte de très gros fichiers.', 'Ausgewogen vermeidet riesige Dateien. Kleinste startet am schnellsten. Beste Qualität nimmt sehr große Dateien in Kauf.'],
+  ['Smallest starts fastest. Balanced avoids huge files. Best quality accepts very large files.', 'En küçük en hızlı başlar. Dengeli dev dosyalardan kaçınır. En iyi kalite çok büyük dosyaları kabul eder.', 'Más pequeño empieza más rápido. Equilibrado evita archivos enormes. Mejor calidad acepta archivos muy grandes.', 'Le plus petit démarre le plus vite. Équilibré évite les fichiers énormes. Meilleure qualité accepte de très gros fichiers.', 'Kleinste startet am schnellsten. Ausgewogen vermeidet riesige Dateien. Beste Qualität nimmt sehr große Dateien in Kauf.'],
   ['Balanced', 'Dengeli', 'Equilibrado', 'Équilibré', 'Ausgewogen'],
   ['Smallest', 'En küçük', 'Más pequeño', 'Le plus petit', 'Kleinste'],
   ['Best quality', 'En iyi kalite', 'Mejor calidad', 'Meilleure qualité', 'Beste Qualität'],
@@ -446,7 +446,11 @@ export const ROWS = [
   ['1 episode', '1 bölüm', '1 episodio', '1 épisode', '1 Folge'],
   ['Re-sync', 'Yeniden eşitle', 'Volver a sincronizar', 'Resynchroniser', 'Neu synchronisieren'],
   ['Looking for a match...', 'Eşleşme aranıyor...', 'Buscando coincidencia...', 'Recherche de correspondance...', 'Suche nach Übereinstimmung...'],
-  ['Does not match this video', 'Bu videoyla eşleşmiyor', 'No coincide con este vídeo', 'Ne correspond pas à cette vidéo', 'Passt nicht zu diesem Video']
+  ['Does not match this video', 'Bu videoyla eşleşmiyor', 'No coincide con este vídeo', 'Ne correspond pas à cette vidéo', 'Passt nicht zu diesem Video'],
+  ['Use Auto', 'Otomatiği kullan', 'Usar Automática', 'Utiliser Auto', 'Automatisch verwenden'],
+  ['Use Balanced', 'Dengeliyi kullan', 'Usar Equilibrado', 'Utiliser Équilibré', 'Ausgewogen verwenden'],
+  ['Quality is too high for this connection. Use Auto', 'Kalite bu bağlantı için fazla yüksek. Otomatiği kullan', 'La calidad es demasiado alta para esta conexión. Usar Automática', 'La qualité est trop élevée pour cette connexion. Utiliser Auto', 'Die Qualität ist für diese Verbindung zu hoch. Automatisch verwenden'],
+  ['Use Smallest', 'En küçüğü kullan', 'Usar Más pequeño', 'Utiliser Le plus petit', 'Kleinste verwenden']
 ]
 
 // Patterns for text that carries numbers or names. $1, $2 refer to captured groups; the same order for every language.
@@ -516,5 +520,9 @@ export const PATTERNS = [
   [/^(\d+) episodes$/, ['$1 bölüm', '$1 episodios', '$1 épisodes', '$1 Folgen']],
   [/^Available up to (.+), more as it downloads$/, ['$1 kadarı hazır, indirildikçe daha fazlası', 'Disponible hasta $1, más según se descarga', 'Disponible jusqu\'à $1, davantage au fil du téléchargement', 'Verfügbar bis $1, mehr während des Downloads']],
   [/^~(\d+) min$/, ['~$1 dk', '~$1 min', '~$1 min', '~$1 Min.']],
+  [/^(4K|1080p|720p) means a very large download, and this server's internet is about (\d+) Mbps\. Playback will start late and may pause\.$/, ['$1 çok büyük bir indirme demek ve bu sunucunun interneti yaklaşık $2 Mbps. Oynatma geç başlar ve duraksayabilir.', '$1 implica una descarga muy grande y el internet de este servidor ronda los $2 Mbps. La reproducción empezará tarde y puede pausarse.', '$1 implique un très gros téléchargement et l\'internet de ce serveur est d\'environ $2 Mbps. La lecture démarrera tard et pourra s\'interrompre.', '$1 bedeutet einen sehr großen Download, und das Internet dieses Servers hat etwa $2 Mbps. Die Wiedergabe startet spät und kann stocken.']],
+  [/^(4K|1080p|720p) needs about (\d+) Mbps and this device measures ([\d.]+)\. The picture will keep buffering\.$/, ['$1 için yaklaşık $2 Mbps gerekir, bu cihaz $3 ölçüyor. Görüntü sürekli takılır.', '$1 necesita unos $2 Mbps y este dispositivo mide $3. La imagen se cortará continuamente.', '$1 demande environ $2 Mbps et cet appareil mesure $3. L\'image va saccader sans cesse.', '$1 braucht etwa $2 Mbps, dieses Gerät misst $3. Das Bild wird ständig stocken.']],
+  [/^Best quality accepts files of tens of GB, and this server's internet is about (\d+) Mbps\. Downloads will be slow\.$/, ['En iyi kalite onlarca GB\'lık dosyaları kabul eder ve bu sunucunun interneti yaklaşık $1 Mbps. İndirmeler yavaş olur.', 'Mejor calidad acepta archivos de decenas de GB y el internet de este servidor ronda los $1 Mbps. Las descargas serán lentas.', 'Meilleure qualité accepte des fichiers de plusieurs dizaines de Go et l\'internet de ce serveur est d\'environ $1 Mbps. Les téléchargements seront lents.', 'Beste Qualität akzeptiert Dateien mit Dutzenden GB, und das Internet dieses Servers hat etwa $1 Mbps. Downloads werden langsam sein.']],
+  [/^Balanced picks files that need about (\d+) Mbps, and this server's internet is about (\d+) Mbps\. Downloads will be slow\.$/, ['Dengeli yaklaşık $1 Mbps gerektiren dosyalar seçer ve bu sunucunun interneti yaklaşık $2 Mbps. İndirmeler yavaş olur.', 'Equilibrado elige archivos que necesitan unos $1 Mbps y el internet de este servidor ronda los $2 Mbps. Las descargas serán lentas.', 'Équilibré choisit des fichiers qui demandent environ $1 Mbps et l\'internet de ce serveur est d\'environ $2 Mbps. Les téléchargements seront lents.', 'Ausgewogen wählt Dateien, die etwa $1 Mbps brauchen, und das Internet dieses Servers hat etwa $2 Mbps. Downloads werden langsam sein.']],
   [/^Tip: (.+)$/, null]
 ].filter(p => p[1])

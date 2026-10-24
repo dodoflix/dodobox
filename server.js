@@ -121,7 +121,7 @@ const hideAdult = async (items, safe, of = x => x) => {
 }
 const runtimeOf = m => parseInt(String(m.runtime || '').match(/\d+/)?.[0], 10) || 0
 const MODES = ['balanced', 'compact', 'lossless']
-const ctxOf = b => ({ sublang: b.sublang, audio: b.audio, mbps: speed.downMbps(), prefer: b.prefer || 'auto', display: +b.display || 0, mode: MODES.includes(b.mode) ? b.mode : 'balanced' })
+const ctxOf = b => ({ sublang: b.sublang, audio: b.audio, mbps: speed.downMbps(), prefer: b.prefer || 'auto', display: +b.display || 0, mode: MODES.includes(b.mode) ? b.mode : 'compact' })
 const modeOf = req => state.profile(pid(req))?.settings.sourceMode
 const audioOf = req => state.profile(pid(req))?.settings.lang
 const sublangOf = req => state.profile(pid(req))?.settings.sublang

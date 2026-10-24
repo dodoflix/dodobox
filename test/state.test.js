@@ -37,6 +37,7 @@ test('settings are validated and persisted to disk', () => {
   state.updateProfile(p.id, { settings: { sublang: 'eng', evil: 'x' } })
   assert.equal(state.profile(p.id).settings.sublang, 'eng')
   assert.equal('evil' in state.profile(p.id).settings, false)
+  assert.equal(state.profile(p.id).settings.sourceMode, 'compact')
   assert.equal(state.setSettings({ maxStorageGB: 1 }).maxStorageGB, 2)
   state.flush()
   const saved = JSON.parse(fs.readFileSync(path.join(tmp, 'state.json'), 'utf8'))
