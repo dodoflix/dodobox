@@ -653,7 +653,7 @@ function serveStatic (req, res, pathname) {
   const key = file + st.mtimeMs
   let hit = staticCache.get(key)
   if (!hit) {
-    const raw = fs.readFileSync(file)
+    const raw = pathname === '/sw.js' ? Buffer.from(fs.readFileSync(file, 'utf8').replace(/^const VERSION = '[^']*'/m, `const VERSION = '${VERSION}'`)) : fs.readFileSync(file)
     const type = MIME[path.extname(file)] || 'application/octet-stream'
     hit = { type, raw, gz: /text|javascript|svg|json/.test(type) ? zlib.gzipSync(raw) : null }
     staticCache.set(key, hit)

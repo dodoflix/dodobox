@@ -11,11 +11,11 @@ import { VIDEO_EXT, hasWords } from './release.js'
 import { sidecarsFor, SUB_FILE } from './sidecar.js'
 import { sendRange, MIME } from './range.js'
 import { log } from './log.js'
+import { readStamped, stamp } from './stamped.js'
 
 const FILE = path.join(DATA, 'local.json')
 const MIN_BYTES = +process.env.MIN_LOCAL_BYTES || 30e6
-let known = {}
-try { known = JSON.parse(fs.readFileSync(FILE, 'utf8')) } catch {}
+const known = readStamped(FILE) || {}
 let index = []
 let scanning = null
 
@@ -95,7 +95,7 @@ export function rescan () {
     }
     for (const p of Object.keys(known)) if (!files.some(f => f.p === p)) delete known[p]
     index = next
-    fs.writeFile(FILE, JSON.stringify(known), () => {})
+    fs.writeFile(FILE, stamp(known), () => {})
     log.info('local', 'scan done', { files: files.length, matched: index.length, ms: Date.now() - t0 })
     return index.length
   })().finally(() => { scanning = null })
