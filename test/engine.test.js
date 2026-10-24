@@ -5,6 +5,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import http from 'node:http'
 import path from 'node:path'
+import { spawnSync } from 'node:child_process'
 import WebTorrent from 'webtorrent'
 import { tmpdir } from './support/tmp.js'
 
@@ -109,6 +110,22 @@ test('the idle and watching rules decide who pauses', () => {
   assert.equal(engine.pauseReason({ pinned: true, lastUsed: 0 }, now, true, false), 'watching')
   assert.equal(engine.pauseReason({ pinned: true, lastUsed: 0 }, now, false, true), 'priority')
   assert.equal(engine.pauseReason({ pinned: true, lastUsed: now - 1e3, held: true }, now, true, true), null)
+})
+
+test('a torrent without metadata is only given up on after ten minutes of this run, not of the last one', () => {
+  const now = 1e9; const boot = now - 5e3
+  const old = { pinned: false, added: now - 3600e3, lastUsed: now - 1800e3 }
+  assert.equal(engine.lostMetadata(old, now, boot), false, 'just restarted: the metadata has not had time to arrive')
+  assert.equal(engine.lostMetadata(old, now + 11 * 60e3, boot), true)
+  assert.equal(engine.lostMetadata({ ...old, pinned: true }, now + 11 * 60e3, boot), false)
+})
+
+test('a library.json that cannot be parsed is kept aside when the engine starts', () => {
+  const dir = tmpdir('engine-lib')
+  fs.writeFileSync(path.join(dir, 'library.json'), '{"abc":{"hash"')
+  const run = spawnSync(process.execPath, ['-e', "const e = await import('./src/engine.js'); await e.shutdown()"], { env: { ...process.env, DATA_DIR: dir }, encoding: 'utf8' })
+  assert.equal(run.status, 0, run.stderr)
+  assert.ok(fs.readdirSync(dir).some(f => f.startsWith('library.json.unreadable-')))
 })
 
 test('the storage cap removes the least recently used downloads that nobody pinned or touched lately', async () => {

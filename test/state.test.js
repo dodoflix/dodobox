@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
+import { spawnSync } from 'node:child_process'
 import { tmpdir } from './support/tmp.js'
 
 const tmp = tmpdir('state')
@@ -144,4 +145,26 @@ test('data saved before values were checked is cleaned when the server starts', 
 test('profiles are capped so the API cannot grow the data file without limit', () => {
   while (state.profiles().length < 32) state.createProfile('P' + state.profiles().length)
   assert.throws(() => state.createProfile('One too many'), /Too many profiles/)
+})
+
+// Each case loads state.js in its own process, since the file is read once at import.
+function startWith (text) {
+  const dir = tmpdir('state-start')
+  fs.writeFileSync(path.join(dir, 'state.json'), text)
+  const run = spawnSync(process.execPath, ['-e', "await import('./src/state.js')"], { env: { ...process.env, DATA_DIR: dir, NO_DHT: '1' }, encoding: 'utf8' })
+  assert.equal(run.status, 0, run.stderr)
+  return { dir, files: fs.readdirSync(dir), state: fs.readFileSync(path.join(dir, 'state.json'), 'utf8') }
+}
+
+test('a state.json that cannot be parsed is kept aside and survives a start that changes nothing', () => {
+  const r = startWith('{"profiles":{"a":{"id":"a","name":"Ann"') // cut off mid-write
+  assert.equal(r.state, '{"profiles":{"a":{"id":"a","name":"Ann"')
+  assert.ok(r.files.some(f => f.startsWith('state.json.unreadable-')))
+})
+
+test('titles that fail the checks at start are copied aside before they are dropped', () => {
+  const profile = { id: 'a', name: 'Ann', history: { 'tv:x y': { type: 'tv', id: 'x y' }, 'movie:tt1': { type: 'movie', id: 'tt1', name: 'Film' } } }
+  const r = startWith(JSON.stringify({ profiles: { a: profile } }))
+  assert.ok(r.files.some(f => f.startsWith('state.json.before-clean-')))
+  assert.equal(r.state, JSON.stringify({ profiles: { a: profile } }), 'the file itself is untouched until something changes')
 })

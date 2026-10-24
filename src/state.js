@@ -10,7 +10,13 @@ const FILE = path.join(DATA, 'state.json')
 const COLORS = ['#f2a65a', '#e5646e', '#6fb7e9', '#7ad3a0', '#b58cf0', '#f0d264']
 
 let db = { profiles: {}, settings: {} }
-try { db = { ...db, ...JSON.parse(fs.readFileSync(FILE, 'utf8')) } } catch (e) { if (e.code !== 'ENOENT') log.error('state', 'state.json could not be read, starting empty', { err: e }) }
+// A file that cannot be read is kept aside before the empty start can replace it: an unreadable file is not an empty one.
+const keepCopy = (suffix, why, err) => {
+  const to = `${FILE}.${suffix}-${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}`
+  try { fs.copyFileSync(FILE, to) } catch { /* nothing readable to keep */ }
+  log.error('state', why, { copy: to, err })
+}
+try { db = { ...db, ...JSON.parse(fs.readFileSync(FILE, 'utf8')) } } catch (e) { if (e.code !== 'ENOENT') keepCopy('unreadable', 'state.json could not be read, starting empty', e) }
 
 function DEFAULTS_INIT () { return { sublang: 'off', lang: 'en', interests: [], quality: 'auto', sourceMode: 'compact', adultFilter: false, bestTranslation: false, discordPresence: true, onboarded: false } }
 
@@ -34,6 +40,8 @@ const settingOk = (k, v) => (typeof DEFAULTS[k] === 'string' ? typeof v === 'str
 // Data saved before values were checked (or edited by hand) is cleaned once at start, so one bad entry cannot break a profile's pages.
 const keep = o => { try { return { ...o, ...entry(o) } } catch { return null } }
 const keepAll = m => Object.fromEntries(Object.entries(m && typeof m === 'object' ? m : {}).map(([k, v]) => [k, keep(v)]).filter(([, v]) => v))
+const titles = () => Object.values(db.profiles).reduce((n, p) => n + [p.history, p.ratings, p.recent].reduce((m, o) => m + Object.keys(o || {}).length, 0) + (p.list?.length || 0), 0)
+const before = titles()
 for (const p of Object.values(db.profiles)) {
   p.history = keepAll(p.history); p.ratings = keepAll(p.ratings); p.recent = keepAll(p.recent); p.progress ||= {}
   p.list = (Array.isArray(p.list) ? p.list : []).map(keep).filter(Boolean)
@@ -42,18 +50,23 @@ for (const p of Object.values(db.profiles)) {
   delete p.settings.autoNext // the next episode always follows the credits now
   for (const [k, v] of Object.entries(p.settings)) if (Object.hasOwn(DEFAULTS, k) && !settingOk(k, v)) p.settings[k] = DEFAULTS_INIT()[k]
 }
+if (titles() < before) keepCopy('before-clean', `${before - titles()} saved titles failed the checks and were dropped`)
 
-let timer
+let timer; let dirty = false
 function persist () {
+  dirty = true
   clearTimeout(timer)
   timer = setTimeout(flush, 400)
 }
+// Only what changed is written: a start that read nothing must not replace the file on the way out.
 export function flush () {
   clearTimeout(timer)
+  if (!dirty) return
   const tmp = FILE + '.tmp'
   try {
     fs.writeFileSync(tmp, JSON.stringify(db))
     fs.renameSync(tmp, FILE)
+    dirty = false
   } catch (e) { log.error('state', 'could not save state.json', { err: e }); throw e }
 }
 
