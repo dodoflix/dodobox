@@ -6,7 +6,7 @@
 
 A self-hosted streaming app for movies, series and anime. Pick a title, press play. Works on phones, laptops and TVs on your home network, with a profile for each person.
 
-<p align="center"><img src="docs/screenshots/banner.jpg" alt="Dodobox on desktop and phone" width="100%"></p>
+<p align="center"><img src="docs/screenshots/banner.jpg" alt="Pick a title. Press play. Dodobox on a laptop and two phones" width="100%"></p>
 
 Start it (needs [Node.js](https://nodejs.org) 24+):
 
