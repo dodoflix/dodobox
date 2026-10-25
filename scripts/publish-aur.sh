@@ -3,6 +3,8 @@
 # Usage: AUR_SSH_PRIVATE_KEY=... TAG=v1.2.3 publish-aur.sh <PKGBUILD.in> <package> <deb>
 set -eu
 
+[ -n "${AUR_SSH_PRIVATE_KEY:-}" ] || { echo "AUR_SSH_PRIVATE_KEY is not set; skipping the AUR"; exit 0; }
+
 tpl=$1 pkg=$2 deb=$3
 ver=${TAG#v}
 # https://wiki.archlinux.org/title/AUR_submission_guidelines#Authentication

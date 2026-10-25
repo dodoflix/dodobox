@@ -64,7 +64,7 @@ One-time setup:
 
 - Settings, Pages, Source: GitHub Actions.
 - `GPG_PRIVATE_KEY` (`gpg --armor --export-secret-keys <id>`) and `GPG_PASSPHRASE` secrets for the repository signing key. The public half is served as `key.asc`.
-- `AUR_SSH_PRIVATE_KEY` secret: an SSH key whose public half is on the maintainer's AUR account. The first push creates the package.
+- `AUR_SSH_PRIVATE_KEY` secret: an SSH key whose public half is on the maintainer's AUR account. The first push creates the package. Without it the AUR step is skipped.
 
 ## Scope
 
