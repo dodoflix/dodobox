@@ -55,7 +55,7 @@ export const rows = [
   'Udostępnianie'
 ]
 export const patterns = [
-  'Cześć $1, dostosuj to do siebie', 'Sezon $1', 'Sezon $1 · Odcinek $2', 'Wznów S$1 O$2', 'S$1 O$2$3', 'Premiera $1', '$1 godz. $2 min', '$1 min', '$1zostało $2 godz. $3 min', '$1zostało $2 min',
+  'Cześć $1, dostosuj to do siebie', 'Sezon $1', 'Sezon $1 · Odcinek $2', 'Odcinek $1', 'Wznów S$1 O$2', 'S$1 O$2$3', 'Premiera $1', '$1 godz. $2 min', '$1 min', '$1zostało $2 godz. $3 min', '$1zostało $2 min',
   'Pokaż polecany tytuł $1 z $2', 'Odtwórz $1', 'Znaleziono tytułów: $1', 'Szukam w: $1', 'Użyto $1', 'Limit $1', 'Użyto $1 z $2. Najstarsze nieobejrzane pobrania są usuwane automatycznie, gdy miejsce się skończy.',
   'Automatyczna wybiera najlepszą wersję dla połączenia i ekranu (internet tego serwera: około $1 Mb/s). Wybierz poziom, aby go wymusić.', 'Automatyczna wybiera najlepszą wersję dla połączenia i ekranu. Wybierz poziom, aby go wymusić.',
   'Enkoder wideo: programowy', 'Enkoder wideo: $1', 'Brak wyników dla „$1". Sprawdź pisownię lub użyj mniej słów.', 'Buforowanie · $1', 'Odtwarzanie na $1 · $2', '$1p dla Twojego połączenia', 'Dodano odcinków do pobranych: $1', 'Pobieranie $1/$2', 'Bo spodobało Ci się $1', '$1 · częściowe',

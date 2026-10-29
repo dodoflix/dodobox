@@ -97,6 +97,10 @@ async function anilist (variables) {
   return j.data.Page.media
 }
 
+// Catalogs fill an episode they have no name for with a placeholder; it is treated as no title.
+export const NO_TITLE = /^(untitled|episode \d+)$/i
+const named = t => (t && !NO_TITLE.test(t.trim()) ? t : '')
+
 export const aniItem = m => {
   // A running show lists only what has aired; the total episode count would offer episodes nobody has released yet.
   const aired = m.nextAiringEpisode ? m.nextAiringEpisode.episode - 1 : m.episodes ?? 0
@@ -125,7 +129,7 @@ export const aniItem = m => {
     originalLanguage: ANI_LANG[m.countryOfOrigin] || null,
     mal: m.idMal,
     videos: Array.from({ length: movie ? 1 : aired }, (_, i) => ({
-      season: 1, episode: i + 1, title: eps[i + 1]?.title || (movie ? m.title.english || m.title.romaji : `Episode ${i + 1}`), thumbnail: proxied(eps[i + 1]?.thumbnail)
+      season: 1, episode: i + 1, title: named(eps[i + 1]?.title) || (movie ? m.title.english || m.title.romaji : `Episode ${i + 1}`), thumbnail: proxied(eps[i + 1]?.thumbnail)
     }))
   }
 }
@@ -251,7 +255,7 @@ export const meta = (type, id) => {
           for (const e of [k[v.episode], zip?.art[v.episode]]) {
             if (!e) continue
             if (!v.thumbnail && e.thumbnail) v.thumbnail = proxied(e.thumbnail)
-            if (/^Episode \d+$/.test(v.title) && e.title && !/^Episode \d+$/.test(e.title)) v.title = e.title
+            if (!named(v.title) && named(e.title)) v.title = e.title
             if (e.released) v.released = e.released
           }
         }
@@ -270,7 +274,7 @@ export const meta = (type, id) => {
     if (type === 'series') {
       // Some entries carry the number as `number` and have no `episode`.
       item.videos = (m.videos || []).map(v => ({ ...v, episode: v.episode ?? v.number })).filter(v => v.season > 0 && v.episode != null).map(v => ({
-        season: v.season, episode: v.episode, title: v.name || v.title || `Episode ${v.episode}`,
+        season: v.season, episode: v.episode, title: named(v.name) || named(v.title) || `Episode ${v.episode}`,
         thumbnail: proxied(v.thumbnail), released: v.released
       })).sort((a, b) => a.season - b.season || a.episode - b.episode)
     }

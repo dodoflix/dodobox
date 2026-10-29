@@ -1,6 +1,6 @@
 import { cget, api, NOW, LATER } from './api.js'
 import { S, progress, inList, toggleList, ratingOf, rate, removeHistory } from './session.js'
-import { $, EP_PAGE, esc, icon, enc, mins, showSize, sized, fullWidth, hue, lowres, thumbW, known, canTrailer, slowLink, toast } from './util.js'
+import { $, EP_PAGE, esc, epName, icon, enc, mins, showSize, sized, fullWidth, hue, lowres, thumbW, known, canTrailer, slowLink, toast } from './util.js'
 import { dragScroll } from './drag.js'
 import { glow } from './ambient.js'
 import { displayPx } from './bandwidth.js'
@@ -148,11 +148,11 @@ export async function title (root, type, id) {
       // The catalog gives only one typical length for the show (marked ~); the real one is known once the episode has been played.
       const len = p ? mins(p[1]) : m.runtime
       const d = v.released ? new Date(v.released).toLocaleDateString(document.documentElement.lang || undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''
-      if (future) return `<div class="ep-row"><div class="ep soon" aria-disabled="true"><span class="n">${v.episode}</span><span class="th" style="--h:${hue(m.name)}"><b class="num" aria-hidden="true">${v.episode}</b></span><span><span class="t" translate="no">${esc(v.title)}</span><br><span class="d">Airs ${d}</span></span></div></div>`
+      if (future) return `<div class="ep-row"><div class="ep soon" aria-disabled="true"><span class="n">${v.episode}</span><span class="th" style="--h:${hue(m.name)}"><b class="num" aria-hidden="true">${v.episode}</b></span><span><span class="t">${epName(v)}</span><br><span class="d">Airs ${d}</span></span></div></div>`
       return `<div class="ep-row"><a class="ep" href="${watchHref(type, id, v.season, v.episode)}">
         <span class="n">${v.episode}</span>
         <span class="th" ${m.background || m.poster ? `data-art="url('${esc(sized(m.background || m.poster, thumbW()))}')"` : ''} style="--h:${hue(m.name)}"><b class="num" aria-hidden="true">${v.episode}</b>${v.thumbnail ? `<img alt="" data-src="${esc(sized(v.thumbnail, thumbW()))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}${r > 0.02 ? `<span class="prog"><i style="width:${Math.min(100, r * 100)}%"></i></span>` : ''}<span class="go">${icon('play')}</span>${r > 0.93 ? `<span class="ok">${icon('check')}</span>` : ''}</span>
-        <span><span class="t" translate="no">${esc(v.title)}</span><br><span class="d">${[future ? 'Airs ' + d : d, len && (p ? '' : '~') + `<span>${esc(len)}</span>`, p && r < 0.95 && `${mins(Math.max(60, p[1] - p[0]))} left`].filter(Boolean).join(' · ')}</span></span>
+        <span><span class="t">${epName(v)}</span><br><span class="d">${[future ? 'Airs ' + d : d, len && (p ? '' : '~') + `<span>${esc(len)}</span>`, p && r < 0.95 && `${mins(Math.max(60, p[1] - p[0]))} left`].filter(Boolean).join(' · ')}</span></span>
 </a><button class="dl" data-s="${v.season}" data-e="${v.episode}" aria-label="Download">${icon('down')}</button></div>`
     }).join('') || '<p class="dim">No episodes listed yet.</p>'
   }

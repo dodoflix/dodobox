@@ -55,7 +55,7 @@ export const rows = [
   'Compartilhamento'
 ]
 export const patterns = [
-  'Olá $1, deixe com a sua cara', 'Temporada $1', 'Temporada $1 · Episódio $2', 'Continuar T$1 E$2', 'T$1 E$2$3', 'Estreia em $1', '$1 h $2 min', '$1 min', '$1faltam $2 h $3 min', '$1faltam $2 min',
+  'Olá $1, deixe com a sua cara', 'Temporada $1', 'Temporada $1 · Episódio $2', 'Episódio $1', 'Continuar T$1 E$2', 'T$1 E$2$3', 'Estreia em $1', '$1 h $2 min', '$1 min', '$1faltam $2 h $3 min', '$1faltam $2 min',
   'Mostrar destaque $1 de $2', 'Reproduzir $1', '$1 títulos encontrados', 'Procurando em: $1', '$1 usados', 'Limite de $1', '$1 de $2 usados. Os downloads mais antigos não assistidos são removidos automaticamente quando o espaço acaba.',
   'Automática escolhe a melhor versão para sua conexão e tela (internet deste servidor: cerca de $1 Mbps). Escolha um nível para forçar.', 'Automática escolhe a melhor versão para sua conexão e tela. Escolha um nível para forçar.',
   'Codificador de vídeo: software', 'Codificador de vídeo: $1', 'Nada corresponde a "$1". Verifique a ortografia ou use menos palavras.', 'Carregando · $1', 'Reproduzindo em $1 · $2', '$1p para a sua conexão', '$1 episódios adicionados aos seus downloads', 'Download $1/$2', 'Porque você gostou de $1', '$1 · parcial',
