@@ -241,12 +241,21 @@ export async function syncSubtitle ({ url, duration, ranges, near, cues, signalA
   else if (!solid && spots.length) {
     try {
       const { ws, l } = window(spots[0]); const sig = await signal(ws, l)
-      let best = null
+      const rest = []
+      for (const c of spots.slice(1)) { const w = window(c); rest.push({ ...w, sig: await signal(w.ws, w.l) }) }
+      // One window cannot tell the ratios apart (every one of them peaks about the same in a wide search), so the ratio that gives
+      // the most other windows the same offset wins; a wrong one lets them differ by the drift between them.
+      let best = null; let single = null
       for (const r of RATIOS) {
         const m = align(sig, ws, warp(cues, r), 200)
-        if (m && m.peak >= MIN_PEAK && (!best || m.peak > best.peak * (r === 1 ? 1 : 1.12))) best = { peak: m.peak, ratio: r }
+        if (!m || m.peak < MIN_PEAK) continue
+        if (!single || m.peak > single.peak * (r === 1 ? 1 : 1.12)) single = { peak: m.peak, ratio: r }
+        const same = rest.map(w => align(w.sig, w.ws, warp(cues, r), 200)).filter(n => n && n.peak >= MIN_PEAK && Math.min(m.z, n.z) >= MIN_Z && Math.abs(m.d - n.d) <= 1)
+        if (!same.length) continue
+        const cand = { n: same.length, peak: Math.min(m.peak, ...same.map(n => n.peak)), ratio: r }
+        if (!best || cand.n > best.n || (cand.n === best.n && cand.peak > best.peak * (r === 1 ? 1 : 1.12))) best = cand
       }
-      ratio = best ? best.ratio : 1
+      ratio = (best || single)?.ratio ?? 1
       first = await measure(ws + l / 2, 200, ratio)
     } catch { /* fall through to the per-window pass */ }
   }

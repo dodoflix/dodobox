@@ -57,6 +57,23 @@ test('syncSubtitle recovers offset, frame-rate drift and splices', async () => {
   assert.ok(Math.abs(mapTime(r, late.s - 92) - late.s) < 0.15)
 })
 
+test('the frame rate is read from windows that agree, not from one window whose speech only half matches', async () => {
+  const media = dialogue(3600, 13)
+  // the audio carries only part of what the subtitle lists, plus music and noise the subtitle does not
+  const r = rng(21)
+  const heard = media.filter(() => r() < 0.6).concat(dialogue(3600, 503).filter(() => r() < 0.3))
+  const signalAt = (ws, len) => frames(heard.map(b => ({ s: b.s - ws, e: b.e - ws })).filter(b => b.e > 0 && b.s < len), len, 0.4, Math.round(ws) + 1)
+  // 25 fps subtitles on 23.976 fps film
+  const k = 23.976 / 25
+  const res = await syncSubtitle({ url: 'unused', duration: 3600, cues: media.map(b => ({ s: b.s * k + 1.2, e: b.e * k + 1.2 })), signalAt })
+  assert.ok(res && !res.none, 'no answer')
+  assert.ok(Math.abs(res.ratio - 25 / 23.976) < 1e-6, `ratio ${res.ratio}`)
+  for (const t of [300, 1500, 3200]) {
+    const want = media.find(b => b.s > t).s
+    assert.ok(Math.abs(mapTime(res, want * k + 1.2) - want) < 0.3, `drift at ${t}`)
+  }
+})
+
 test('syncSubtitle syncs from a stretch around the playhead when the start of the file is not downloaded', async () => {
   const media = dialogue(7000, 51)
   const read = []
