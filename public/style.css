@@ -349,6 +349,8 @@ select.field { padding-right: .5rem; }
 .scrub:hover .knob, .scrub.drag .knob, .scrub:focus-visible .knob { transform: scale(1); }
 .scrub .tip { position: absolute; bottom: 1.5rem; transform: translateX(-50%); padding: .2rem .55rem; border-radius: var(--r-tag); background: rgb(0 0 0 / .8); font-size: var(--fs-s); font-weight: 700; font-variant-numeric: tabular-nums; pointer-events: none; opacity: 0; }
 .scrub .fr { position: absolute; bottom: 3.5rem; left: clamp(5.5rem, var(--at, 0%), calc(100% - 5.5rem)); transform: translateX(-50%); width: 11rem; aspect-ratio: 16 / 9; border-radius: var(--r-thumb); background: #000 no-repeat; box-shadow: var(--shadow-float); pointer-events: none; opacity: 0; }
+.scrub .fr .sk { display: none; position: absolute; inset: 0; border-radius: inherit; }
+.scrub .fr.wait .sk { display: block; }
 .scrub:hover .tip, .scrub.drag .tip, .scrub:hover .fr, .scrub.drag .fr { opacity: 1; }
 .ctrls { display: flex; align-items: center; gap: .15rem; }
 .ctrls .sp { flex: 1; }

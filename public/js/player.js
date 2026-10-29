@@ -4,7 +4,7 @@ import { S, progress, recordProgress, setSetting } from './session.js'
 import { nowPlaying, pingPresence } from './presence.js'
 import { mapTime, offsetAt, classify } from './syncmap.js'
 import { looksEnglish } from './english.js'
-import { previewLayout } from './previewmap.js'
+import { previewLayout, chunkShape } from './previewmap.js'
 import { $, EP_PAGE, esc, epName, icon, enc, clock, bytes, store, sleep, toast, isTV, isSafari, lowres, sized, thumbW, hue } from './util.js'
 import { glow } from './ambient.js'
 import { onBack } from './nav.js'
@@ -59,7 +59,7 @@ export async function watch (type, id, season, episode) {
       <div class="ttl"><b translate="no">${esc(m.name)}</b>${flat ? '' : `<span><span>S${season} E${episode}</span>${epTitle ? ` · <span translate="no">${esc(epTitle)}</span>` : ''}</span>`}</div></div>
     <div class="pl-center"><button id="big" aria-label="Play or pause">${icon('play')}</button></div>
     <div class="pl-bottom">
-      <div class="scrub" id="scrub" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0"><div class="track"><div class="buf"></div><div class="done"></div><div class="knob"></div><div class="fr" aria-hidden="true" hidden></div><div class="tip">0:00</div></div></div>
+      <div class="scrub" id="scrub" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0"><div class="track"><div class="buf"></div><div class="done"></div><div class="knob"></div><div class="fr" aria-hidden="true" hidden><i class="sk"></i></div><div class="tip">0:00</div></div></div>
       <div class="ctrls">
         <button class="cbtn" id="pp" aria-label="Play">${icon('play')}</button>
         <button class="cbtn hide-s" id="b10" aria-label="Back 10 seconds">${icon('back10')}</button>
@@ -192,23 +192,45 @@ export async function watch (type, id, season, episode) {
   v.addEventListener('progress', paintTime); v.addEventListener('durationchange', paintTime)
   v.addEventListener('seeking', paintTime) // timeupdate only follows once the new spot has loaded
   const at2 = e => { const r = scrub.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * (v.duration || 0) }
-  // Frames for the seek bar come from a sheet the server makes once the file is complete; until then the tip shows the time alone.
-  let sheet = null; let sheetT
-  const loadPreview = (my, tries = 0) => {
-    clearTimeout(sheetT)
-    const url = `/api/preview/${hash}/${st.fileIdx}`
-    const img = new Image()
-    img.onload = () => { if (my === runId && !dead) sheet = { url, ...previewLayout(info.duration) } }
-    img.onerror = () => { if (my === runId && !dead && tries < 20) sheetT = setTimeout(() => loadPreview(my, tries + 1), Math.min(60000, 5000 * 2 ** tries)) }
-    img.src = url
+  // Frames for the seek bar come from the server a section of the video at a time, as soon as the part of the file a section sits in is on disk:
+  // the sections near the playing spot first, and the one under the pointer at once. Until a section is there the frame shows it is loading;
+  // a section that cannot be had yet leaves the time alone and is asked for again later.
+  let pv = null
+  const cooling = k => { const f = pv.fail.get(k); return !!f && Date.now() - f.at < Math.min(60000, 5000 * 2 ** (f.n - 1)) }
+  const getChunk = k => {
+    if (pv.ready.has(k)) return Promise.resolve(true)
+    if (pv.busy.has(k)) return pv.busy.get(k)
+    const my = pv.my; const url = `/api/preview/${hash}/${st.fileIdx}/${k}`
+    const p = new Promise(done => { const img = new Image(); img.onload = () => done(true); img.onerror = () => done(false); img.src = url })
+      .then(ok => { if (pv?.my === my && !dead) { if (ok) { pv.ready.set(k, url); pv.fail.delete(k) } else pv.fail.set(k, { n: (pv.fail.get(k)?.n || 0) + 1, at: Date.now() }) } return ok }).finally(() => pv?.busy.delete(k))
+    pv.busy.set(k, p)
+    return p
+  }
+  async function fillPreview () {
+    const my = pv.my
+    while (pv?.my === my && !dead && pv.ready.size < pv.L.chunks) {
+      const cur = Math.floor(v.currentTime / pv.L.step / pv.L.per) % pv.L.chunks
+      const k = Array.from({ length: pv.L.chunks }, (_, j) => (cur + j) % pv.L.chunks).find(c => !pv.ready.has(c) && !pv.busy.has(c) && !cooling(c))
+      if (k === undefined) await sleep(2000); else await getChunk(k)
+    }
   }
   const frame = (t, at) => {
-    const fr = $('.fr', scrub); fr.hidden = !sheet
-    if (!sheet) return
-    const i = Math.min(sheet.n - 1, Math.floor(t / sheet.step))
-    if (fr._u !== sheet.url) { fr._u = sheet.url; fr.style.backgroundImage = `url(${sheet.url})`; fr.style.backgroundSize = `${sheet.cols * 100}% ${sheet.rows * 100}%` }
-    fr.style.backgroundPosition = `${sheet.cols > 1 ? i % sheet.cols / (sheet.cols - 1) * 100 : 0}% ${sheet.rows > 1 ? Math.floor(i / sheet.cols) / (sheet.rows - 1) * 100 : 0}%`
+    const fr = $('.fr', scrub)
+    if (!pv) { fr.hidden = true; return }
+    const { L } = pv; const i = Math.min(L.n - 1, Math.floor(t / L.step)); const k = Math.floor(i / L.per); const url = pv.ready.get(k)
+    const waiting = !url && !cooling(k)
+    fr.hidden = !url && !waiting
+    fr.classList.toggle('wait', waiting)
     fr.style.setProperty('--at', at)
+    pv.hover = [t, at]
+    if (!url) {
+      fr._u = ''; fr.style.backgroundImage = 'none'
+      if (waiting) getChunk(k).then(() => { if (pv && scrub.matches(':hover, .drag')) frame(...pv.hover) })
+      return
+    }
+    const { cols, rows } = chunkShape(L, k); const j = i - k * L.per
+    if (fr._u !== url) { fr._u = url; fr.style.backgroundImage = `url(${url})`; fr.style.backgroundSize = `${cols * 100}% ${rows * 100}%` }
+    fr.style.backgroundPosition = `${cols > 1 ? j % cols / (cols - 1) * 100 : 0}% ${rows > 1 ? Math.floor(j / cols) / (rows - 1) * 100 : 0}%`
   }
   const tip = e => { const t = at2(e); const el = $('.tip', scrub); const at = t / (v.duration || 1) * 100 + '%'; el.textContent = clock(t); el.style.left = at; frame(t, at); return t }
   scrub.addEventListener('pointermove', e => { const t = tip(e); if (dragging) { scrub._t = t; paintTime() } })
@@ -863,7 +885,7 @@ export async function watch (type, id, season, episode) {
     if (dead) return
     const my = ++runId
     try {
-      hls?.destroy(); v.removeAttribute('src'); v.load(); info = null; sheet = null; clearTimeout(sheetT); subSel = null; subs = []; marks = {}; paintSkip()
+      hls?.destroy(); v.removeAttribute('src'); v.load(); info = null; pv = null; subSel = null; subs = []; marks = {}; paintSkip()
       setLoad({ title: m.name, line: 'Finding the best version...', pct: null, actions: '' })
       showLoadWarn()
       const began = Date.now()
@@ -888,7 +910,8 @@ export async function watch (type, id, season, episode) {
         }
       }
       if (dead || !info) return
-      loadPreview(my)
+      pv = { L: previewLayout(info.duration), ready: new Map(), busy: new Map(), fail: new Map(), my, hover: null }
+      fillPreview()
       audio = pickAudio(); chooseMode()
       report('info', 'player: version ready', { hash, ms: Date.now() - began, mode, direct: info.direct, vcodec: info.vcodec, acodec: info.acodec, w: info.width, h: info.height, durationSec: Math.round(info.duration), audioTracks: info.audio?.length, subTracks: info.subs?.length, peers: st.peers, speedKBs: Math.round(st.speed / 1e3) })
       $('#m-audio', root).hidden = !(info.audio?.length > 1)
@@ -1051,7 +1074,7 @@ export async function watch (type, id, season, episode) {
   addEventListener('pagehide', save)
 
   const cleanup = () => {
-    dead = true; nowPlaying(null); detachParty?.(); save(); if (hash && st?.fileIdx != null) navigator.sendBeacon?.(`/api/release/${hash}/${st.fileIdx}`); clearTimeout(refreshT); clearTimeout(sheetT); stopTranslating(); clearTimeout(wd); clearTimeout(syncTimer); clearTimeout(probeTimer); hls?.destroy(); timers.forEach(clearInterval); clearTimeout(idleT); clearTimeout(upT); clearTimeout(clickT)
+    dead = true; nowPlaying(null); detachParty?.(); save(); if (hash && st?.fileIdx != null) navigator.sendBeacon?.(`/api/release/${hash}/${st.fileIdx}`); clearTimeout(refreshT); pv = null; stopTranslating(); clearTimeout(wd); clearTimeout(syncTimer); clearTimeout(probeTimer); hls?.destroy(); timers.forEach(clearInterval); clearTimeout(idleT); clearTimeout(upT); clearTimeout(clickT)
     document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', fsChange); document.removeEventListener('webkitfullscreenchange', fsChange); removeEventListener('pagehide', save)
     document.removeEventListener('visibilitychange', onVisible); removeEventListener('orientationchange', onRotate); subRO.disconnect()
     if (onBack.handler === backHandler) onBack.handler = null

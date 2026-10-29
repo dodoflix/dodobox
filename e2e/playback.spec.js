@@ -77,6 +77,22 @@ test('hovering the seek bar shows the frame at that spot above the time, kept in
   await ctx.close()
 })
 
+test('the frame under the pointer shows it is loading until its section of frames arrives', async () => {
+  const { ctx, page } = await newPage(base)
+  await signIn(page, base, 'Ada')
+  let release; const held = new Promise(r => { release = r })
+  await page.route('**/api/preview/**', async route => { const res = await route.fetch(); await held; await route.fulfill({ response: res }) })
+  await page.goto(`${base}/#/watch/movie/${MOVIE.id}`)
+  await playing(page)
+  const box = await page.locator('#scrub').boundingBox()
+  const fr = page.locator('#scrub .fr')
+  for (let i = 0; i < 40 && !(await fr.evaluate(e => e.classList.contains('wait') && !e.hidden)); i++) { await page.mouse.move(box.x + box.width * .4, box.y + box.height / 2); await page.mouse.move(box.x + box.width * .4 + 1, box.y + box.height / 2); await page.waitForTimeout(250) }
+  assert.ok(await fr.evaluate(e => e.classList.contains('wait') && !e.hidden), 'a loading frame is shown while the section is made')
+  release()
+  await page.waitForFunction(() => { const e = document.querySelector('#scrub .fr'); return !e.hidden && !e.classList.contains('wait') && e.style.backgroundImage.includes('/api/preview/') })
+  await ctx.close()
+})
+
 test('a subtitle filed under the wrong language is skipped for the next one in the language', async () => {
   const english = Array.from({ length: 30 }, (_, i) => `${i + 1}\n00:00:${String(i + 1).padStart(2, '0')},000 --> 00:00:${String(i + 1).padStart(2, '0')},800\nYou have what they would never say about this, but I am not sure that you are here`).join('\n\n')
   stub('opensubtitles-v3.strem.io', () => json({ subtitles: [
