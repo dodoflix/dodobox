@@ -3,6 +3,7 @@ import { report } from './report.js'
 import { S, progress, recordProgress, setSetting } from './session.js'
 import { nowPlaying, pingPresence } from './presence.js'
 import { mapTime, offsetAt, classify } from './syncmap.js'
+import { looksEnglish } from './english.js'
 import { $, EP_PAGE, esc, icon, enc, clock, bytes, store, sleep, toast, isTV, isSafari, lowres, sized, thumbW, hue } from './util.js'
 import { glow } from './ambient.js'
 import { onBack } from './nav.js'
@@ -553,7 +554,9 @@ export async function watch (type, id, season, episode) {
         refreshT = setTimeout(() => subSel === entry && loadEntry(entry, auto, true), prep != null ? 5000 : 20000)
       } else if (better != null) entry.status = ''
       entry.retried = false
-      baseCues = parseVtt(text); applyCues(); drawMenu()
+      const parsed = parseVtt(text)
+      if (auto && !entry.embedded && !entry.translated && entry.lang !== 'eng' && looksEnglish(parsed.map(c => c.t))) return misfiled(entry)
+      baseCues = parsed; applyCues(); drawMenu()
       if (!syncRes && restoreFix(entry)) runSync(entry, 0, true) // the server keeps its own result to shift the streams it serves; the saved one shows meanwhile
       else if (!syncRes && syncState !== 'checking') runSync(entry)
       const dur = v.duration || info?.duration || 0; const last = cues.length ? cues.at(-1).e : 0
@@ -572,6 +575,12 @@ export async function watch (type, id, season, episode) {
         // A provider's file can fail once and load on the next try; that is retried quietly before the viewer is told.
         if (!entry.embedded && !entry.retried) { entry.retried = true; setTimeout(() => gen === subGen && subSel === entry && loadEntry(entry, auto), 1500); return }
         toast('This subtitle could not be loaded.'); if (entry.embedded) { entry.status = ''; drawMenu() } } }
+  }
+  // A file filed under a language it is not in is dropped from the list, and the automatic pick moves on to the next one.
+  const wrong = new Set()
+  function misfiled (entry) {
+    wrong.add(entry.src); subs = subs.filter(x => x !== entry); subSel = null
+    drawMenu(); autoSub(subsDone)
   }
   const embeddedOk = s => !s.embedded || st.phase === 'done' || (st.length && info?.duration && (st.readable ?? st.downloaded) / st.length * info.duration * 0.85 > 60)
 
@@ -640,7 +649,7 @@ export async function watch (type, id, season, episode) {
     const apply = list => {
       const known = new Map(subs.filter(x => x.src).map(x => [x.src, x]))
       const own = x => { const k = known.get(x.src); if (k) { k.best = x.best; k.limited ||= x.limited } return k || x }
-      const ext = list.map(s => ({ lang: s.lang, label: LANG(s.lang) + (s.label.match(/ #\d+$/)?.[0] || ''), hint: s.hint, limited: s.limited, best: s.best && !s.limited, forced: s.forced, src: `/api/sub?url=${enc(s.url)}${s.enc ? '&enc=' + enc(s.enc) : ''}` })).map(own)
+      const ext = list.map(s => ({ lang: s.lang, label: LANG(s.lang) + (s.label.match(/ #\d+$/)?.[0] || ''), hint: s.hint, limited: s.limited, best: s.best && !s.limited, forced: s.forced, src: `/api/sub?url=${enc(s.url)}${s.enc ? '&enc=' + enc(s.enc) : ''}` })).filter(x => !wrong.has(x.src)).map(own)
       subs = [...embedded, ...ext]
       const base = subs.find(x => x.lang === 'eng' && !x.forced && !x.pending && !x.limited && embeddedOk(x))
       if (base) for (const [c2, c3] of targets) if (supported.includes(c2)) subs.push(own({ lang: c3, label: 'Auto-translated', hint: 'Translated from English', src: `/api/sub/translate?src=${enc(base.src)}&to=${c2}${S.me.settings.bestTranslation ? '&hq=1' : ''}`, translated: { src: base.src, to: c2 }, manualOnly: true }))
