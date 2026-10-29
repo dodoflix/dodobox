@@ -24,6 +24,8 @@ import { skipsFor } from './src/skips.js'
 import { chartItems } from './src/charts.js'
 import * as state from './src/state.js'
 import { report as presence } from './src/presence.js'
+import { sheet } from './src/preview.js'
+import { previewLayout } from './public/js/previewmap.js'
 import { image, remote } from './src/images.js'
 import { lanAddresses, openBrowser } from './src/net.js'
 import { encoder, FFMPEG } from './src/bin.js'
@@ -485,6 +487,15 @@ const routes = [
     const m = c.type === 'anime' ? await meta(c.type, c.id).catch(swallow('meta lookup', null)) : null
     if (m?.movie) return json(req, res, {})
     json(req, res, await skipsFor({ type: c.type, id: c.id, season: c.season, episode: c.episode, mal: m?.mal }, { chapters: info.chapters, duration: info.duration }))
+  }],
+  // Frames for the seek bar, one section of the video per request, read from disk: a download still going is not asked for pieces, so a section is made once the part of the file it sits in has arrived.
+  ['GET', /^\/api\/preview\/(\w+)\/(\d+)\/(\d+)$/, async (req, res, [, h, i, k]) => {
+    const r = await readable(h, i)
+    const L = previewLayout(r?.duration); const from = k * L.per * L.step; const to = Math.min(r?.duration, from + L.per * L.step)
+    if (!r?.duration || !r.ranges.some(([a, b]) => a <= from && to <= b)) return fail(req, res, 404, 'not ready')
+    const jpg = await sheet(r.file, `${h}:${i}`, r.duration, +k, r.done)
+    if (!jpg) return fail(req, res, 404, 'no preview')
+    res.writeHead(200, { 'content-type': 'image/jpeg', 'content-length': jpg.length, 'cache-control': 'private, max-age=86400' }).end(jpg)
   }],
   ['GET', /^\/raw\/(\w+)\/(\d+)$/, (req, res, [, h, i]) => local.isLocal(h) ? local.serve(h, req, res) : engine.serve(h, +i, req, res)],
   // Safari hands HLS to AirPlay by URL, so only subtitles inside the stream reach a TV; with `sl` or `sub` the playlist becomes a master playlist with a WebVTT rendition.

@@ -265,5 +265,6 @@ test('the log holds requests, torrent events, ffmpeg runs and page errors, and n
   await get('/api/log', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ level: 'error', msg: 'video element error', f: { code: 4 } }) })
   const text = fs.readFileSync(path.join(process.env.DATA_DIR, 'logs', 'dodobox.log'), 'utf8')
   for (const want of [/\[start\] listening/, /\[http\] GET \/api\/library/, /\[torrent\] ready hash=/, /\[probe\] ok/, /\[transcode\] segment/, /\[client\] video element error code=4/, /\[lock\] wrong PIN/]) assert.match(text, want)
-  assert.doesNotMatch(text, /1357|9999/)
+  // a PIN stands alone in a log line; the same digits inside a port, hash or time are not one
+  assert.doesNotMatch(text, /(?<![0-9a-zA-Z])(1357|9999)(?![0-9a-zA-Z])/)
 })
