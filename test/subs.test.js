@@ -35,6 +35,16 @@ test('subtitles: the fast provider answers first, flagged partial, and the compl
   } finally { restore(); timing.quickMs = 3500 }
 })
 
+test('subtitles: the fast providers list goes out shortly after they answer, without waiting out a slow one', async () => {
+  const restore = stub({ restDelay: 2500 }); timing.quickMs = 5000; timing.graceMs = 100
+  try {
+    const t0 = Date.now()
+    const first = await listSubtitles({ type: 'movie', id: 'tt9100005', titles: ['Stub Movie'] }, ['tur'], '')
+    assert.ok(Date.now() - t0 < 1500, `took ${Date.now() - t0} ms`)
+    assert.ok(first.length === 1 && first.every(s => s.partial))
+  } finally { restore(); timing.quickMs = 3500; timing.graceMs = 500 }
+})
+
 test('subtitles: a list built while a provider failed is not taken for the whole truth', async () => {
   const restore = stub({ restFails: true }); timing.quickMs = 5000
   try {
@@ -56,7 +66,7 @@ test('subtitles: scoring prefers the matching release, plain dialogue and film t
 })
 
 test('subtitles: a 404 from the download host (IP quota used up) stops further tries and flags its files', async () => {
-  const restore = stub({}); timing.quickMs = 5000
+  const restore = stub({}); timing.quickMs = 5000; timing.graceMs = 5000
   const calls = []
   const inner = globalThis.fetch
   globalThis.fetch = async url => { if (new URL(url).hostname === 'dl.opensubtitles.org') { calls.push(url); return new Response('quota', { status: 404 }) } return inner(url) }
@@ -69,7 +79,7 @@ test('subtitles: a 404 from the download host (IP quota used up) stops further t
     const after = await listSubtitles(q, ['tur'], '')
     assert.equal(after.length, 3, 'still listed')
     assert.deepEqual(after.filter(s => s.limited).length, 2, 'the quota-hit host\'s files are flagged')
-  } finally { globalThis.fetch = inner; restore(); resetQuota(); timing.quickMs = 3500 }
+  } finally { globalThis.fetch = inner; restore(); resetQuota(); timing.quickMs = 3500; timing.graceMs = 500 }
 })
 
 test('subtitles: several files in one language stay in rank order, not label order', async () => {

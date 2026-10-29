@@ -163,11 +163,11 @@ const usable = (list, profile) => (quotaHit() && !account.ready(profile) ? list.
 
 const listCache = new Map()
 const jobs = new Map()
-export const timing = { quickMs: 3500 }
+export const timing = { quickMs: 3500, graceMs: 500 }
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
 const mark = (list, partial) => (partial ? list.map(s => ({ ...s, partial: true })) : list)
 // The addon answers in a fraction of a second, the other providers can take many seconds (or fail). When they are not done within
-// QUICK_MS the addon's list is returned flagged `partial`, the rest keeps working, and the complete list is kept for the next ask.
+// QUICK_MS (or shortly after the addon answers) the addon's list is returned flagged `partial`, the rest keeps working, and the complete list is kept for the next ask.
 export async function listSubtitles (q, langs = [], release = '', profile = '') {
   const key = JSON.stringify([q.type, q.id, q.season, q.episode, langs, release])
   const hit = listCache.get(key)
@@ -182,7 +182,8 @@ export async function listSubtitles (q, langs = [], release = '', profile = '') 
     }).finally(() => jobs.delete(key))
     jobs.set(key, job)
   }
-  const done = await Promise.race([job.full, wait(timing.quickMs)])
+  // The fast providers' list goes out shortly after they answer, not only at QUICK_MS: a slow one should not hold it back.
+  const done = await Promise.race([job.full, Promise.race([wait(timing.quickMs), job.quick.then(() => wait(timing.graceMs))])])
   if (done) return usable(mark(done.list, !done.complete), profile)
   return usable(mark(await job.quick, true), profile)
 }

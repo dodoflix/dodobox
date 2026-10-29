@@ -631,6 +631,23 @@ export async function watch (type, id, season, episode) {
     if (hit) showSub(hit, { auto: true })
   }
   const translationTargets = () => [...LANGUAGES.filter(l => l[0] !== 'en'), ...(S.me.settings.sublang === 'pob' ? [['pt', 'pob']] : [])]
+  const subsQuery = () => {
+    const want = S.me.settings.sublang !== 'off' ? S.me.settings.sublang : langOf(S.me.settings.lang)[1]
+    const langs = [...new Set([want, langOf(S.me.settings.lang)[1], 'eng'])].join(',')
+    return { want, qs: new URLSearchParams({ type, id, langs, release: st.name || '', ...(season != null && { season, episode }) }) }
+  }
+  const subSrc = s => `/api/sub?url=${enc(s.url)}${s.enc ? '&enc=' + enc(s.enc) : ''}`
+  // The lookup does not need the video, so it starts as soon as the download does: the server keeps the list and the file, and both are there when the video plays.
+  const warmed = new Set()
+  function warmSubs () {
+    const { want, qs } = subsQuery(); const k = qs.toString()
+    if (warmed.has(k)) return
+    warmed.add(k)
+    api(`/api/subs?${k}`).then(list => {
+      const pick = list.find(s => s.lang === want && !s.forced && !s.limited)
+      if (pick) fetch(subSrc(pick), { headers: { 'x-profile': getProfile(), 'x-token': getToken(getProfile()) } }).catch(() => {})
+    }).catch(() => {})
+  }
   const loadSubs = async () => {
     // Tracks inside the video, and subtitle files that came in the same download: both match this release's timing.
     const embedded = [...(info.subs || []).map(s => ({ lang: s.lang, label: `${LANG(s.lang || 'und')}${s.title ? ' · ' + s.title : ''}`, hint: 'Built in', embedded: true, src: `/api/sub/embedded/${hash}/${st.fileIdx}/${s.i}` })),
@@ -639,9 +656,7 @@ export async function watch (type, id, season, episode) {
     const supported = await cget('/api/translate/langs').catch(() => [])
     const soon = targets.filter(([c2]) => supported.includes(c2)).map(([, c3]) => ({ lang: c3, label: 'Auto-translated', hint: 'Getting started...', pending: true, manualOnly: true, src: '' }))
     subs = [...embedded, ...soon]; autoSub(); drawMenu()
-    const want = S.me.settings.sublang !== 'off' ? S.me.settings.sublang : langOf(S.me.settings.lang)[1]
-    const langs = [...new Set([want, langOf(S.me.settings.lang)[1], 'eng'])].join(',')
-    const qs = new URLSearchParams({ type, id, langs, release: st.name || '', ...(season != null && { season, episode }) })
+    const { qs } = subsQuery()
     const ask = () => api(`/api/subs?${qs}`)
     let raw = []
     for (let i = 0; i < 3 && !raw.length; i++) { if (i) await new Promise(r => setTimeout(r, 3000 * i)); raw = await ask().catch(() => []) }
@@ -649,7 +664,7 @@ export async function watch (type, id, season, episode) {
     const apply = list => {
       const known = new Map(subs.filter(x => x.src).map(x => [x.src, x]))
       const own = x => { const k = known.get(x.src); if (k) { k.best = x.best; k.limited ||= x.limited } return k || x }
-      const ext = list.map(s => ({ lang: s.lang, label: LANG(s.lang) + (s.label.match(/ #\d+$/)?.[0] || ''), hint: s.hint, limited: s.limited, best: s.best && !s.limited, forced: s.forced, src: `/api/sub?url=${enc(s.url)}${s.enc ? '&enc=' + enc(s.enc) : ''}` })).filter(x => !wrong.has(x.src)).map(own)
+      const ext = list.map(s => ({ lang: s.lang, label: LANG(s.lang) + (s.label.match(/ #\d+$/)?.[0] || ''), hint: s.hint, limited: s.limited, best: s.best && !s.limited, forced: s.forced, src: subSrc(s) })).filter(x => !wrong.has(x.src)).map(own)
       subs = [...embedded, ...ext]
       const base = subs.find(x => x.lang === 'eng' && !x.forced && !x.pending && !x.limited && embeddedOk(x))
       if (base) for (const [c2, c3] of targets) if (supported.includes(c2)) subs.push(own({ lang: c3, label: 'Auto-translated', hint: 'Translated from English', src: `/api/sub/translate?src=${enc(base.src)}&to=${c2}${S.me.settings.bestTranslation ? '&hq=1' : ''}`, translated: { src: base.src, to: c2 }, manualOnly: true }))
@@ -658,8 +673,8 @@ export async function watch (type, id, season, episode) {
     subsDone = !raw.some(s => s.partial)
     autoSub(subsDone); drawMenu()
     // The server answers with its fast providers first (flagged partial) and keeps looking; the fuller list is picked up here.
-    for (let i = 0; i < 8 && !subsDone && !dead; i++) {
-      await new Promise(r => setTimeout(r, 4000))
+    for (let i = 0; i < 16 && !subsDone && !dead; i++) {
+      await new Promise(r => setTimeout(r, 2000))
       const more = await ask().catch(() => null)
       if (!more || dead) continue
       raw = more; apply(raw); subsDone = !raw.some(s => s.partial)
@@ -838,7 +853,7 @@ export async function watch (type, id, season, episode) {
         const played = await api('/api/play', { method: 'POST', body: { type, id, season, episode, infoHash: forced, exclude: [...tried], prefer: quality, display: displayPx() } })
         if (my !== runId) return
         st = played
-        hash = st.hash; forced = undefined
+        hash = st.hash; forced = undefined; warmSubs()
         try {
           await ready(my)
           if (dead) return
