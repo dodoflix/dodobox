@@ -196,7 +196,7 @@ export async function watch (type, id, season, episode) {
   // the sections near the playing spot first, and the one under the pointer at once. Until a section is there the frame shows it is loading;
   // a section that cannot be had yet leaves the time alone and is asked for again later.
   let pv = null
-  const cooling = k => { const f = pv.fail.get(k); return !!f && Date.now() - f.at < Math.min(60000, 5000 * 2 ** (f.n - 1)) }
+  const cooling = k => { const f = pv.fail.get(k); return !!f && Date.now() - f.at < Math.min(10000, 2000 * 2 ** (f.n - 1)) }
   const getChunk = k => {
     if (pv.ready.has(k)) return Promise.resolve(true)
     if (pv.busy.has(k)) return pv.busy.get(k)

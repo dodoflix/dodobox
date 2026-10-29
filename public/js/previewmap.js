@@ -3,7 +3,7 @@
 export const previewLayout = duration => {
   const step = Math.max(10, Math.ceil((duration || 0) / 240))
   const n = Math.max(1, Math.ceil((duration || 0) / step))
-  const per = 30
+  const per = 10
   return { step, n, per, chunks: Math.ceil(n / per), w: 192, h: 108 }
 }
 // How section k is laid out: its frames in rows of up to 10

@@ -17,7 +17,7 @@ export function sheet (file, key, duration, k, final = true) {
     queue = job
     sheets.set(id, job)
     if (!final) job.then(b => { if (!b && sheets.get(id) === job) sheets.delete(id) })
-    if (sheets.size > 64) sheets.delete(sheets.keys().next().value)
+    if (sheets.size > 256) sheets.delete(sheets.keys().next().value)
   }
   return sheets.get(id)
 }
