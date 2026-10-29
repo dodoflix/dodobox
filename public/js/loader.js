@@ -14,6 +14,8 @@ const rank = im => {
 }
 
 function pump () {
+  // A picture removed while it waits for a retry never fires load or error again, and would hold its slot for good.
+  for (const im of inflight) if (!im.isConnected) inflight.delete(im)
   while (inflight.size < max() && queue.size) {
     let best = null; let score = Infinity
     for (const im of queue) { const s = rank(im); if (s < score) { score = s; best = im } }

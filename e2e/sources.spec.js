@@ -57,6 +57,26 @@ test('two similar versions of a film are raced and the film plays', async () => 
   await ctx.close()
 })
 
+test('asking for another version while the first is still being probed does not play the first', async () => {
+  const { ctx, page } = await newPage(base)
+  await signIn(page, base, 'Ada')
+  const played = []; const streamed = new Set(); let attached = 0
+  page.on('response', async r => { if (r.url().endsWith('/api/play')) played.push((await r.json()).hash) })
+  page.on('request', r => { const m = /\/(?:hls|raw)\/([0-9a-f]{40})\//.exec(r.url()); if (m) streamed.add(m[1]); if (/index\.m3u8/.test(r.url())) attached++ })
+  // the probe of the first version answers late, after the viewer has already asked for another one
+  let asked; const another = new Promise(r => { asked = r })
+  await page.route('**/api/info/**', async route => { const res = await route.fetch(); await another; await route.fulfill({ response: res }).catch(() => {}) })
+  await page.goto(`${base}/#/watch/movie/${TWIN.id}`)
+  await page.waitForRequest('**/api/info/**')
+  await page.evaluate(() => { document.querySelector('#l-act').innerHTML = '<button id="another">Try another version</button>'; document.querySelector('#another').click() })
+  asked()
+  await page.waitForFunction(() => { const v = document.querySelector('.pl video'); return v && v.currentTime > 1 && !v.paused }, null, { timeout: 60000 })
+  assert.equal(played.length, 2, 'a second version was asked for')
+  assert.deepEqual([...streamed], [played[1]], 'only the version asked for second was streamed')
+  assert.equal(attached, 1, 'the stream was attached once, not again by the superseded run')
+  await ctx.close()
+})
+
 test('the seeder count a source lists is replaced by what the trackers report live', async () => {
   const ask = async () => (await fetch(`${base}/api/sources?type=movie&id=${TWIN.id}`)).json()
   await ask()
