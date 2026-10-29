@@ -52,6 +52,27 @@ test('the seek bar and time follow a seek at once, before the video at the new s
   await ctx.close()
 })
 
+test('a subtitle filed under the wrong language is skipped for the next one in the language', async () => {
+  const english = Array.from({ length: 30 }, (_, i) => `${i + 1}\n00:00:${String(i + 1).padStart(2, '0')},000 --> 00:00:${String(i + 1).padStart(2, '0')},800\nYou have what they would never say about this, but I am not sure that you are here`).join('\n\n')
+  stub('opensubtitles-v3.strem.io', () => json({ subtitles: [
+    { lang: 'tur', url: 'https://subs5.strem.io/wrong.srt', movieReleaseName: MOVIE.file, g: '900' },
+    { lang: 'tur', url: 'https://subs5.strem.io/right.srt', movieReleaseName: MOVIE.file, g: '5' }
+  ] }))
+  stub('rest.opensubtitles.org', () => json([]))
+  stub('yifysubtitles.ch', () => new Response('<table></table>'))
+  stub('subs5.strem.io', u => new Response(u.pathname === '/wrong.srt' ? english : '1\n00:00:01,000 --> 00:00:09,000\nMerhaba dunya\n'))
+  const { ctx, page } = await newPage(base)
+  await signIn(page, base, 'Ada')
+  await page.goto(`${base}/#/settings`)
+  await page.locator('[data-k=sublang]').evaluate(s => { s.value = 'tur'; s.dispatchEvent(new Event('change', { bubbles: true })) })
+  await page.waitForFunction(async () => (await (await fetch('/api/settings')).json()).sublang === 'tur')
+  await page.goto(`${base}/#/watch/movie/${MOVIE.id}`)
+  await page.locator('.pl-subs', { hasText: 'Merhaba dunya' }).waitFor({ timeout: 30000 })
+  assert.ok(!/never say/.test(await page.locator('.pl-subs').innerText()), 'the English file was shown')
+  await ctx.close()
+  resetStubs()
+})
+
 test('a forced 4K setting does not offer or mark 4K for a file below it', async () => {
   const { ctx, page } = await newPage(base)
   await signIn(page, base, 'Ada')

@@ -98,3 +98,13 @@ test('the first download is preloaded in one go', () => {
   graph.delete('main.js')
   assert.deepEqual([...graph].sort(), [...listed].sort(), 'modulepreload list differs from the static imports of main.js')
 })
+
+test('English text is recognised, and text in other languages is not', async () => {
+  const { looksEnglish } = await import('../public/js/english.js')
+  const lines = (...s) => Array.from({ length: 40 }, (_, i) => s[i % s.length])
+  assert.ok(looksEnglish(lines('You have what they would never say about this.', "I'm not sure that you are here, but it's fine.")))
+  assert.ok(!looksEnglish(lines('Oğlumu aldın ve sana söz veriyorum, bu kutlamalar bitmeden.', 'Göze göz, dişe diş, oğula oğul olacak.')))
+  assert.ok(!looksEnglish(lines('Ich habe nicht gesagt, dass du das alles wissen musst.', 'Und was ist mit der Frau, die gestern hier war?')))
+  assert.ok(!looksEnglish(lines('Te lo prometo, antes de que acaben estas celebraciones.', 'No es lo que pensaba, pero está bien así.')))
+  assert.ok(!looksEnglish(['Too short to tell.']), 'a few words prove nothing')
+})
