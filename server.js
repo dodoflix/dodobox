@@ -24,6 +24,7 @@ import { skipsFor } from './src/skips.js'
 import { chartItems } from './src/charts.js'
 import * as state from './src/state.js'
 import { report as presence } from './src/presence.js'
+import { sheet } from './src/preview.js'
 import { image, remote } from './src/images.js'
 import { lanAddresses, openBrowser } from './src/net.js'
 import { encoder, FFMPEG } from './src/bin.js'
@@ -485,6 +486,14 @@ const routes = [
     const m = c.type === 'anime' ? await meta(c.type, c.id).catch(swallow('meta lookup', null)) : null
     if (m?.movie) return json(req, res, {})
     json(req, res, await skipsFor({ type: c.type, id: c.id, season: c.season, episode: c.episode, mal: m?.mal }, { chapters: info.chapters, duration: info.duration }))
+  }],
+  // Frames for the seek bar. Only a finished file is read: going through a torrent that is still downloading would pull pieces the viewer is not watching.
+  ['GET', /^\/api\/preview\/(\w+)\/(\d+)$/, async (req, res, [, h, i]) => {
+    if (statusOf(h, true, i)?.phase !== 'done') return fail(req, res, 404, 'not ready')
+    const { duration } = await probe(rawUrl(h, i), `${h}:${i}`)
+    const jpg = duration && await sheet(rawUrl(h, i), `${h}:${i}`, duration)
+    if (!jpg) return fail(req, res, 404, 'no preview')
+    res.writeHead(200, { 'content-type': 'image/jpeg', 'content-length': jpg.length, 'cache-control': 'private, max-age=86400' }).end(jpg)
   }],
   ['GET', /^\/raw\/(\w+)\/(\d+)$/, (req, res, [, h, i]) => local.isLocal(h) ? local.serve(h, req, res) : engine.serve(h, +i, req, res)],
   // Safari hands HLS to AirPlay by URL, so only subtitles inside the stream reach a TV; with `sl` or `sub` the playlist becomes a master playlist with a WebVTT rendition.

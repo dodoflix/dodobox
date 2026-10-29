@@ -52,6 +52,31 @@ test('the seek bar and time follow a seek at once, before the video at the new s
   await ctx.close()
 })
 
+test('hovering the seek bar shows the frame at that spot above the time, kept inside the bar at its ends', async () => {
+  const { ctx, page } = await newPage(base)
+  await signIn(page, base, 'Ada')
+  const sheets = []
+  page.on('response', r => { if (/\/api\/preview\//.test(r.url())) sheets.push(r.status()) })
+  await page.goto(`${base}/#/watch/movie/${MOVIE.id}`)
+  await playing(page)
+  // the frames appear once the sheet has been made; until then the time shows alone
+  const scrub = page.locator('#scrub')
+  const box = await scrub.boundingBox()
+  const at = async f => { await page.mouse.move(box.x + box.width * f, box.y + box.height / 2); await page.mouse.move(box.x + box.width * f + 1, box.y + box.height / 2) }
+  for (let i = 0; i < 60 && !(await page.locator('#scrub .fr').isVisible()); i++) { await at(0.5); await page.waitForTimeout(500) }
+  await page.locator('#scrub .fr').waitFor({ state: 'visible', timeout: 1000 }).catch(e => { throw new Error('sheet responses: ' + sheets + ' ' + e.message.slice(0, 80)) })
+  assert.ok(sheets.includes(200), `the sheet was served: ${sheets}`)
+  const pos = async f => { await at(f); return page.locator('#scrub .fr').evaluate(e => e.style.backgroundPosition) }
+  assert.notEqual(await pos(0.1), await pos(0.9), 'another spot, another frame')
+  await at(0)
+  const frame = await page.locator('#scrub .fr').boundingBox()
+  assert.ok(frame.x >= 0 && Math.abs(frame.x - box.x) < 1, `the frame stays inside the bar at its start: ${frame.x} vs ${box.x}`)
+  await at(1)
+  const end = await page.locator('#scrub .fr').boundingBox()
+  assert.ok(end.x + end.width <= box.x + box.width + 1, 'and at its end')
+  await ctx.close()
+})
+
 test('a subtitle filed under the wrong language is skipped for the next one in the language', async () => {
   const english = Array.from({ length: 30 }, (_, i) => `${i + 1}\n00:00:${String(i + 1).padStart(2, '0')},000 --> 00:00:${String(i + 1).padStart(2, '0')},800\nYou have what they would never say about this, but I am not sure that you are here`).join('\n\n')
   stub('opensubtitles-v3.strem.io', () => json({ subtitles: [
