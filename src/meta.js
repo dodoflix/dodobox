@@ -55,6 +55,9 @@ const ANI_LANG = { JP: 'jpn', KR: 'kor', CN: 'chi', TW: 'chi' }
 const notYet = date => !!date && new Date(date) > new Date()
 const NOT_RELEASED = 'Not released yet'
 
+// The catalog sometimes returns junk next to the number ("32S min"); a plain "N min" is kept, anything else with a number is cut down to it.
+export const cleanRuntime = r => (/^\d+\s*h/i.test(r) ? r : (parseInt(r, 10) ? `${parseInt(r, 10)} min` : null))
+
 export const cineItem = (m, type) => ({
   id: m.imdb_id || m.id,
   type,
@@ -66,7 +69,7 @@ export const cineItem = (m, type) => ({
   rating: m.imdbRating ? +m.imdbRating : null,
   genres: m.genres || m.genre || [],
   description: m.description,
-  runtime: m.runtime,
+  runtime: cleanRuntime(m.runtime),
   cast: m.cast,
   originalLanguage: COUNTRY_LANG[String(m.country || '').split(',')[0].trim()] || null,
   imdb: m.imdb_id || m.id,

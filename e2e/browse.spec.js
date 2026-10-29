@@ -1,6 +1,6 @@
 import test, { before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { boot, newPage, shutdown, signIn, MOVIE, SERIES, ANIME } from './harness.js'
+import { boot, newPage, shutdown, signIn, stub, resetStubs, json, MOVIE, SERIES, ANIME } from './harness.js'
 
 let base
 before(async () => { ({ base } = await boot()) })
@@ -88,6 +88,39 @@ test('a series page lists its episodes', async () => {
   await page.locator('#eps .ep', { hasText: 'Lantern 2' }).waitFor()
   assert.match(await page.locator('#play').innerText(), /Start watching/)
   await ctx.close()
+})
+
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64')
+// ids that are not fixture titles, so no earlier test has their page cached
+const seasons = (id, ...counts) => counts.flatMap((n, s) => Array.from({ length: n }, (_, e) => ({ season: s + 1, episode: e + 1, name: `Ep ${s + 1}x${e + 1}`, released: '2021-01-01T00:00:00.000Z', thumbnail: `https://episodes.metahub.space/${id}/${s + 1}/${e + 1}/w780.jpg` })))
+const series = (id, extra) => u => (/\/meta\/series\//.test(u.pathname) ? json({ meta: { id, imdb_id: id, name: 'Wide Season', year: '2021', genres: SERIES.genres, description: SERIES.description, ...extra } }) : json({ metas: [] }))
+
+test('an episode list shows a plain runtime when the catalog adds junk to the number', async () => {
+  const id = 'tt9000098'
+  stub('v3-cinemeta.strem.io', series(id, { runtime: '32S min', videos: seasons(id, 2) }))
+  const { ctx, page } = await newPage(base)
+  await signIn(page, base, 'Ada')
+  await page.goto(`${base}/#/title/series/${id}`)
+  await page.locator('#eps .ep').first().waitFor()
+  assert.match(await page.locator('#eps .d').first().innerText(), /~32 min$/)
+  await ctx.close()
+  resetStubs()
+})
+
+test('episode pictures that failed in one season do not stop another season from loading its own', async () => {
+  const id = 'tt9000099'
+  stub('v3-cinemeta.strem.io', series(id, { videos: seasons(id, 5, 6) }))
+  stub('episodes.metahub.space', u => (u.pathname.includes(`/${id}/2/`) ? new Response('', { status: 404 }) : new Response(PNG, { headers: { 'content-type': 'image/png' } })))
+  const { ctx, page } = await newPage(base)
+  await signIn(page, base, 'Ada')
+  await page.goto(`${base}/#/title/series/${id}`)
+  await page.locator('#seasons [data-s="2"]').click()
+  await page.waitForFunction(() => document.querySelectorAll('#eps img[data-tries]').length === 5)
+  // leave while the failed pictures are waiting to be asked for again
+  await page.locator('#seasons [data-s="1"]').click()
+  await page.waitForFunction(() => { const i = [...document.querySelectorAll('#eps img')]; return i.length === 5 && i.every(x => x.complete && x.naturalWidth) }, null, { timeout: 10000 })
+  await ctx.close()
+  resetStubs()
 })
 
 test('profiles keep separate lists', async () => {

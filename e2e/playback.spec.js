@@ -37,6 +37,21 @@ test('pause, seek and the embedded subtitle track work', async () => {
   await ctx.close()
 })
 
+test('the seek bar and time follow a seek at once, before the video at the new spot has loaded', async () => {
+  const { ctx, page } = await newPage(base)
+  await signIn(page, base, 'Ada')
+  await page.goto(`${base}/#/watch/movie/${MOVIE.id}`)
+  await playing(page)
+  await page.click('#pp')
+  await page.waitForFunction(() => document.querySelector('.pl video').paused)
+  // timeupdate only arrives once the new position has loaded; hold it back to stand in for a slow load
+  await page.evaluate(() => addEventListener('timeupdate', e => e.stopPropagation(), true))
+  const before = await page.locator('#time').textContent()
+  await video(page).evaluate(v => { v.currentTime = v.currentTime + 6 })
+  await page.waitForFunction(was => document.querySelector('#time').textContent !== was, before, { timeout: 3000 })
+  await ctx.close()
+})
+
 test('a forced 4K setting does not offer or mark 4K for a file below it', async () => {
   const { ctx, page } = await newPage(base)
   await signIn(page, base, 'Ada')

@@ -188,6 +188,7 @@ export async function watch (type, id, season, episode) {
   }
   v.addEventListener('timeupdate', () => { paintTime(); upNextCheck(); paintSkip() })
   v.addEventListener('progress', paintTime); v.addEventListener('durationchange', paintTime)
+  v.addEventListener('seeking', paintTime) // timeupdate only follows once the new spot has loaded
   const at2 = e => { const r = scrub.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * (v.duration || 0) }
   const tip = e => { const t = at2(e); const el = $('.tip', scrub); el.textContent = clock(t); el.style.left = t / (v.duration || 1) * 100 + '%'; return t }
   scrub.addEventListener('pointermove', e => { const t = tip(e); if (dragging) { scrub._t = t; paintTime() } })
@@ -788,11 +789,14 @@ export async function watch (type, id, season, episode) {
     const t0 = Date.now(); let lastBytes = 0; let lastAt = Date.now(); let probing = null; let probeAt = 0
     while (!dead) {
       if (my !== runId) throw aborted
-      st = await api(`/api/status/${hash}`)
+      const s = await api(`/api/status/${hash}`)
+      if (my !== runId) throw aborted
+      st = s
       if (st.phase === 'error') throw Object.assign(new Error(st.error), { stall: true })
       if (st.fileIdx != null && !probing) { probeAt = Date.now(); probing = api(`/api/info/${hash}`).then(r => ({ r }), e => ({ e })) }
       if (probing) {
         const done = await Promise.race([probing, sleep(600).then(() => null)])
+        if (my !== runId) throw aborted
         if (done?.r) { info = done.r; return }
         if (done?.e) throw Object.assign(done.e, { stall: true })
       }
@@ -822,7 +826,9 @@ export async function watch (type, id, season, episode) {
       const began = Date.now()
       report('info', 'player: opening', { type, id, season, episode, quality, forced, display: displayPx() })
       for (let attempt = 0; attempt < 5 && !dead; attempt++) {
-        st = await api('/api/play', { method: 'POST', body: { type, id, season, episode, infoHash: forced, exclude: [...tried], prefer: quality, display: displayPx() } })
+        const played = await api('/api/play', { method: 'POST', body: { type, id, season, episode, infoHash: forced, exclude: [...tried], prefer: quality, display: displayPx() } })
+        if (my !== runId) return
+        st = played
         hash = st.hash; forced = undefined
         try {
           await ready(my)

@@ -30,6 +30,15 @@ test('a movie dated in the future is not playable, a released one is', () => {
   assert.equal(cineItem({ id: 'tt3', name: 'Show', released: future, year: '2030' }, 'series').unplayable, null, 'series are judged by their episodes')
 })
 
+test('a catalog runtime with junk beside the number shows as plain minutes', () => {
+  const run = runtime => cineItem({ id: 'tt1', name: 'Show', runtime }, 'series').runtime
+  assert.equal(run('32S min'), '32 min')
+  assert.equal(run('45 min'), '45 min')
+  assert.equal(run('1h 30min'), '1h 30min')
+  assert.equal(run('soon'), null)
+  assert.equal(run(undefined), null)
+})
+
 test('a value built while a source failed is kept for a minute, not for hours', async () => {
   const { cached, markPartial } = await import('../src/meta.js')
   const { mock } = await import('node:test')
