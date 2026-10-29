@@ -73,6 +73,19 @@ test('a subtitle filed under the wrong language is skipped for the next one in t
   resetStubs()
 })
 
+test('the subtitle list is asked for while the video is still being prepared, not after it', async () => {
+  const { ctx, page } = await newPage(base)
+  await signIn(page, base, 'Ada')
+  let listed = 0; let probed = 0
+  page.on('request', r => { if (r.url().includes('/api/subs?') && !listed) listed = Date.now() })
+  page.on('response', r => { if (r.url().includes('/api/info/') && !probed) probed = Date.now() })
+  await page.route('**/api/info/**', async route => { await new Promise(r => setTimeout(r, 2000)); await route.continue().catch(() => {}) })
+  await page.goto(`${base}/#/watch/movie/${MOVIE.id}`)
+  await playing(page)
+  assert.ok(listed && probed && listed < probed, `list asked at ${listed}, video ready at ${probed}`)
+  await ctx.close()
+})
+
 test('a forced 4K setting does not offer or mark 4K for a file below it', async () => {
   const { ctx, page } = await newPage(base)
   await signIn(page, base, 'Ada')
