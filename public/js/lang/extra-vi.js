@@ -55,7 +55,7 @@ export const rows = [
   'Chia sẻ'
 ]
 export const patterns = [
-  'Chào $1, hãy biến nó thành của bạn', 'Mùa $1', 'Mùa $1 · Tập $2', 'Tiếp tục S$1 E$2', 'S$1 E$2$3', 'Phát sóng $1', '$1 giờ $2 phút', '$1 phút', '$1còn $2 giờ $3 phút', '$1còn $2 phút',
+  'Chào $1, hãy biến nó thành của bạn', 'Mùa $1', 'Mùa $1 · Tập $2', 'Tập $1', 'Tiếp tục S$1 E$2', 'S$1 E$2$3', 'Phát sóng $1', '$1 giờ $2 phút', '$1 phút', '$1còn $2 giờ $3 phút', '$1còn $2 phút',
   'Hiện tựa nổi bật $1 trên $2', 'Phát $1', 'Tìm thấy $1 tựa', 'Đang tìm trong: $1', 'Đã dùng $1', 'Giới hạn $1', 'Đã dùng $1 trên $2. Các bản tải cũ nhất chưa xem sẽ tự động bị xóa khi đầy.',
   'Tự động chọn phiên bản tốt nhất cho kết nối và màn hình của bạn (internet của máy chủ này: khoảng $1 Mbps). Chọn một mức để ép dùng.', 'Tự động chọn phiên bản tốt nhất cho kết nối và màn hình của bạn. Chọn một mức để ép dùng.',
   'Bộ mã hóa video: phần mềm', 'Bộ mã hóa video: $1', 'Không có gì khớp với "$1". Kiểm tra chính tả hoặc dùng ít từ hơn.', 'Đang đệm · $1', 'Đang phát trên $1 · $2', '$1p cho kết nối của bạn', 'Đã thêm $1 tập vào mục tải xuống', 'Tải xuống $1/$2', 'Vì bạn thích $1', '$1 · một phần',

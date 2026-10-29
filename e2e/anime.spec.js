@@ -7,6 +7,14 @@ before(async () => { ({ base } = await boot({ seed: ['anime'] })) })
 after(shutdown)
 afterEach(resetStubs)
 
+test('an episode the catalogs only call Untitled is named by its number, not by the placeholder', async () => {
+  // runs first and caches the title, so it gives Kitsu's name to episode 1 only: the later ani.zip test still sees episode 2 unnamed
+  stub('kitsu.io', u => json(u.pathname === '/api/edge/mappings' ? { included: [{ id: '77' }] } : { data: [{ attributes: { number: 1, canonicalTitle: 'Untitled' } }] }))
+  let m
+  for (let i = 0; i < 40; i++) { m = await (await fetch(`${base}/api/meta/anime/${encodeURIComponent(ANIME.id)}`)).json(); if (m.videos[1]?.title === 'Night Shift') break; await new Promise(r => setTimeout(r, 250)) }
+  assert.equal(m.videos[0].title, 'Episode 1')
+})
+
 test('an anime episode plays from its page and the opening is skipped with the community times', async () => {
   stub('api.aniskip.com', () => json({ results: [
     { skipType: 'op', interval: { startTime: 1, endTime: 9 }, episodeLength: 20 },

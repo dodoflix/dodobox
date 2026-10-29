@@ -460,6 +460,7 @@ export const PATTERNS = [
   [/^Hi (.+), make it yours$/, ['$1, burayı sana göre ayarlayalım', 'Hola $1, hazlo tuyo', 'Salut $1, personnalisez', 'Hallo $1, mach es zu deinem'], 'name'],
   [/^Season (\d+)$/, ['Sezon $1', 'Temporada $1', 'Saison $1', 'Staffel $1']],
   [/^Season (\d+) · Episode (\d+)$/, ['Sezon $1 · Bölüm $2', 'Temporada $1 · Episodio $2', 'Saison $1 · Épisode $2', 'Staffel $1 · Folge $2']],
+  [/^Episode (\d+)$/, ['Bölüm $1', 'Episodio $1', 'Épisode $1', 'Folge $1']],
   [/^Resume S(\d+) E(\d+)$/, ['Devam et S$1 B$2', 'Continuar T$1 E$2', 'Reprendre S$1 É$2', 'Fortsetzen S$1 F$2']],
   [/^S(\d+) E(\d+)( · .*)?$/, ['S$1 B$2$3', 'T$1 E$2$3', 'S$1 É$2$3', 'S$1 F$2$3']],
   [/^Airs (.+)$/, ['Yayın: $1', 'Se estrena $1', 'Diffusion le $1', 'Läuft am $1']],

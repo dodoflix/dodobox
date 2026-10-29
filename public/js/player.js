@@ -4,7 +4,7 @@ import { S, progress, recordProgress, setSetting } from './session.js'
 import { nowPlaying, pingPresence } from './presence.js'
 import { mapTime, offsetAt, classify } from './syncmap.js'
 import { looksEnglish } from './english.js'
-import { $, EP_PAGE, esc, icon, enc, clock, bytes, store, sleep, toast, isTV, isSafari, lowres, sized, thumbW, hue } from './util.js'
+import { $, EP_PAGE, esc, epName, icon, enc, clock, bytes, store, sleep, toast, isTV, isSafari, lowres, sized, thumbW, hue } from './util.js'
 import { glow } from './ambient.js'
 import { onBack } from './nav.js'
 import { accountStatus, connectAccount } from './opensubs.js'
@@ -43,7 +43,7 @@ export async function watch (type, id, season, episode) {
   const at = vids.findIndex(v => v.season === season && v.episode === episode)
   const ep = vids[at]
   const next = flat ? null : vids[at + 1]
-  const epTitle = !flat && ep?.title && !/^Episode \d+$/.test(ep.title) ? ep.title : ''
+  const epTitle = !flat && ep?.title && !/^(untitled|episode \d+)$/i.test(ep.title.trim()) ? ep.title : ''
   // For the cast receiver and the media session, which show plain text; the title bar builds its own so the episode code translates.
   const label = flat ? '' : `S${season} E${episode}${epTitle ? ' · ' + epTitle : ''}`
   glow(m.poster)
@@ -336,7 +336,7 @@ export async function watch (type, id, season, episode) {
         return `<a class="ep ${cur ? 'cur' : ''}" href="${watchHref(type, id, x.season, x.episode)}" data-ee="${x.season}/${x.episode}">
           <span class="n">${x.episode}</span>
           <span class="th" ${m.background || m.poster ? `data-art="url('${esc(sized(m.background || m.poster, thumbW()))}')"` : ''} style="--h:${hue(m.name)}"><b class="num" aria-hidden="true">${x.episode}</b>${x.thumbnail ? `<img alt="" data-src="${esc(sized(x.thumbnail, thumbW()))}" onload="this.classList.add('in')" onerror="this.remove()">` : ''}${r > 0.02 ? `<span class="prog"><i style="width:${Math.min(100, r * 100)}%"></i></span>` : ''}<span class="go">${icon('play')}</span>${r > 0.93 ? `<span class="ok">${icon('check')}</span>` : ''}</span>
-          <span><span class="t" translate="no">${esc(x.title)}</span><br><span class="d">${cur ? 'Playing now' : d}</span></span></a>`
+          <span><span class="t">${epName(x)}</span><br><span class="d">${cur ? 'Playing now' : d}</span></span></a>`
       }).join('')}</div>`
     menu.scrollTop = keep
     // The strips scroll like the others: dragged with a mouse, with arrows, and opened on the chip in use.
@@ -935,7 +935,7 @@ export async function watch (type, id, season, episode) {
     upShown = true
     const box = $('#up', root); box.hidden = false
     const secs = Math.max(4, Math.min(8, v.duration - v.currentTime))
-    box.innerHTML = `<b>Up next</b><div>${esc(next.title)}<div class="dim small">Season ${next.season} · Episode ${next.episode}</div></div>
+    box.innerHTML = `<b>Up next</b><div>${epName(next)}<div class="dim small">Season ${next.season} · Episode ${next.episode}</div></div>
       <div class="hair"><i style="--t:${secs}s"></i></div>
       <div class="actions flush"><button class="btn btn-ink sm" id="upgo" data-autofocus>${icon('play')}Play now</button><button class="btn btn-quiet sm" id="upx">Not now</button></div>`
     $('#upgo', root).onclick = () => go(next); $('#upx', root).onclick = () => { box.hidden = true; clearTimeout(upT); upShown = 'dismissed' }

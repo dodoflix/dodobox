@@ -55,7 +55,7 @@ export const rows = [
   'Berbagi'
 ]
 export const patterns = [
-  'Hai $1, buat jadi milikmu', 'Musim $1', 'Musim $1 · Episode $2', 'Lanjutkan S$1 E$2', 'S$1 E$2$3', 'Tayang $1', '$1 j $2 mnt', '$1 mnt', '$1sisa $2 j $3 mnt', '$1sisa $2 mnt',
+  'Hai $1, buat jadi milikmu', 'Musim $1', 'Musim $1 · Episode $2', 'Episode $1', 'Lanjutkan S$1 E$2', 'S$1 E$2$3', 'Tayang $1', '$1 j $2 mnt', '$1 mnt', '$1sisa $2 j $3 mnt', '$1sisa $2 mnt',
   'Tampilkan pilihan unggulan $1 dari $2', 'Putar $1', '$1 judul ditemukan', 'Mencari di: $1', '$1 terpakai', 'Batas $1', '$1 dari $2 terpakai. Unduhan terlama yang belum ditonton dihapus otomatis saat penuh.',
   'Otomatis memilih versi terbaik untuk koneksi dan layar Anda (internet server ini: sekitar $1 Mbps). Pilih level untuk memaksanya.', 'Otomatis memilih versi terbaik untuk koneksi dan layar Anda. Pilih level untuk memaksanya.',
   'Encoder video: perangkat lunak', 'Encoder video: $1', 'Tidak ada yang cocok dengan "$1". Periksa ejaan atau gunakan lebih sedikit kata.', 'Buffering · $1', 'Diputar di $1 · $2', '$1p untuk koneksi Anda', '$1 episode ditambahkan ke unduhan Anda', 'Unduhan $1/$2', 'Karena Anda menyukai $1', '$1 · sebagian',

@@ -13,6 +13,8 @@ export const clock = s => {
   const h = Math.floor(s / 3600); const m = Math.floor(s % 3600 / 60); const x = s % 60
   return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0')
 }
+// An episode the catalog has no real name for is shown by its number, which the interface language translates; a real title is data and is not.
+export const epName = v => (!v.title || /^(untitled|episode \d+)$/i.test(v.title.trim()) ? `<span>Episode ${v.episode}</span>` : `<span translate="no">${esc(v.title)}</span>`)
 export const mins = s => { const m = Math.round(s / 60); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min` }
 
 export const store = {

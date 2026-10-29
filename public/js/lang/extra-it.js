@@ -55,7 +55,7 @@ export const rows = [
   'Condivisione'
 ]
 export const patterns = [
-  'Ciao $1, rendilo tuo', 'Stagione $1', 'Stagione $1 · Episodio $2', 'Riprendi S$1 E$2', 'S$1 E$2$3', 'Esce il $1', '$1 h $2 min', '$1 min', '$1restano $2 h $3 min', '$1restano $2 min',
+  'Ciao $1, rendilo tuo', 'Stagione $1', 'Stagione $1 · Episodio $2', 'Episodio $1', 'Riprendi S$1 E$2', 'S$1 E$2$3', 'Esce il $1', '$1 h $2 min', '$1 min', '$1restano $2 h $3 min', '$1restano $2 min',
   'Mostra in evidenza $1 di $2', 'Riproduci $1', '$1 titoli trovati', 'Cerco in: $1', '$1 usati', 'Limite di $1', '$1 di $2 usati. I download meno recenti non guardati vengono rimossi automaticamente quando lo spazio finisce.',
   'Automatica sceglie la versione migliore per connessione e schermo (internet di questo server: circa $1 Mbps). Scegli un livello per forzarlo.', 'Automatica sceglie la versione migliore per connessione e schermo. Scegli un livello per forzarlo.',
   'Encoder video: software', 'Encoder video: $1', 'Nessun risultato per «$1». Controlla l\'ortografia o usa meno parole.', 'Buffering · $1', 'In riproduzione su $1 · $2', '$1p per la tua connessione', '$1 episodi aggiunti ai tuoi download', 'Download $1/$2', 'Perché ti è piaciuto $1', '$1 · parziale',

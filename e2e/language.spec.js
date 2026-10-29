@@ -49,3 +49,22 @@ test('the runtime on each episode row is translated', async () => {
   await ctx.close()
   resetStubs()
 })
+
+test('an episode without a title is named by its number in the interface language, a real title is left as it is', async () => {
+  const id = 'tt9000096' // not a fixture title, so no earlier test has its page cached
+  stub('v3-cinemeta.strem.io', u => (/\/meta\/series\//.test(u.pathname)
+    ? json({ meta: { id, imdb_id: id, name: 'Nameless', year: '2021', videos: [{ season: 1, episode: 1, name: 'Pilot', released: '2021-01-01T00:00:00.000Z' }, { season: 1, episode: 2, name: 'Untitled', released: '2021-01-08T00:00:00.000Z' }] } })
+    : json({ metas: [] })))
+  const { ctx, page } = await newPage(base)
+  await signIn(page, base, 'Ada')
+  await page.goto(`${base}/#/settings`)
+  const lang = page.locator('#lang')
+  await lang.waitFor({ state: 'attached' })
+  if (await page.evaluate(() => document.documentElement.lang) !== 'tr') await Promise.all([page.waitForEvent('load'), lang.evaluate(s => { s.value = 'tr'; s.dispatchEvent(new Event('change', { bubbles: true })) })])
+  await page.waitForFunction(() => document.documentElement.lang === 'tr')
+  await page.goto(`${base}/#/title/series/${id}`)
+  await page.locator('#eps .ep').nth(1).waitFor()
+  assert.deepEqual(await page.locator('#eps .t').allInnerTexts(), ['Pilot', 'Bölüm 2'])
+  await ctx.close()
+  resetStubs()
+})

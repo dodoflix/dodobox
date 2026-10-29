@@ -55,7 +55,7 @@ export const rows = [
   'Delning'
 ]
 export const patterns = [
-  'Hej $1, gör det till ditt', 'Säsong $1', 'Säsong $1 · Avsnitt $2', 'Återuppta S$1 A$2', 'S$1 A$2$3', 'Sänds $1', '$1 h $2 min', '$1 min', '$1$2 h $3 min kvar', '$1$2 min kvar',
+  'Hej $1, gör det till ditt', 'Säsong $1', 'Säsong $1 · Avsnitt $2', 'Avsnitt $1', 'Återuppta S$1 A$2', 'S$1 A$2$3', 'Sänds $1', '$1 h $2 min', '$1 min', '$1$2 h $3 min kvar', '$1$2 min kvar',
   'Visa utvald titel $1 av $2', 'Spela $1', '$1 titlar hittades', 'Söker i: $1', '$1 använt', 'Gräns $1', '$1 av $2 använt. De äldsta osedda nedladdningarna tas bort automatiskt när det blir fullt.',
   'Auto väljer bästa version för din anslutning och skärm (den här serverns internet: cirka $1 Mbit/s). Välj en nivå för att tvinga den.', 'Auto väljer bästa version för din anslutning och skärm. Välj en nivå för att tvinga den.',
   'Videokodare: mjukvara', 'Videokodare: $1', 'Inget matchade "$1". Kontrollera stavningen eller använd färre ord.', 'Buffrar · $1', 'Spelar på $1 · $2', '$1p för din anslutning', '$1 avsnitt tillagda i dina nedladdningar', 'Nedladdning $1/$2', 'För att du gillade $1', '$1 · delvis',

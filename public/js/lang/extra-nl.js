@@ -55,7 +55,7 @@ export const rows = [
   'Delen'
 ]
 export const patterns = [
-  'Hoi $1, maak het van jou', 'Seizoen $1', 'Seizoen $1 · Aflevering $2', 'Hervat S$1 A$2', 'S$1 A$2$3', 'Verschijnt $1', '$1 u $2 min', '$1 min', '$1nog $2 u $3 min', '$1nog $2 min',
+  'Hoi $1, maak het van jou', 'Seizoen $1', 'Seizoen $1 · Aflevering $2', 'Aflevering $1', 'Hervat S$1 A$2', 'S$1 A$2$3', 'Verschijnt $1', '$1 u $2 min', '$1 min', '$1nog $2 u $3 min', '$1nog $2 min',
   'Uitgelichte titel $1 van $2 tonen', '$1 afspelen', '$1 titels gevonden', 'Zoeken in: $1', '$1 gebruikt', '$1 limiet', '$1 van $2 gebruikt. De oudste niet-bekeken downloads worden automatisch verwijderd als het vol is.',
   'Automatisch kiest de beste versie voor je verbinding en scherm (internet van deze server: ongeveer $1 Mbps). Kies een niveau om het af te dwingen.', 'Automatisch kiest de beste versie voor je verbinding en scherm. Kies een niveau om het af te dwingen.',
   'Video-encoder: software', 'Video-encoder: $1', 'Niets gevonden voor "$1". Controleer de spelling of gebruik minder woorden.', 'Bufferen · $1', 'Speelt af op $1 · $2', '$1p voor je verbinding', '$1 afleveringen toegevoegd aan je downloads', 'Download $1/$2', 'Omdat je $1 leuk vond', '$1 · gedeeltelijk',
