@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.10.0](https://github.com/dodoflix/dodobox/compare/v0.9.0...v0.10.0) (2026-10-31)
+
+
+### Features
+
+* **player:** load seek-bar frames a section at a time, from the downloaded part of a file ([#104](https://github.com/dodoflix/dodobox/issues/104)) ([582f956](https://github.com/dodoflix/dodobox/commit/582f95604b95ff60d42731e36b3d592780bc22e6))
+
+
+### Bug fixes
+
+* episode runtime, image loading and player seek and version switching ([#97](https://github.com/dodoflix/dodobox/issues/97)) ([207631f](https://github.com/dodoflix/dodobox/commit/207631ffc8ac09afe0cbf22457b0728fb7232b4e))
+* name episodes without a title "Episode N" in the interface language ([#103](https://github.com/dodoflix/dodobox/issues/103)) ([51ba776](https://github.com/dodoflix/dodobox/commit/51ba776b7629fe6708b05f72218a8edab10ff062))
+* **player:** keep Continue watching on the next episode when the viewer moves on ([#111](https://github.com/dodoflix/dodobox/issues/111)) ([9323c49](https://github.com/dodoflix/dodobox/commit/9323c49b0d587b0e7476d07b16117bc8153ab759))
+* **subtitles:** read the frame rate from windows that agree on the offset ([#98](https://github.com/dodoflix/dodobox/issues/98)) ([09613d3](https://github.com/dodoflix/dodobox/commit/09613d38e72697a0742f6c2e1d4ec1bd12493848))
+* **subtitles:** skip an automatic pick that is English text filed under another language ([#101](https://github.com/dodoflix/dodobox/issues/101)) ([8f404c1](https://github.com/dodoflix/dodobox/commit/8f404c116b9057da134d79f9231fe8cacd42495c))
+
+
+### Performance
+
+* **subtitles:** ask for the list while the video starts and send the fast providers' list sooner ([#102](https://github.com/dodoflix/dodobox/issues/102)) ([67ec235](https://github.com/dodoflix/dodobox/commit/67ec23503d88012c98aec6fb705a2bb232fc7eb5))
+
+
+### Documentation
+
+* rebuild README banner around the product headline ([#85](https://github.com/dodoflix/dodobox/issues/85)) ([58f9221](https://github.com/dodoflix/dodobox/commit/58f922120e9804fdd18a296624f66b887b0c0d24))
+
 ## [0.9.0](https://github.com/dodoflix/dodobox/compare/v0.8.0...v0.9.0) (2026-10-24)
 
 
