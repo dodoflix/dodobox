@@ -246,7 +246,8 @@ export async function watch (type, id, season, episode) {
   const leave = () => { location.replace(`#/title/${type}/${enc(id)}`) }
   $('#back', root).onclick = leave; $('#back2', root).onclick = leave
   $('#nxt', root)?.addEventListener('click', () => go(next))
-  const go = n => { save(); location.replace(watchHref(type, id, n.season, n.episode)) }
+  let movedOn = null // set by go(): every later save, including the one on teardown, keeps the next episode as the place to continue
+  const go = n => { movedOn = { season: n.season, episode: n.episode }; save(); location.replace(watchHref(type, id, n.season, n.episode)) }
 
   const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement
   const toggleFS = () => {
@@ -961,7 +962,7 @@ export async function watch (type, id, season, episode) {
   function save () {
     if (!v.duration || !isFinite(v.duration) || v.currentTime < 5 || castCtl) return
     lastSave = Date.now()
-    recordProgress({ type, id, name: m.originalName || m.name, poster: m.poster, season, episode, pos: Math.floor(v.currentTime), dur: Math.floor(v.duration) })
+    recordProgress({ type, id, name: m.originalName || m.name, poster: m.poster, season, episode, pos: Math.floor(v.currentTime), dur: Math.floor(v.duration), next: movedOn })
   }
   timers.push(setInterval(() => { if (!v.paused && Date.now() - lastSave > 9000) save() }, 3000))
   timers.push(setInterval(drawStats, 1000))

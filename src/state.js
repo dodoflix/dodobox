@@ -128,7 +128,9 @@ export function saveProgress (id, b) {
   const h = (p.history[tk] ||= { type, id: tid, first: now })
   Object.assign(h, { name, poster, at: now, season, episode })
   if (season == null && b.pos / b.dur > 0.9) h.finished = true
-  if (b.pos / b.dur > 0.95) delete p.recent[tk]
+  const nx = b.next && Number.isInteger(b.next.season) && Number.isInteger(b.next.episode) ? b.next : null
+  if (nx) p.recent[tk] = { type, id: tid, name, poster, season: nx.season, episode: nx.episode, pos: 0, dur: Math.floor(b.dur), at: now } // moved on: continue from the start of the next one
+  else if (b.pos / b.dur > 0.95) delete p.recent[tk]
   else p.recent[tk] = { type, id: tid, name, poster, season, episode, pos: Math.floor(b.pos), dur: Math.floor(b.dur), at: now }
   persist()
   return true

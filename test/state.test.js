@@ -33,6 +33,15 @@ test('finishing a title removes it from continue watching', () => {
   assert.equal(state.me(p.id).recent.length, 0)
 })
 
+test('moving on to the next episode keeps the show in continue watching at that episode', () => {
+  const p = state.createProfile('Di')
+  state.saveProgress(p.id, { type: 'series', id: 'tt5', name: 'Show', season: 1, episode: 2, pos: 2350, dur: 2400, next: { season: 1, episode: 3 } })
+  const [r] = state.me(p.id).recent
+  assert.deepEqual([r.season, r.episode, r.pos], [1, 3, 0])
+  state.saveProgress(p.id, { type: 'series', id: 'tt5', name: 'Show', season: 1, episode: 3, pos: 2350, dur: 2400 })
+  assert.equal(state.me(p.id).recent.length, 0)
+})
+
 test('settings are validated and persisted to disk', () => {
   const p = state.createProfile('Di')
   state.updateProfile(p.id, { settings: { sublang: 'eng', evil: 'x' } })

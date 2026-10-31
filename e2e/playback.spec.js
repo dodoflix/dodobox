@@ -203,3 +203,18 @@ test('the opening an episode marks as a chapter can be skipped', async () => {
   await page.waitForFunction(() => document.querySelector('.pl video').currentTime >= 8)
   await ctx.close()
 })
+
+test('going to the next episode keeps the series in Continue watching at that episode', async () => {
+  const { ctx, page } = await newPage(base)
+  await signIn(page, base, 'Ada')
+  await page.goto(`${base}/#/watch/series/${SERIES.id}/1/1`)
+  await playing(page)
+  await video(page).evaluate(v => { v.currentTime = 8 })
+  await page.waitForTimeout(1500)
+  await page.click('#nxt')
+  await page.waitForURL(/\/1\/2$/)
+  await page.goto(`${base}/#/library`)
+  await page.reload()
+  await page.locator('#l-recent .poster', { hasText: 'S1 E2' }).waitFor()
+  await ctx.close()
+})
