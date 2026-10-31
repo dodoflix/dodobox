@@ -246,7 +246,8 @@ export async function watch (type, id, season, episode) {
   const leave = () => { location.replace(`#/title/${type}/${enc(id)}`) }
   $('#back', root).onclick = leave; $('#back2', root).onclick = leave
   $('#nxt', root)?.addEventListener('click', () => go(next))
-  const go = n => { save(); location.replace(watchHref(type, id, n.season, n.episode)) }
+  let movedOn = null // set by go(): every later save, including the one on teardown, keeps the next episode as the place to continue
+  const go = n => { movedOn = { season: n.season, episode: n.episode }; save(); location.replace(watchHref(type, id, n.season, n.episode)) }
 
   const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement
   const toggleFS = () => {
@@ -959,9 +960,9 @@ export async function watch (type, id, season, episode) {
   nowPlaying(() => v.duration > 0 && !castCtl ? { state: v.paused ? 'paused' : 'playing', name: m.originalName || m.name, poster: m.poster, season, episode, pos: v.currentTime, dur: v.duration } : { state: 'browsing' })
   let lastSave = 0
   function save () {
-    if (!v.duration || !isFinite(v.duration) || v.currentTime < 5 || castCtl) return
+    if (!v.duration || !isFinite(v.duration) || (!movedOn && (v.currentTime < 5 || castCtl))) return
     lastSave = Date.now()
-    recordProgress({ type, id, name: m.originalName || m.name, poster: m.poster, season, episode, pos: Math.floor(v.currentTime), dur: Math.floor(v.duration) })
+    recordProgress({ type, id, name: m.originalName || m.name, poster: m.poster, season, episode, pos: Math.floor(v.currentTime), dur: Math.floor(v.duration), next: movedOn })
   }
   timers.push(setInterval(() => { if (!v.paused && Date.now() - lastSave > 9000) save() }, 3000))
   timers.push(setInterval(drawStats, 1000))
@@ -984,8 +985,8 @@ export async function watch (type, id, season, episode) {
     $('#upgo', root).onclick = () => go(next); $('#upx', root).onclick = () => { box.hidden = true; clearTimeout(upT); upShown = 'dismissed' }
     upT = setTimeout(() => { if (!dead && !$('#up', root).hidden) go(next) }, secs * 1000)
   }
-  v.addEventListener('ended', () => { save(); if (next && upShown !== 'dismissed') go(next); else if (!next) leave() })
-  v.addEventListener('seeking', () => { if (upShown === true && v.currentTime < upAt() - 2) { $('#up', root).hidden = true; clearTimeout(upT); upShown = false } })
+  v.addEventListener('ended', () => { if (next) movedOn = { season: next.season, episode: next.episode }; save(); if (next && upShown !== 'dismissed') go(next); else if (!next) leave() })
+  v.addEventListener('seeking', () => { movedOn = null; if (upShown === true && v.currentTime < upAt() - 2) { $('#up', root).hidden = true; clearTimeout(upT); upShown = false } })
 
   // Skip intro / recap: a button for as long as the marked part plays.
   function paintSkip () {
