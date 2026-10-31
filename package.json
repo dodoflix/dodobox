@@ -104,7 +104,8 @@
       "category": "AudioVideo",
       "target": [
         "AppImage",
-        "deb"
+        "deb",
+        "rpm"
       ],
       "maintainer": "Dodobox contributors <43419555+dodoflix@users.noreply.github.com>",
       "icon": "desktop/build/icons"

@@ -1,0 +1,25 @@
+# Maintainer: Dodobox contributors <43419555+dodoflix@users.noreply.github.com>
+# Rendered by scripts/publish-aur.sh: @VERSION@ and @SHA256@ are filled in on each release.
+pkgname=dodobox-bin
+pkgver=@VERSION@
+pkgrel=1
+pkgdesc='Self-hosted streaming app: torrent playback, subtitles, profiles'
+arch=('x86_64')
+url='https://github.com/dodoflix/dodobox'
+license=('MIT')
+depends=('gtk3' 'nss' 'libnotify' 'libxss' 'libxtst' 'xdg-utils' 'at-spi2-core' 'util-linux-libs' 'libsecret')
+optdepends=('libappindicator-gtk3: tray icon')
+provides=('dodobox')
+conflicts=('dodobox')
+options=('!strip' '!debug')
+_deb="Dodobox-$pkgver-linux-amd64.deb"
+noextract=("$_deb")
+source=("$url/releases/download/v$pkgver/$_deb")
+sha256sums=('@SHA256@')
+
+package() {
+  bsdtar -xf "$_deb" -C "$srcdir"
+  bsdtar -xf "$srcdir"/data.tar.* -C "$pkgdir"
+  # The deb's postinst does this; the sandbox helper must be setuid root.
+  chmod 4755 "$pkgdir/opt/Dodobox/chrome-sandbox"
+}

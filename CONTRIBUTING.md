@@ -58,6 +58,14 @@ Every word the interface shows is written in English in the source and translate
 
 Releases are automatic. Every merge to `main` updates a release pull request with the next version and changelog. Merging that pull request tags the release, publishes the notes and pushes the container image to `ghcr.io/dodoflix/dodobox` and Docker Hub (`dodoflix/dodobox`). Docker Hub needs the `DOCKERHUB_USERNAME` (`dodoflix`) and `DOCKERHUB_TOKEN` (access token with read/write scope) repository secrets.
 
+The same run attaches the Linux, Windows and macOS installers, then signs `SHA256SUMS` over everything attached, attests each file, publishes the apt and dnf repositories to GitHub Pages and pushes `dodobox-bin` to the AUR ([docs/linux.md](docs/linux.md)). Code signing for Windows and macOS belongs in the `desktop` job, before the files are attached, so the checksums cover the signed files.
+
+One-time setup:
+
+- Settings, Pages, Source: GitHub Actions.
+- `GPG_PRIVATE_KEY` (`gpg --armor --export-secret-keys <id>`) and `GPG_PASSPHRASE` secrets for the repository signing key. The public half is served as `key.asc`.
+- `AUR_SSH_PRIVATE_KEY` secret: an SSH key whose public half is on the maintainer's AUR account. The first push creates the package. Without it the AUR step is skipped.
+
 ## Scope
 
 See the [legal notice](LEGAL.md): changes that add services built to distribute infringing content, or that bundle copyrighted material, are declined.
