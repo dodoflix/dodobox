@@ -1,7 +1,7 @@
 import { api, getProfile, getToken, setToken } from './api.js'
 import { $, esc, icon } from './util.js'
 import { pickProfile } from './session.js'
-import { focusFirst } from './nav.js'
+import { focusFirst, onBack } from './nav.js'
 import { unlockProfile, lockProfile } from './pin.js'
 
 const COLORS = ['#f2a65a', '#e5646e', '#6fb7e9', '#7ad3a0', '#b58cf0', '#f0d264']
@@ -13,7 +13,11 @@ export function showPicker ({ dismissable = false } = {}) {
     root.className = ''; root.hidden = false
     let manage = false
 
-    const done = async id => { await pickProfile(id); root.hidden = true; root.innerHTML = ''; resolve(id) }
+    const prevBack = onBack.handler
+    const close = v => { if (onBack.handler === back) onBack.handler = prevBack; root.hidden = true; root.innerHTML = ''; resolve(v) }
+    // Back (Escape, the remote) is the Cancel button of the view when it has one; a picker that must be answered swallows it.
+    const back = onBack.handler = () => { root.querySelector('[data-back], [data-close]')?.click(); return true }
+    const done = async id => { await pickProfile(id); close(id) }
     // A locked profile asks for its PIN first, unless this browser holds a session the server still knows (one kept across a server restart is dead).
     const unlocked = async p => {
       if (!p.locked) return true
@@ -48,7 +52,7 @@ export function showPicker ({ dismissable = false } = {}) {
         const b = e.target.closest('button'); if (!b) return
         if (b.dataset.add !== undefined) form({})
         else if (b.dataset.manage !== undefined) { manage = !manage; list() }
-        else if (b.dataset.close !== undefined) { root.hidden = true; root.innerHTML = ''; resolve(null) }
+        else if (b.dataset.close !== undefined) close(null)
         else if (b.dataset.id) { const p = profiles.find(x => x.id === b.dataset.id); manage ? edit(p) : open(p) }
       }
       focusFirst(root)

@@ -176,3 +176,68 @@ test('the watch party panel closes with Escape without leaving the page', async 
   assert.equal(await page.evaluate(() => location.hash), '#/library')
   await ctx.close()
 })
+
+test('a page that finishes loading after the visitor moved on is still cleaned up', async () => {
+  const { ctx, page } = await newPage(base)
+  await page.addInitScript(() => {
+    const Real = window.IntersectionObserver
+    window.__io = 0
+    window.IntersectionObserver = class extends Real {
+      constructor (cb, o) { super(cb, o); if (o?.rootMargin === '1800px') { window.__io++; this.disconnect = () => { window.__io--; super.disconnect() } } }
+    }
+  })
+  await signIn(page, base, 'Ada')
+  let release
+  const gate = new Promise(r => { release = r })
+  await page.route('**/api/catalog?*', async route => { await gate; route.abort() })
+  await page.evaluate(() => { location.hash = '#/browse/movie?all=1' })
+  await page.waitForFunction(() => window.__io === 1)
+  await page.evaluate(() => { location.hash = '#/library' })
+  await page.locator('#dl').waitFor()
+  release()
+  await page.waitForFunction(() => window.__io === 0)
+  await ctx.close()
+})
+
+test('Escape on the profile picker cancels it when it can be dismissed and is swallowed when it cannot, without leaving the page', async () => {
+  const { ctx, page } = await newPage(base)
+  await signIn(page, base, 'Ada')
+  await page.evaluate(() => { location.hash = '#/library' })
+  await page.locator('#dl').waitFor()
+  await page.evaluate(() => { import('/js/profiles.js').then(m => m.showPicker({ dismissable: true })).then(r => { window.__picked = r }) })
+  await page.locator('.picker .pf[data-id]').first().waitFor()
+  await page.click('[data-manage]')
+  await page.locator('.picker .pf[data-id]').first().click() // manage mode: opens the edit form
+  await page.locator('input[name=name]').waitFor()
+  await page.keyboard.press('Escape') // the form goes back to the list
+  await page.locator('.picker .pf[data-id]').first().waitFor()
+  await page.keyboard.press('Escape') // the list is dismissed
+  await page.locator('#layer .picker').waitFor({ state: 'detached' })
+  assert.equal(await page.evaluate(() => window.__picked), null)
+  assert.equal(await page.evaluate(() => location.hash), '#/library')
+  await page.evaluate(() => { import('/js/profiles.js').then(m => m.showPicker()) })
+  await page.locator('.picker .pf[data-id]').first().waitFor()
+  await page.keyboard.press('Escape')
+  await settled(page)
+  assert.equal(await page.locator('.picker').count(), 1)
+  assert.equal(await page.evaluate(() => location.hash), '#/library')
+  await ctx.close()
+})
+
+test('Escape in the first-run questions goes back a page and never leaves the page', async () => {
+  const { ctx, page } = await newPage(base)
+  await signIn(page, base, 'Ada')
+  await page.evaluate(() => { location.hash = '#/library' })
+  await page.locator('#dl').waitFor()
+  await page.evaluate(() => { import('/js/onboarding.js').then(m => m.profileOnboarding()) })
+  await page.locator('.ob [data-next]').waitFor()
+  await page.click('.ob [data-next]')
+  await page.locator('.ob h1', { hasText: 'What do you like?' }).waitFor()
+  await page.keyboard.press('Escape')
+  await page.locator('.ob h1', { hasText: 'make it yours' }).waitFor()
+  await page.keyboard.press('Escape')
+  await settled(page)
+  assert.equal(await page.locator('.ob h1', { hasText: 'make it yours' }).count(), 1)
+  assert.equal(await page.evaluate(() => location.hash), '#/library')
+  await ctx.close()
+})

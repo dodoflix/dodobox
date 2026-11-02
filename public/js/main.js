@@ -41,7 +41,7 @@ function pending (type, id) {
 // A player or trailer that failed to load leaves its placeholder and the scroll lock behind; this removes them.
 const clearLayer = () => { const layer = $('#layer'); layer.hidden = true; layer.innerHTML = ''; layer.className = ''; document.documentElement.classList.remove('lock') }
 // A page left while it loaded is cancelled on purpose: the page that replaced it owns the screen and nothing went wrong.
-const failed = (e, mine) => { if (mine !== seq || e.name === 'AbortError') return; clearLayer(); toast(e.message); location.hash = '#/' }
+const failed = (e, mine) => { if (mine !== seq) return; clearLayer(); if (e.name !== 'AbortError') { toast(e.message); location.hash = '#/' } }
 
 async function route () {
   const mine = ++seq
