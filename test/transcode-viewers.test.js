@@ -88,3 +88,15 @@ test('a full queue refuses more work instead of growing without limit', async ()
 test('a file that claims a length over 24 hours is refused instead of becoming a playlist of millions of lines', async () => {
   await assert.rejects(probe('x.mkv', 'absurd'), { code: 422, message: /impossible length/ })
 })
+
+test('a request that is already gone does not wait for a segment that is running, nor keep it alive', async () => {
+  const key = 'film:4'
+  const first = await hold(key)
+  const gone = new AbortController(); gone.abort()
+  const s = track(segment('x', key, 0, 0, 1080, gone.signal))
+  await until(() => s.done)
+  assert.equal(s.err.code, 499)
+  first.c.abort()
+  await until(() => first.t.done)
+  await until(() => encodes().running === 0)
+})

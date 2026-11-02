@@ -81,8 +81,8 @@ const jbody = async req => {
 
 let port
 const rawUrl = (hash, idx) => `http://127.0.0.1:${port}/raw/${hash}/${idx}`
-// Viewers are told apart by address: one leaving must not stop the conversion another still watches.
-const viewer = req => (req.socket.remoteAddress || '').replace(/^::ffff:/, '')
+// Viewers are told apart by the id their player sends (`v`), by address when it sends none: one leaving must not stop the conversion another still watches.
+const viewer = (req, q) => (/^\w{1,40}$/.test(q.get('v') || '') ? q.get('v') : (req.socket.remoteAddress || '').replace(/^::ffff:/, ''))
 const statusOf = (h, silent, file) => local.isLocal(h) ? local.status(h) : engine.status(h, silent, file)
 // A profile with a PIN is only itself for a request that carries a session token issued after the PIN was entered; otherwise it is nobody.
 const unlocked = (id, req) => !state.hasPin(id) || lock.valid(id, req.headers['x-token'])
@@ -141,8 +141,8 @@ async function lengthMatches (h, s, info) {
   return false
 }
 // The stream's routes only serve a file that is a video of the right length.
-async function hlsInfo (h, i, req) {
-  watching(`${h}:${i}`, viewer(req))
+async function hlsInfo (h, i, req, q) {
+  watching(`${h}:${i}`, viewer(req, q))
   const info = await probe(rawUrl(h, i), `${h}:${i}`)
   const s = statusOf(h, true)
   if (s && !await lengthMatches(h, { ...s, fileIdx: +i }, info)) throw Object.assign(new Error('This video is a different title'), { code: 409 })
@@ -483,7 +483,7 @@ const routes = [
   }],
   ['GET', /^\/api\/status\/(\w+)$/, (req, res, [, h], q) => { const s = statusOf(h, false, q.get('file')); if (s) speed.observe(s.speed); s ? json(req, res, s) : fail(req, res, 404, 'unknown source') }],
   // The player was left: stop converting for it.
-  ['POST', /^\/api\/release\/(\w+)\/(\d+)$/, (req, res, [, h, i]) => { cancel(`${h}:${i}`, viewer(req)); json(req, res, { ok: true }) }],
+  ['POST', /^\/api\/release\/(\w+)\/(\d+)$/, (req, res, [, h, i], q) => { cancel(`${h}:${i}`, viewer(req, q)); json(req, res, { ok: true }) }],
   ['GET', /^\/api\/info\/(\w+)$/, async (req, res, [, h]) => {
     const s = statusOf(h)
     if (!s || s.fileIdx == null) return fail(req, res, 409, 'not ready')
@@ -513,8 +513,8 @@ const routes = [
   ['GET', /^\/raw\/(\w+)\/(\d+)$/, (req, res, [, h, i]) => local.isLocal(h) ? local.serve(h, req, res) : engine.serve(h, +i, req, res)],
   // Safari hands HLS to AirPlay by URL, so only subtitles inside the stream reach a TV; with `sl` or `sub` the playlist becomes a master playlist with a WebVTT rendition.
   ['GET', /^\/hls\/(\w+)\/(\d+)\/index\.m3u8$/, async (req, res, [, h, i], q) => {
-    const info = await hlsInfo(h, i, req)
-    const qs = new URLSearchParams([...q].filter(([k]) => k === 'a' || k === 'h')).toString()
+    const info = await hlsInfo(h, i, req, q)
+    const qs = new URLSearchParams([...q].filter(([k]) => k === 'a' || k === 'h' || k === 'v')).toString()
     let body = playlist(info.duration, qs ? '?' + qs : '')
     if (q.get('sub') || q.get('sl')) {
       const sq = new URLSearchParams([...q].filter(([k]) => ['sub', 'sl', 'sn', 't', 'mid', 's', 'e'].includes(k))).toString()
@@ -526,8 +526,8 @@ const routes = [
     res.writeHead(200, { 'content-type': 'application/vnd.apple.mpegurl', 'cache-control': 'no-store' }).end(body)
   }],
   ['GET', /^\/hls\/(\w+)\/(\d+)\/media\.m3u8$/, async (req, res, [, h, i], q) => {
-    const info = await hlsInfo(h, i, req)
-    const qs = new URLSearchParams([...q].filter(([k]) => k === 'a' || k === 'h')).toString()
+    const info = await hlsInfo(h, i, req, q)
+    const qs = new URLSearchParams([...q].filter(([k]) => k === 'a' || k === 'h' || k === 'v')).toString()
     res.writeHead(200, { 'content-type': 'application/vnd.apple.mpegurl', 'cache-control': 'no-store' }).end(playlist(info.duration, qs ? '?' + qs : ''))
   }],
   ['GET', /^\/hls\/(\w+)\/(\d+)\/subs\.m3u8$/, async (req, res, [, h, i], q) => {
@@ -561,13 +561,13 @@ const routes = [
   }],
   ['GET', /^\/hls\/(\w+)\/(\d+)\/seg(\d+)\.ts$/, async (req, res, [, h, i, n], q) => {
     const a = q.get('a') || '0'
-    const info = await hlsInfo(h, i, req) // refuses a file that is not a video before ffmpeg reads it
+    // A viewer who went away (a seek, a closed player) stops waiting for its segment, also while the file is still being probed.
+    const gone = new AbortController()
+    res.on('close', () => { if (!res.writableEnded) gone.abort() })
+    const info = await hlsInfo(h, i, req, q) // refuses a file that is not a video before ffmpeg reads it
     const last = Math.ceil(info.duration / SEG) - 1
     if (!/^\d+$/.test(a) || +a >= Math.max(1, info.audio.length) || +n > last) return fail(req, res, 404, 'no such segment')
     const audio = +a; const maxH = Math.min(2160, Math.max(240, +q.get('h') || 1080))
-    // A viewer who went away (a seek, a closed player) stops waiting for its segment.
-    const gone = new AbortController()
-    res.on('close', () => { if (!res.writableEnded) gone.abort() })
     const data = await segment(rawUrl(h, i), `${h}:${i}`, +n, audio, maxH, gone.signal)
     if (gone.signal.aborted) return
     warm(rawUrl(h, i), `${h}:${i}`, +n, last, audio, maxH)

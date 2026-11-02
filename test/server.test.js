@@ -153,6 +153,17 @@ test('files in the media folder are matched to titles, listed and served with ra
   assert.match(await master.text(), /#EXTM3U/)
   assert.equal((await fetch(`${base}/hls/${entry.id}/0/seg0.ts`)).status, 200)
   for (const bad of ['seg999.ts', 'seg0.ts?a=5', 'seg0.ts?a=1.5', 'seg0.ts?a=-1']) assert.equal((await fetch(`${base}/hls/${entry.id}/0/${bad}`)).status, 404, `${bad} is no segment of this file`)
+  // Two players on one address (two tabs, a reverse proxy) are two viewers: the first to leave does not stop the conversion of the other.
+  const hls = `${base}/hls/${entry.id}/0`
+  assert.match(await (await fetch(`${hls}/index.m3u8?a=0&v=tab1`)).text(), /seg0\.ts\?a=0&v=tab1/)
+  await fetch(`${hls}/index.m3u8?a=0&v=tab2`)
+  const logged = () => fs.readFileSync(path.join(process.env.DATA_DIR, 'logs', 'dodobox.log'), 'utf8')
+  await call(`/api/release/${entry.id}/0?v=tab1`, { method: 'POST', body: {} })
+  assert.match(logged(), /cancel skipped, others are watching key=\w+:0 left=2/)
+  await call(`/api/release/${entry.id}/0?v=tab2`, { method: 'POST', body: {} })
+  assert.match(logged(), /cancel skipped, others are watching key=\w+:0 left=1/)
+  await call(`/api/release/${entry.id}/0`, { method: 'POST', body: {} }) // the address that fetched the segments above
+  assert.match(logged(), /\[transcode\] cancel key=\w+:0\n/)
   assert.equal((await call('/api/library')).body.length, 0)
 })
 

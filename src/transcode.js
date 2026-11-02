@@ -147,6 +147,7 @@ const drop = (k, e) => { e.ctl.abort(); segs.delete(k) }
 
 // `signal` is the request waiting for the segment: when every request waiting for a job is gone, the job stops. Without one the job is a warm-up, which nobody is waiting for yet.
 export function segment (url, key, n, audio = 0, maxH = 1080, signal) {
+  if (signal?.aborted) return Promise.reject(Object.assign(new Error('cancelled'), { code: 499 }))
   const k = `${key}:${audio}:${maxH}:${n}`
   if (signal) {
     // A jump away leaves the warm-ups of the old position queued ahead of the segment that is needed now.
