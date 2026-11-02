@@ -9,8 +9,6 @@ const icon = path.join(build, 'icon.png')
 app.setName('Dodobox')
 app.setAppUserModelId('io.github.dodoflix.dodobox')
 
-if (!app.requestSingleInstanceLock()) app.exit(0)
-
 // Read by the server when it loads, so they must be set before the import below.
 process.env.DATA_DIR ||= path.join(app.getPath('userData'), 'data')
 // The Windows installer and the Linux AppImage replace themselves through electron-updater. The portable exe, the .deb and the macOS builds
@@ -52,7 +50,12 @@ async function boot () {
   const port = server.address().port
   url = `http://localhost:${port}`
   const lan = () => lanAddresses().map(a => `http://${a}:${port}`)
+  // The portable exe unpacks to a temporary folder, so its own path (not process.execPath) is what has to be registered.
+  const portableExe = process.env.PORTABLE_EXECUTABLE_FILE
   const canAutoStart = process.platform === 'win32' || process.platform === 'darwin'
+  // Windows compares the stored entry with these arguments, so reading and writing must use the same ones.
+  const loginArgs = { args: ['--hidden'], ...(portableExe ? { path: portableExe } : {}) }
+  const startsAtLogin = () => app.getLoginItemSettings(loginArgs).openAtLogin
 
   const menu = () => Menu.buildFromTemplate([
     { label: 'Open Dodobox', click: openUi },
@@ -60,7 +63,7 @@ async function boot () {
     { label: 'For phones and TVs', enabled: false },
     ...(lan().length ? lan().map(a => ({ label: `Copy ${a}`, click: () => clipboard.writeText(a) })) : [{ label: 'No network address found', enabled: false }]),
     { type: 'separator' },
-    ...(canAutoStart ? [{ label: 'Start when I sign in', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin, click: item => app.setLoginItemSettings({ openAtLogin: item.checked, args: ['--hidden'] }) }] : []),
+    ...(canAutoStart ? [{ label: 'Start when I sign in', type: 'checkbox', checked: startsAtLogin(), click: item => app.setLoginItemSettings({ ...loginArgs, openAtLogin: item.checked }) }] : []),
     { label: 'Check for updates', click: () => updateCheck(true) },
     { label: 'Show data folder', click: () => shell.openPath(process.env.DATA_DIR) },
     { label: 'Show log file', click: () => shell.showItemInFolder(LOG_FILE) },
@@ -79,6 +82,8 @@ async function boot () {
   const idle = () => tray.setToolTip(`Dodobox is running on port ${port}`)
   let asked = ''
   const upToDate = () => dialog.showMessageBox({ type: 'info', message: 'Dodobox is up to date', detail: `Version ${app.getVersion()}` })
+  const checkFailed = () => dialog.showMessageBox({ type: 'warning', message: 'Could not check for updates', detail: 'Dodobox could not reach the releases page. Check your connection and try again.' })
+  let manualWait = false // a check the user asked for is waiting for electron-updater to answer
   if (selfUpdates) {
     const { autoUpdater } = updater
     autoUpdater.autoDownload = false
@@ -89,9 +94,11 @@ async function boot () {
       install: () => autoUpdater.quitAndInstall(),
       check: () => autoUpdater.checkForUpdates().catch(() => {})
     })
-    autoUpdater.on('error', e => { log.error('updater', 'error', { err: e }); updates.set({ phase: 'error', error: String(e.message).split('\n')[0].slice(0, 160) }) })
+    autoUpdater.on('update-not-available', () => { if (manualWait) { manualWait = false; upToDate() } })
+    autoUpdater.on('error', e => { if (manualWait) { manualWait = false; checkFailed() }; log.error('updater', 'error', { err: e }); updates.set({ phase: 'error', error: String(e.message).split('\n')[0].slice(0, 160) }) })
     autoUpdater.on('download-progress', p => { updates.set({ progress: Math.round(p.percent) }); tray.setToolTip(`Downloading the update... ${Math.round(p.percent)}%`) })
     autoUpdater.on('update-available', async info => {
+      manualWait = false
       log.info('updater', 'update available', { version: info.version, current: app.getVersion() })
       updates.set({ version: info.version, url: `https://github.com/dodoflix/dodobox/releases/tag/v${info.version}`, phase: 'available', error: null })
       if (asked === info.version) return
@@ -114,23 +121,28 @@ async function boot () {
     const checkUpdates = () => { if (app.isPackaged) autoUpdater.checkForUpdates().catch(() => {}) }
     updateCheck = manual => {
       if (!app.isPackaged) return dialog.showMessageBox({ message: 'Updates are checked in the installed app.' })
-      if (manual) { asked = ''; autoUpdater.once('update-not-available', upToDate) }
+      if (manual) { asked = ''; manualWait = true }
       checkUpdates()
     }
     setTimeout(checkUpdates, 20e3); setInterval(checkUpdates, 6 * 3600e3)
   } else {
     // The server's own check (every 12 hours) finds the release; here the user is asked once per version.
     updates.useDriver({ self: false, download: async () => {}, install: () => {}, check: () => {} })
-    updates.onFound(async info => {
+    const offer = async info => {
       if (asked === info.version) return
       asked = info.version
       const { response } = await dialog.showMessageBox({ type: 'info', title: 'Dodobox update', message: `Dodobox ${info.version} is available`, detail: `You have ${app.getVersion()}. Open the download page?`, buttons: ['Open download page', 'Later'], defaultId: 0, cancelId: 1 })
       if (response === 0) shell.openExternal(RELEASES)
-    })
+    }
+    updates.onFound(offer)
     updateCheck = async manual => {
       if (!app.isPackaged) return dialog.showMessageBox({ message: 'Updates are checked in the installed app.' })
       if (manual) asked = ''
-      if (!(await updates.lookup(app.getVersion())) && manual) upToDate()
+      const found = await updates.lookup(app.getVersion())
+      if (!manual) return
+      if (found === 'newer') await offer(updates.info()) // already asked for this version by onFound when it was new
+      else if (found === 'current') upToDate()
+      else checkFailed()
     }
   }
 
@@ -143,8 +155,9 @@ async function boot () {
     Promise.race([stop(), new Promise(resolve => setTimeout(resolve, 5000))]).finally(() => app.exit(0))
   })
 
-  log.info('desktop', 'ready', { url, version: app.getVersion(), packaged: app.isPackaged, selfUpdates, portable: !!process.env.PORTABLE_EXECUTABLE_DIR, hidden: hidden(process.argv), autoStart: canAutoStart ? app.getLoginItemSettings().openAtLogin : undefined, data: process.env.DATA_DIR })
+  log.info('desktop', 'ready', { url, version: app.getVersion(), packaged: app.isPackaged, selfUpdates, portable: !!process.env.PORTABLE_EXECUTABLE_DIR, hidden: hidden(process.argv), autoStart: canAutoStart ? startsAtLogin() : undefined, data: process.env.DATA_DIR })
   if (!hidden(process.argv) && !app.getLoginItemSettings().wasOpenedAtLogin) openUi()
 }
 
-boot().catch(e => { console.error('[desktop]', e?.stack || e); dialog.showErrorBox('Dodobox could not start', String(e?.message || e)); app.exit(1) })
+// A second copy must not reach boot(): it would start a server on the running copy's data folder.
+;(app.requestSingleInstanceLock() ? boot() : Promise.resolve(app.quit())).catch(e => { console.error('[desktop]', e?.stack || e); dialog.showErrorBox('Dodobox could not start', String(e?.message || e)); app.exit(1) })

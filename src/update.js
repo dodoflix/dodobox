@@ -23,17 +23,17 @@ let found = null
 // Called once for each newly found version (the desktop app asks its question from here).
 export const onFound = fn => { found = fn }
 
-// Looks the latest release up now. Resolves true when it is newer than `current`.
+// Looks the latest release up now. Resolves 'newer', 'current' or 'failed' (offline, rate limited: nothing is known).
 export async function lookup (current) {
   try {
     const r = await getJSON(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { accept: 'application/vnd.github+json' }, tries: 1 })
     const latest = String(r.tag_name || '').replace(/^v/, '')
-    if (!latest || !newer(latest, current)) { log.debug('update', 'up to date', { current, latest }); return false }
+    if (!latest || !newer(latest, current)) { log.debug('update', 'up to date', { current, latest }); return 'current' }
     const first = state.version !== latest
     Object.assign(state, { version: latest, url: r.html_url, phase: 'available' })
     if (first) { console.log(`\n  Update available: Dodobox ${latest} (you have ${current}). ${hint()}\n  ${r.html_url}\n`); found?.({ ...state }) }
-    return true
-  } catch (e) { log.debug('update', 'check failed', { err: e }); return false /* offline or rate limited: try again later */ }
+    return 'newer'
+  } catch (e) { log.debug('update', 'check failed', { err: e }); return 'failed' }
 }
 
 export function watch (current) {

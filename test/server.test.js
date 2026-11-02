@@ -152,6 +152,7 @@ test('files in the media folder are matched to titles, listed and served with ra
   const master = await fetch(`${base}/hls/${entry.id}/0/index.m3u8`)
   assert.match(await master.text(), /#EXTM3U/)
   assert.equal((await fetch(`${base}/hls/${entry.id}/0/seg0.ts`)).status, 200)
+  for (const bad of ['seg999.ts', 'seg0.ts?a=5', 'seg0.ts?a=1.5', 'seg0.ts?a=-1']) assert.equal((await fetch(`${base}/hls/${entry.id}/0/${bad}`)).status, 404, `${bad} is no segment of this file`)
   assert.equal((await call('/api/library')).body.length, 0)
 })
 
@@ -181,7 +182,7 @@ test('subtitles: a listing, a download, an upload and the refused cases', async 
 
 test('the update view tells when a newer release exists and refuses to install one on a server run', async () => {
   const updates = await import('../src/update.js')
-  assert.equal(await updates.lookup('0.0.1'), true)
+  assert.equal(await updates.lookup('0.0.1'), 'newer')
   const view = (await call('/api/update')).body
   assert.equal(view.version, '99.0.0'); assert.equal(view.canApply, false)
   assert.equal((await call('/api/update/check', { method: 'POST' })).status, 200)
@@ -303,4 +304,22 @@ test('a watch party can be started as a lobby, followed over server-sent events 
   assert.equal(again.body.now.item.id, 'tt700000')
   assert.equal(again.body.now.source, null, 'an unknown torrent is not shared')
   await call('/api/party/leave', { method: 'POST', body: {} })
+})
+
+test('a request line that is no address is answered 400 and the connection is closed', async () => {
+  const { connect } = await import('node:net')
+  const sock = connect(new URL(base).port, '127.0.0.1')
+  let got = ''
+  sock.on('data', d => { got += d })
+  sock.write('GET // HTTP/1.1\r\nHost: localhost\r\n\r\n')
+  await new Promise(resolve => sock.on('close', resolve))
+  assert.match(got, /^HTTP\/1\.1 400 /)
+})
+
+test('the OpenSubtitles password is not written to the log', async () => {
+  const id = (await call('/api/profiles', { method: 'POST', body: { name: 'Secretive', color: '#abcdef' } })).body.id
+  await call('/api/opensubtitles', { method: 'PUT', headers: { 'x-profile': id }, body: { user: 'visible-name', pass: 'hunter2-secret' } })
+  const text = fs.readFileSync(path.join(process.env.DATA_DIR, 'logs', 'dodobox.log'), 'utf8')
+  assert.match(text, /\[body\] PUT \/api\/opensubtitles .*user=visible-name/)
+  assert.doesNotMatch(text, /hunter2-secret/)
 })

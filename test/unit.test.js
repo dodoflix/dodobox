@@ -304,11 +304,17 @@ test('lookup finds a newer release by itself and reports a version once', async 
   const log = console.log; console.log = () => {}
   try {
     updates.set({ version: '', phase: 'idle' })
-    assert.equal(await updates.lookup('0.1.0'), true)
-    assert.equal(await updates.lookup('0.1.0'), true)
-    assert.equal(await updates.lookup('9.9.9'), false)
+    assert.equal(await updates.lookup('0.1.0'), 'newer')
+    assert.equal(await updates.lookup('0.1.0'), 'newer')
+    assert.equal(await updates.lookup('9.9.9'), 'current')
   } finally { globalThis.fetch = real; console.log = log }
   assert.deepEqual(seen, ['9.9.9'])
+})
+
+test('a lookup that could not reach the release page says it failed, not that Dodobox is current', async () => {
+  const real = globalThis.fetch
+  globalThis.fetch = async () => { throw new Error('offline') }
+  try { assert.equal(await updates.lookup('0.1.0'), 'failed') } finally { globalThis.fetch = real }
 })
 
 test('ffmpeg\'s file report is read as streams: codecs, languages, titles, defaults, size and duration', () => {
