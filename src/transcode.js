@@ -5,6 +5,8 @@ import { FFMPEG, ENCODERS, encoder } from './bin.js'
 import { log } from './log.js'
 
 export const SEG = 6
+// No real video is longer; a file that claims more (corrupt, or made to) would make a playlist of millions of lines.
+export const MAX_DURATION = 24 * 3600
 const DIRECT_V = new Set(['h264', 'vp8', 'vp9', 'av1'])
 const DIRECT_A = new Set(['aac', 'mp3', 'opus', 'vorbis'])
 const TEXT_SUBS = new Set(['subrip', 'ass', 'ssa', 'webvtt', 'mov_text', 'text'])
@@ -61,6 +63,7 @@ export function probe (url, key, name = '') {
       const kid = execFile(FFMPEG, ['-hide_banner', '-nostdin', '-probesize', '5000000', '-analyzeduration', '5000000', '-i', url], { maxBuffer: 1e7, timeout: 120000 }, (err, out, text) => {
         if (!/^Input #0/m.test(text || '')) { log.warn('probe', 'ffmpeg could not read the file', { key, name, err: err?.message, ffmpeg: String(text || '').trim().split('\n').slice(-3).join(' | ') }); return reject(err || new Error('ffmpeg could not read the file')) }
         const f = parseProbe(text)
+        if (f.duration > MAX_DURATION) { log.warn('probe', 'implausible length', { key, name, duration: f.duration }); return reject(Object.assign(new Error('This video claims an impossible length'), { code: 422 })) }
         const v = f.streams.find(s => s.type === 'video')
         const audio = f.streams.filter(s => s.type === 'audio').map((s, i) => ({ i, codec: s.codec, lang: s.lang, title: s.title, default: s.default }))
         // The index is the track's place among all subtitle tracks (ffmpeg's 0:s:n), including picture-based ones that are not offered.
@@ -120,25 +123,44 @@ const SEG_TIMEOUT = 45000
 const segs = new Map()
 let running = 0
 const waiting = []
+const MAX_WAITING = 40
 const MAX_JOBS = +process.env.MAX_TRANSCODES || 3
 const slot = signal => new Promise((resolve, reject) => {
   if (signal.aborted) return reject(Object.assign(new Error('cancelled'), { code: 499 }))
   if (running < MAX_JOBS) { running++; return resolve() }
+  if (waiting.length >= MAX_WAITING) return reject(Object.assign(new Error('The converter is busy'), { code: 503 }))
   waiting.push(resolve)
   signal.addEventListener('abort', () => { const i = waiting.indexOf(resolve); if (i >= 0) { waiting.splice(i, 1); reject(Object.assign(new Error('cancelled'), { code: 499 })) } }, { once: true })
 })
 const release = () => { const next = waiting.shift(); if (next) next(); else running-- }
 export const encodes = () => ({ running, queued: waiting.length })
 
-export function segment (url, key, n, audio = 0, maxH = 1080) {
+// Who is watching each file, by viewer and when it last asked: a viewer that vanished without a goodbye stops counting after a while.
+const VIEWER_TTL = 120000
+const viewers = new Map()
+export function watching (key, who) {
+  if (!viewers.has(key)) viewers.set(key, new Map())
+  viewers.get(key).set(who, Date.now())
+}
+
+const drop = (k, e) => { e.ctl.abort(); segs.delete(k) }
+
+// `signal` is the request waiting for the segment: when every request waiting for a job is gone, the job stops. Without one the job is a warm-up, which nobody is waiting for yet.
+export function segment (url, key, n, audio = 0, maxH = 1080, signal) {
   const k = `${key}:${audio}:${maxH}:${n}`
+  if (signal) {
+    // A jump away leaves the warm-ups of the old position queued ahead of the segment that is needed now.
+    for (const [kk, e] of segs) if (e.key === key && e.warm && !e.started && (e.n <= n || e.n > n + 2)) drop(kk, e)
+  }
   if (!segs.has(k)) {
     const t = n * SEG
     const ctl = new AbortController()
-    const p = (async () => {
+    const entry = { key, ctl, n, users: 0, warm: true, started: false }
+    entry.p = (async () => {
       const name = await encoder()
       const t0 = Date.now()
       await slot(ctl.signal)
+      entry.started = true
       const t1 = Date.now()
       try {
         // Re-encode (not copy) so every segment starts on a keyframe; -output_ts_offset keeps timestamps continuous.
@@ -152,17 +174,29 @@ export function segment (url, key, n, audio = 0, maxH = 1080) {
         })
       } finally { release() }
     })()
-    p.catch(e => { log[e.code === 499 ? 'debug' : 'warn']('transcode', 'segment failed', { key, n, audio, maxH, err: e.message?.split('\n').pop() }); segs.delete(k) })
-    segs.set(k, { p, key, ctl })
+    entry.p.catch(e => { log[e.code === 499 ? 'debug' : 'warn']('transcode', 'segment failed', { key, n, audio, maxH, err: e.message?.split('\n').pop() }); if (segs.get(k) === entry) segs.delete(k) })
+    segs.set(k, entry)
     if (segs.size > 60) segs.delete(segs.keys().next().value)
   }
-  return segs.get(k).p
+  const e = segs.get(k)
+  if (signal) {
+    e.warm = false; e.users++
+    signal.addEventListener('abort', () => { if (--e.users <= 0 && !e.warm && segs.get(k) === e) drop(k, e) }, { once: true })
+  }
+  return e.p
 }
 
-// The player has been left: its queued and running encodes, and the probe, stop instead of holding the few encoder slots while they wait for pieces nobody downloads.
-export function cancel (key) {
+// The player has been left: when no other viewer is left on the file, its queued and running encodes, and the probe, stop instead of holding the few encoder slots while they wait for pieces nobody downloads.
+export function cancel (key, who) {
+  const seen = viewers.get(key)
+  if (seen) {
+    seen.delete(who)
+    for (const [w, at] of seen) if (Date.now() - at > VIEWER_TTL) seen.delete(w)
+    if (seen.size) return log.debug('transcode', 'cancel skipped, others are watching', { key, left: seen.size })
+    viewers.delete(key)
+  }
   log.debug('transcode', 'cancel', { key })
-  for (const [k, e] of segs) if (e.key === key) { e.ctl.abort(); segs.delete(k) }
+  for (const [k, e] of segs) if (e.key === key) drop(k, e)
   probeKids.get(key)?.kill('SIGKILL')
 }
 
