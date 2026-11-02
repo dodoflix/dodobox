@@ -6,16 +6,19 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-rem npm writes node_modules\.package-lock.json after a finished install, so a missing or older one means the install is partial or out of date.
+rem node_modules\.dodobox-lock is the package-lock.json of the last finished install; comparing contents (not times) also catches a downgrade or an archive with old file times.
+rem npm writes node_modules\.package-lock.json after a finished install, so a missing one means the install is partial.
 set NEED=
 if not exist node_modules\.package-lock.json set NEED=1
-if not defined NEED for /f %%i in ('powershell -NoProfile -Command "if ((Get-Item package-lock.json).LastWriteTime -gt (Get-Item node_modules\.package-lock.json).LastWriteTime) { 1 }"') do set NEED=1
+if not defined NEED (
+  fc /b package-lock.json node_modules\.dodobox-lock >nul 2>nul
+  if errorlevel 1 set NEED=1
+)
 if defined NEED (
   rem npm install, not npm ci: ci empties node_modules first, which would leave nothing to start with when offline.
   call npm install --omit=dev
   if not errorlevel 1 (
-    rem npm leaves the marker alone when nothing changed, and it must not stay older than the lock file.
-    copy /b node_modules\.package-lock.json +,, >nul
+    copy /y package-lock.json node_modules\.dodobox-lock >nul
   ) else (
     rem Offline: carry on when what is installed is already enough to start.
     if not exist node_modules\.package-lock.json (
