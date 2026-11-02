@@ -17,7 +17,7 @@ const FILE = path.join(DATA, 'meta-cache.json')
 const MAX_STALE = 7 * 24 * 3600e3
 const ttl = new Map()
 // Deep catalog pages are re-fetched when needed; keeping them made the file (and every save) many MB.
-const persist = k => { const m = k.match(/^cat\d+:.*:(\d+):[a-z]+$/); return !m || +m[1] <= 3 }
+export const persist = k => { const m = k.match(/^cat\d+:.*:(\d+):[a-z]+:[01]$/); return !m || +m[1] <= 3 }
 for (const [k, v] of Object.entries(readStamped(FILE) || {})) if (persist(k)) ttl.set(k, v)
 let saveT = null
 // Saved at most every 20 s (stringifying a big cache blocks the server for a moment).
@@ -184,10 +184,11 @@ const sfw = async (items, safe) => {
   return items.filter((_, k) => !adult[k])
 }
 
+export const catalogKey = ({ type, q, genre, page = 1, sort = 'popular', safe = false }) => `cat10:${type}:${q}:${genre}:${page}:${sort}:${safe ? 1 : 0}`
 export const catalog = ({ type, q, genre, page = 1, sort = 'popular', safe = false }) => {
   checkType(type)
   if (!ANIME_SORT[sort]) sort = 'popular'
-  return cached(`cat10:${type}:${q}:${genre}:${page}:${sort}:${safe ? 1 : 0}`, 3 * 3600e3, async () => {
+  return cached(catalogKey({ type, q, genre, page, sort, safe }), 3 * 3600e3, async () => {
     if (type === 'anime') {
       const tag = ANIME_TAGS.includes(genre)
       const media = await anilist({

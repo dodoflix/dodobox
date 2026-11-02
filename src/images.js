@@ -1,15 +1,19 @@
 // Poster/backdrop proxy with a disk cache: same-origin (lets the UI sample colors), fast on repeat, survives offline.
 import fs from 'node:fs'
-import { readFile, writeFile, rename, rm } from 'node:fs/promises'
+import { readFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { DATA } from './paths.js'
 import { run } from './transcode.js'
 import { fetchRetry, once } from './http.js'
 import { log } from './log.js'
+import { putFile as put, checkLength, readCapped, touch, trim, trimSoon } from './store.js'
 
 const DIR = path.join(DATA, 'img')
 fs.mkdirSync(DIR, { recursive: true })
+// Pictures can be fetched again, so the oldest unused ones go when the folder passes this size (every width and format is its own file).
+const MAX_BYTES = 300e6
+trim(DIR, MAX_BYTES).catch(() => {})
 const HOSTS = /(^|\.)(metahub\.space|media-amazon\.com|anilist\.co|crunchyroll\.com|kitsu\.(io|app)|myanimelist\.net|cdn\.myanimelist\.net|strem\.io|thetvdb\.com|themoviedb\.org|tmdb\.org)$/
 
 const WIDTHS = [64, 160, 240, 360, 480, 640, 800, 1080, 1280, 1920]
@@ -46,25 +50,24 @@ const hash = u => crypto.createHash('sha1').update(u).digest('hex')
 const looksLikeImage = b => b.length > 12 && (
   (b[0] === 0xff && b[1] === 0xd8) || b.toString('latin1', 1, 4) === 'PNG' || b.toString('latin1', 0, 3) === 'GIF' ||
   (b.toString('latin1', 0, 4) === 'RIFF' && b.toString('latin1', 8, 12) === 'WEBP') || b.toString('latin1', 4, 8) === 'ftyp')
-// Written to a temp name first: a crash mid-write must not leave a half file under the real name, which would be served for good.
-const put = async (f, data) => { const t = `${f}.${crypto.randomUUID()}.tmp`; await writeFile(t, data); await rename(t, f) }
+const save = async (f, data) => { await put(f, data); trimSoon(DIR, MAX_BYTES) }
 
 async function original (u, signal) {
   const f = path.join(DIR, hash(u))
   try {
     const buf = await readFile(f)
-    if (looksLikeImage(buf)) return { f, buf, type: await readFile(f + '.t', 'utf8') }
+    if (looksLikeImage(buf)) { touch(f); touch(f + '.t'); return { f, buf, type: await readFile(f + '.t', 'utf8') } }
     log.warn('images', 'dropping a corrupt cached picture', { url: u.slice(0, 200), bytes: buf.length })
     await Promise.all([rm(f, { force: true }), rm(f + '.t', { force: true })])
   } catch {}
   if (signal?.aborted) throw cancelled()
   const r = await once('img:' + u, () => fetchRetry(u, { timeout: 12000, tries: 3 })).catch(e => { log.debug('images', 'fetch failed', { url: u.slice(0, 200), err: e }); throw Object.assign(new Error('image fetch failed'), { code: 502 }) })
   if (!/^image\//.test(r.headers.get('content-type') || '')) throw Object.assign(new Error('image fetch failed'), { code: 502 })
-  const buf = Buffer.from(await r.clone().arrayBuffer())
-  if (buf.length > 8e6) throw new Error('image too large')
+  checkLength(r, 8e6, 'image') // before the body is copied: a clone would buffer what the other copy has not read
+  const buf = await readCapped(r.clone(), 8e6, 'image')
   if (!looksLikeImage(buf)) { log.warn('images', 'upstream sent something that is not a picture', { url: u.slice(0, 200), bytes: buf.length }); throw Object.assign(new Error('image fetch failed'), { code: 502 }) }
   const type = r.headers.get('content-type')
-  await put(f + '.t', type); await put(f, buf)
+  await save(f + '.t', type); await save(f, buf)
   return { f, buf, type }
 }
 
@@ -77,14 +80,14 @@ export async function image (u, w, { webp = false, signal } = {}) {
   const sw = snap(w)
   const ext = webp ? 'webp' : 'jpg'
   const small = `${orig.f}.${sw}.${ext}`
-  try { return { buf: await readFile(small), type: `image/${webp ? 'webp' : 'jpeg'}` } } catch {}
+  try { const buf = await readFile(small); touch(small); return { buf, type: `image/${webp ? 'webp' : 'jpeg'}` } } catch {}
   return once('resize:' + small, async () => {
     await slot(signal)
     try {
       const scale = `scale='min(${sw},iw)':-2:flags=lanczos`
       const args = webp ? ['-quality', '78'] : ['-q:v', sw >= 1080 ? '2' : '4']
       const buf = await run(['-protocol_whitelist', 'pipe', '-i', 'pipe:0', '-vf', scale, '-frames:v', '1', ...(webp ? ['-c:v', 'libwebp'] : []), ...args, '-f', webp ? 'webp' : 'mjpeg', 'pipe:1'], orig.buf)
-      if (buf.length) { await put(small, buf); return { buf, type: `image/${webp ? 'webp' : 'jpeg'}` } }
+      if (buf.length) { await save(small, buf); return { buf, type: `image/${webp ? 'webp' : 'jpeg'}` } }
     } catch (e) { log.warn('images', 'resize failed, sending the original', { w: sw, err: String(e.message).split('\n').pop() }) } finally { release() }
     return webp ? image(u, w, { signal }) : { buf: orig.buf, type: orig.type }
   })

@@ -7,6 +7,7 @@ import { DATA } from './paths.js'
 import { log } from './log.js'
 
 const FILE = path.join(DATA, 'state.json')
+const BAK = FILE + '.bak' // the copy from just before the last save
 const COLORS = ['#f2a65a', '#e5646e', '#6fb7e9', '#7ad3a0', '#b58cf0', '#f0d264']
 
 let db = { profiles: {}, settings: {} }
@@ -16,7 +17,17 @@ const keepCopy = (suffix, why, err) => {
   try { fs.copyFileSync(FILE, to) } catch { /* nothing readable to keep */ }
   log.error('state', why, { copy: to, err })
 }
-try { db = { ...db, ...JSON.parse(fs.readFileSync(FILE, 'utf8')) } } catch (e) { if (e.code !== 'ENOENT') keepCopy('unreadable', 'state.json could not be read, starting empty', e) }
+const readJSON = f => JSON.parse(fs.readFileSync(f, 'utf8'))
+try { db = { ...db, ...readJSON(FILE) } } catch (e) {
+  // A power cut can leave the file empty or cut short; the copy from the save before it is the best that is left.
+  let saved = null
+  try { saved = readJSON(BAK) } catch {}
+  if (e.code !== 'ENOENT') keepCopy('unreadable', saved ? 'state.json could not be read, restoring the previous copy' : 'state.json could not be read, starting empty', e)
+  if (saved) {
+    db = { ...db, ...saved }
+    try { fs.copyFileSync(BAK, FILE) } catch {} // the next save must not copy the damaged file over the good copy
+  }
+}
 
 function DEFAULTS_INIT () { return { sublang: 'off', lang: 'en', interests: [], quality: 'auto', sourceMode: 'compact', adultFilter: false, bestTranslation: false, discordPresence: true, onboarded: false } }
 
@@ -58,14 +69,22 @@ function persist () {
   clearTimeout(timer)
   timer = setTimeout(flush, 400)
 }
+// Makes the rename itself durable. Not every system can open a folder (Windows), and there it is not needed.
+function syncDir () {
+  try { const fd = fs.openSync(DATA, 'r'); try { fs.fsyncSync(fd) } finally { fs.closeSync(fd) } } catch {}
+}
 // Only what changed is written: a start that read nothing must not replace the file on the way out.
 export function flush () {
   clearTimeout(timer)
   if (!dirty) return
   const tmp = FILE + '.tmp'
   try {
-    fs.writeFileSync(tmp, JSON.stringify(db))
+    // On disk before the rename: a power cut after it must not leave a name that points at nothing.
+    const fd = fs.openSync(tmp, 'w')
+    try { fs.writeFileSync(fd, JSON.stringify(db)); fs.fsyncSync(fd) } finally { fs.closeSync(fd) }
+    try { fs.copyFileSync(FILE, BAK) } catch (e) { if (e.code !== 'ENOENT') log.warn('state', 'could not keep the previous state.json', { err: e }) }
     fs.renameSync(tmp, FILE)
+    syncDir()
     dirty = false
   } catch (e) { log.error('state', 'could not save state.json', { err: e }); throw e }
 }

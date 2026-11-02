@@ -5,14 +5,19 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { DATA } from './paths.js'
 import { fetchRetry, once } from './http.js'
-import { yifyList, unzipFirst, yifyHeaders } from './yify.js'
+import { yifyList, unzipFirst, yifyHeaders, MAX_SUB } from './yify.js'
 import { log } from './log.js'
 import * as account from './osaccount.js'
 import { stripAds } from './sync.js'
+import { putFileSync, readCapped, touch, trim, trimSoon } from './store.js'
 
 const LEGACY = { tur: 'windows-1254', ara: 'windows-1256', per: 'windows-1256', rus: 'windows-1251', ukr: 'windows-1251', bul: 'windows-1251', srp: 'windows-1251', ell: 'windows-1253', heb: 'windows-1255', pol: 'windows-1250', cze: 'windows-1250', hun: 'windows-1250', rum: 'windows-1250', hrv: 'windows-1250', slv: 'windows-1250', tha: 'windows-874', vie: 'windows-1258' }
 
 const CACHE = path.join(DATA, 'subs')
+// Cached subtitles can be fetched again: the oldest unused ones go when the folder passes this size.
+const CACHE_BYTES = 50e6
+const MAX_DOWNLOAD = 5e6
+trim(CACHE, CACHE_BYTES).catch(() => {})
 
 const ADDON = 'https://opensubtitles-v3.strem.io'
 const REST = 'https://rest.opensubtitles.org/search'
@@ -256,7 +261,7 @@ export const allowedSubUrl = u => {
 
 export async function fetchSubtitle (url, enc, profile = '') {
   const f = path.join(CACHE, crypto.createHash('sha1').update(url + (enc || '')).digest('hex') + '.vtt')
-  try { return stripAds(srtToVtt(fs.readFileSync(f, 'utf8'))) } catch {} // files cached before overrides were read still carry them
+  try { const t = stripAds(srtToVtt(fs.readFileSync(f, 'utf8'))); touch(f); return t } catch {} // files cached before overrides were read still carry them
   return once('sub:' + f, async () => {
     // Anonymous downloads first; the household's account only takes over once this IP's quota is used up.
     let viaAcct = false
@@ -270,10 +275,10 @@ export async function fetchSubtitle (url, enc, profile = '') {
         log.warn('subs', 'opensubtitles download quota exceeded, skipping its files for 1h')
         return null
       })
-      buf = r ? Buffer.from(await r.arrayBuffer()) : await viaAccount()
+      buf = r ? await readCapped(r, MAX_DOWNLOAD, 'subtitle') : await viaAccount()
     }
     if (buf[0] === 0x50 && buf[1] === 0x4b) buf = unzipFirst(buf)
-    if (buf[0] === 0x1f && buf[1] === 0x8b) buf = zlib.gunzipSync(buf)
+    if (buf[0] === 0x1f && buf[1] === 0x8b) buf = zlib.gunzipSync(buf, { maxOutputLength: MAX_SUB })
     const raw = await toVtt(buf, enc)
     // Downloads OpenSubtitles refuses (VIP-only) come back as one four-hour cue selling VIP: not a subtitle, and not worth keeping.
     if (/osdb\.link\/vip/i.test(raw) && raw.length < 300) {
@@ -282,14 +287,15 @@ export async function fetchSubtitle (url, enc, profile = '') {
     }
     const vtt = stripAds(raw)
     fs.mkdirSync(CACHE, { recursive: true })
-    fs.writeFileSync(f, vtt)
+    putFileSync(f, vtt)
+    trimSoon(CACHE, CACHE_BYTES)
     return vtt
   })
 }
 
 // Subtitle file bytes in any common format (SRT, WebVTT, ASS/SSA) to WebVTT.
 export async function toVtt (buf, enc) {
-  if (buf.length > 3e6) throw new Error('subtitle too large')
+  if (buf.length > MAX_SUB) throw new Error('subtitle too large')
   let text = decode(buf, enc)
   // ASS/SSA and other formats go through ffmpeg (loaded lazily: transcode.js imports this module).
   if (/^\s*\[Script Info\]/i.test(text)) text = await (await import('./transcode.js')).anyToVtt(buf)
