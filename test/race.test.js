@@ -15,12 +15,13 @@ const A = row('a'); const B = row('b')
 const ctx = { mbps: 5, runtimeMin: 110 }
 
 // status timelines: f(secondsSinceStart) -> { speed, downloaded, phase }
-function run (t, rivals, lines, c = ctx) {
+// A version is in the library before the race when it is listed in `existing`; the others appear when the race starts them.
+function run (t, rivals, lines, c = ctx, existing = []) {
   t.mock.timers.enable({ apis: ['Date'], now: 0 })
-  const removed = []
-  const status = h => lines[h](Date.now() / 1000)
+  const removed = []; const discarded = []; const started = new Set(existing)
+  const status = h => (started.has(h) ? lines[h](Date.now() / 1000) : null)
   const wait = async ms => t.mock.timers.tick(ms)
-  return race(rivals, () => {}, c, { status, remove: async h => { removed.push(h) }, wait }).then(winner => ({ winner, removed, ms: Date.now() }))
+  return race(rivals, r => started.add(r.infoHash), c, { status, remove: async h => { removed.push(h) }, discard: (h, x) => { discarded.push([h, x]) }, wait }).then(winner => ({ winner, removed, discarded, ms: Date.now() }))
 }
 
 test('metadata-less rival is not remembered as slow and loses', async t => {
@@ -70,6 +71,18 @@ test('rivals are listed as racing only while the race runs', async t => {
   assert.ok(seen.length && seen.every(Boolean))
   assert.equal(racing.size, 0)
   assert.equal(r.winner, A)
+})
+
+test('a losing version that was already in the library only loses the row the race added', async t => {
+  measured.clear()
+  const c = { ...ctx, season: 1, episode: 2 }
+  const r = await run(t, [A, B], {
+    [A.infoHash]: () => ({ speed: 0, downloaded: 0, phase: 'downloading' }),
+    [B.infoHash]: s => ({ speed: 2e6, downloaded: s * 2e6, phase: 'downloading' })
+  }, c, [A.infoHash])
+  assert.equal(r.winner, B)
+  assert.deepEqual(r.removed, [], 'the pinned pack is not removed')
+  assert.deepEqual(r.discarded, [[A.infoHash, c]])
 })
 
 test.after(async () => { await engine.shutdown(); fs.rmSync(tmp, { recursive: true, force: true }) })

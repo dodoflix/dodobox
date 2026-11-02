@@ -24,8 +24,9 @@ const needOf = (r, ctx, n) => {
 
 // Waits for a rival to show it can sustain playback. Over a slow or distant link all rivals look alike for the first
 // seconds (handshakes and slow start), so the race keeps going while any is still metadata-less or speeding up.
-export async function race (rivals, start, ctx = {}, { status = engine.status, remove = engine.remove, wait = ms => new Promise(r => setTimeout(r, ms)) } = {}) {
+export async function race (rivals, start, ctx = {}, { status = engine.status, remove = engine.remove, discard = engine.discardRow, wait = ms => new Promise(r => setTimeout(r, ms)) } = {}) {
   const t0 = Date.now()
+  const had = new Set(rivals.filter(r => status(r.infoHash, true)).map(r => r.infoHash)) // already in the library: the race only adds a row to those
   rivals.forEach(r => { racing.add(r.infoHash); start(r) })
   const speedOf = r => { const st = status(r.infoHash, true); return st ? { bps: st.speed, got: st.downloaded, phase: st.phase } : { bps: 0, got: 0, phase: 'metadata' } }
   const rank = (a, b) => (b.got + b.bps * 3) - (a.got + a.bps * 3)
@@ -45,7 +46,11 @@ export async function race (rivals, start, ctx = {}, { status = engine.status, r
   for (const x of seen) if (x.phase !== 'metadata') measured.set(x.r.infoHash, { bps: x.bps, at: Date.now() })
   log.debug('race', 'result', { ms: Date.now() - t0, rivals: seen.map(x => `${x.r.infoHash.slice(0, 8)}:${Math.round(x.bps / 1e3)}kB/s:${Math.round(x.got / 1e3)}kB`).join(' ') })
   winner ||= seen.filter(x => x.phase !== 'metadata').sort(rank)[0]?.r || rivals[0]
-  for (const r of rivals) if (r !== winner && status(r.infoHash, true)?.phase !== 'done') await remove(r.infoHash).catch(e => log.debug('race', 'dropping a losing version failed', { err: e }))
+  for (const r of rivals) {
+    if (r === winner) continue
+    if (had.has(r.infoHash)) discard(r.infoHash, ctx)
+    else if (status(r.infoHash, true)?.phase !== 'done') await remove(r.infoHash).catch(e => log.debug('race', 'dropping a losing version failed', { err: e }))
+  }
   rivals.forEach(r => racing.delete(r.infoHash))
   return winner
 }
