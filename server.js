@@ -670,8 +670,8 @@ const routes = [
   ['POST', /^\/api\/downloads\/(.+)\/(prioritize|unprioritize)$/, (req, res, [, k, what]) => json(req, res, { ok: downloads.prioritize(decodeURIComponent(k), what === 'prioritize') })],
   ['DELETE', /^\/api\/downloads\/(.+)$/, (req, res, [, k]) => { downloads.cancel(decodeURIComponent(k)); json(req, res, { ok: true }) }],
   ['GET', /^\/api\/library$/, async (req, res) => json(req, res, await hideAdult(engine.library().filter(r => !racing.has(r.hash)), safeOf(req), e => e.ctx || {}))],
-  ['POST', /^\/api\/library\/(\w+)(?::(\d+))?\/(pause|resume|prioritize|unprioritize)$/, (req, res, [, h, f, what]) => json(req, res, { ok: what === 'pause' || what === 'resume' ? engine.hold(h.toLowerCase(), f, what === 'pause') : engine.prioritize(h.toLowerCase(), f, what === 'prioritize') })],
-  ['DELETE', /^\/api\/library\/(\w+)(?::(\d+))?$/, async (req, res, [, h, f]) => json(req, res, { ok: await engine.remove(h, f) })]
+  ['POST', /^\/api\/library\/(\w+)(?::(\d+|e\d*x\d*))?\/(pause|resume|prioritize|unprioritize)$/, (req, res, [, h, f, what]) => json(req, res, { ok: what === 'pause' || what === 'resume' ? engine.hold(h.toLowerCase(), f, what === 'pause') : engine.prioritize(h.toLowerCase(), f, what === 'prioritize') })],
+  ['DELETE', /^\/api\/library\/(\w+)(?::(\d+|e\d*x\d*))?$/, async (req, res, [, h, f]) => json(req, res, { ok: await engine.remove(h, f) })]
 ]
 
 const staticCache = new Map()

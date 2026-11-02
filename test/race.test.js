@@ -16,12 +16,12 @@ const ctx = { mbps: 5, runtimeMin: 110 }
 
 // status timelines: f(secondsSinceStart) -> { speed, downloaded, phase }
 // A version is in the library before the race when it is listed in `existing`; the others appear when the race starts them.
-function run (t, rivals, lines, c = ctx, existing = []) {
+function run (t, rivals, lines, c = ctx, existing = [], pinned = []) {
   t.mock.timers.enable({ apis: ['Date'], now: 0 })
   const removed = []; const discarded = []; const started = new Set(existing)
-  const status = h => (started.has(h) ? lines[h](Date.now() / 1000) : null)
+  const status = h => (started.has(h) ? { ...lines[h](Date.now() / 1000), pinned: pinned.includes(h) } : null)
   const wait = async ms => t.mock.timers.tick(ms)
-  return race(rivals, r => started.add(r.infoHash), c, { status, remove: async h => { removed.push(h) }, discard: (h, x) => { discarded.push([h, x]) }, wait }).then(winner => ({ winner, removed, discarded, ms: Date.now() }))
+  return race(rivals, r => started.add(r.infoHash), c, { status, remove: async h => { removed.push(h) }, discard: (h, x, p) => { discarded.push([h, x, p]) }, wait }).then(winner => ({ winner, removed, discarded, ms: Date.now() }))
 }
 
 test('metadata-less rival is not remembered as slow and loses', async t => {
@@ -81,8 +81,18 @@ test('a losing version that was already in the library only loses the row the ra
     [B.infoHash]: s => ({ speed: 2e6, downloaded: s * 2e6, phase: 'downloading' })
   }, c, [A.infoHash])
   assert.equal(r.winner, B)
-  assert.deepEqual(r.removed, [], 'the pinned pack is not removed')
-  assert.deepEqual(r.discarded, [[A.infoHash, c]])
+  assert.deepEqual(r.removed, [], 'the pack is not removed')
+  assert.deepEqual(r.discarded, [[A.infoHash, c, false]], 'the pack was not pinned before, so the race gives the pin back')
+})
+
+test('a losing pinned version is discarded as pinned', async t => {
+  measured.clear()
+  const c = { ...ctx, season: 1, episode: 2 }
+  const r = await run(t, [A, B], {
+    [A.infoHash]: () => ({ speed: 0, downloaded: 0, phase: 'downloading' }),
+    [B.infoHash]: s => ({ speed: 2e6, downloaded: s * 2e6, phase: 'downloading' })
+  }, c, [A.infoHash], [A.infoHash])
+  assert.deepEqual(r.discarded, [[A.infoHash, c, true]])
 })
 
 test.after(async () => { await engine.shutdown(); fs.rmSync(tmp, { recursive: true, force: true }) })

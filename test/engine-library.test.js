@@ -92,8 +92,9 @@ test('an episode the pack does not contain is listed as failed and is not offere
   assert.equal(row.phase, 'error')
   assert.equal(row.error, 'No playable file found in torrent')
   assert.equal(engine.findEntry(ctx(9)), null)
-  assert.equal(engine.status(pack.hash, true, row.fileIdx).phase, 'error')
-  assert.equal(await engine.remove(pack.hash, row.fileIdx), true, 'the failed row can be dropped on its own')
+  assert.equal(row.key, `${pack.hash}:e1x9`)
+  assert.equal(engine.status(pack.hash, true, row.key.split(':')[1]).phase, 'error')
+  assert.equal(await engine.remove(pack.hash, row.key.split(':')[1]), true, 'the failed row can be dropped on its own')
   assert.equal(engine.library().filter(x => x.hash === pack.hash).length, 1)
 })
 
@@ -117,4 +118,38 @@ test('discarding a race row takes only that episode and leaves the torrent in th
   const left = engine.library().filter(x => x.hash === pack.hash)
   assert.equal(left.length, 1)
   assert.equal(left[0].phase, 'done')
+})
+
+test('removing rows twice or together never takes a row that was not named', async () => {
+  const s = await seed('d', 'Rows.Pack', ['Rows.S01E01.mkv', 'Rows.S01E02.mkv', 'Rows.S01E03.mkv'])
+  for (const n of [1, 2, 3]) engine.add({ hash: s.hash, magnet: s.magnet, ctx: ctx(n, 'tt-d'), pinned: true })
+  const rows = await until(() => { const r = engine.library().filter(x => x.hash === s.hash); return r.length === 3 && r.every(x => x.phase === 'done') && r })
+  const at = n => rows.find(r => r.ctx.episode === n).fileIdx
+  assert.deepEqual(await Promise.all([engine.remove(s.hash, at(1)), engine.remove(s.hash, at(1))]), [true, false], 'the second delete of a gone row is a no-op')
+  assert.deepEqual(engine.library().filter(x => x.hash === s.hash).map(r => r.ctx.episode), [2, 3])
+  assert.deepEqual(await Promise.all([engine.remove(s.hash, at(2)), engine.remove(s.hash, at(3))]), [true, true])
+  assert.equal(engine.status(s.hash, true), null, 'both named rows are gone, and with them the torrent')
+})
+
+test('rows for episodes the pack lacks are named by episode, so deleting one leaves the other', async () => {
+  engine.add({ hash: pack.hash, magnet: pack.magnet, ctx: ctx(8), pinned: true })
+  engine.add({ hash: pack.hash, magnet: pack.magnet, ctx: ctx(9), pinned: true })
+  const lib = () => engine.library().filter(x => x.hash === pack.hash)
+  assert.deepEqual(lib().map(r => [r.ctx.episode, r.key.split(':')[1]]).filter(([, k]) => k[0] === 'e'), [[8, 'e1x8'], [9, 'e1x9']])
+  assert.equal(await engine.remove(pack.hash, 'e1x9'), true)
+  assert.deepEqual(lib().map(r => r.ctx.episode), [2, 8], 'the first missing episode is still listed')
+  assert.equal(await engine.remove(pack.hash, 'e1x9'), false)
+  assert.equal(await engine.remove(pack.hash, 'e1x8'), true)
+  assert.equal(lib().length, 1)
+})
+
+test('discarding a race row gives back the pin the race put on an unpinned torrent', async () => {
+  const s = await seed('v', 'Pin.Pack', ['Pin.S01E01.mkv', 'Pin.S01E02.mkv'])
+  engine.add({ hash: s.hash, magnet: s.magnet, ctx: ctx(1, 'tt-v') })
+  await done(s.hash)
+  engine.add({ hash: s.hash, magnet: s.magnet, ctx: ctx(2, 'tt-v'), pinned: true })
+  assert.equal(engine.status(s.hash, true).pinned, true)
+  assert.equal(engine.discardRow(s.hash, ctx(2, 'tt-v'), false), true)
+  assert.equal(engine.status(s.hash, true).pinned, false)
+  await engine.remove(s.hash)
 })

@@ -231,18 +231,26 @@ export function prioritizeCtx (ctx, on) {
 const torrentOf = hash => client.torrents.find(t => t.infoHash === hash)
 
 const rowsOf = e => [e, ...(e.extra || [])]
-const rowFor = (e, file) => (file == null ? e : rowsOf(e).find(x => x.fileIdx === +file) || e)
+// A row for an episode the pack lacks has no file, so it is named by its episode: `e<season>x<episode>`. Every other row is named by its file index.
+const token = r => `e${r.ctx.season ?? ''}x${r.ctx.episode ?? ''}`
+const rowIs = file => r => (typeof file === 'string' && file[0] === 'e' ? token(r) === file : r.fileIdx === +file)
+const rowFor = (e, file) => (file == null ? e : rowsOf(e).find(rowIs(file)) || e)
 
+// A row for an episode the pack lacks has no file (-1), so rows are looked up by episode token as well as by file.
 export function status (hash, silent, file) {
   const e = lib[hash]
   if (!e) return null
-  if (!silent) touch(hash, file == null ? e.fileIdx : +file)
-  const row = rowFor(e, file)
+  if (!silent) touch(hash, file == null ? e.fileIdx : rowFor(e, file).fileIdx)
+  return rowStatus(e, rowFor(e, file))
+}
+
+function rowStatus (e, row) {
+  const hash = e.hash
   const t = torrentOf(hash)
   const f = row.fileIdx != null && t?.ready ? t.files[row.fileIdx] : null
   return {
     hash,
-    key: row.fileIdx != null ? `${hash}:${row.fileIdx}` : hash,
+    key: row.fileIdx == null ? hash : `${hash}:${row.fileIdx < 0 ? token(row) : row.fileIdx}`,
     ctx: row.ctx,
     pinned: !!e.pinned,
     held: !!row.held,
@@ -270,45 +278,48 @@ export function reject (hash, file, why) {
   save()
 }
 
-export const library = () => Object.values(lib).sort((a, b) => b.added - a.added).flatMap(e => rowsOf(e).map(r => status(e.hash, true, r.fileIdx ?? undefined)).filter(Boolean))
+export const library = () => Object.values(lib).sort((a, b) => b.added - a.added).flatMap(e => rowsOf(e).map(r => rowStatus(e, r)))
 
 function pruneEmpty (dir) {
   try { for (const d of fs.readdirSync(dir, { withFileTypes: true })) if (d.isDirectory()) pruneEmpty(path.join(dir, d.name)); fs.rmdirSync(dir) } catch { /* not empty, or already gone */ }
 }
 
-// A second call for a torrent already being removed waits for the first: webtorrent throws, and never calls back, for a torrent that is gone.
-const removing = new Map() // hash -> Promise
-export function remove (hash, file) {
-  if (removing.has(hash)) return removing.get(hash)
-  const p = removeNow(hash, file).finally(() => removing.delete(hash))
-  removing.set(hash, p)
-  return p
+// Webtorrent never calls back for a torrent a concurrent remove already took out of the client, so overlapping removals share one destroy.
+const destroying = new Map() // hash -> Promise
+const destroy = hash => {
+  if (!destroying.has(hash)) destroying.set(hash, new Promise(resolve => client.remove(hash, { destroyStore: true }, resolve).catch(resolve)).finally(() => destroying.delete(hash)))
+  return destroying.get(hash)
 }
 
 // Takes back one row a race added to a torrent that was already in the library; the torrent and its other rows stay.
-export function discardRow (hash, ctx) {
+// `pinned` is whether the torrent was pinned before the race: starting a pinned row pins the whole torrent.
+export function discardRow (hash, ctx, pinned) {
   const e = lib[hash]; const at = e?.extra?.findIndex(x => x.ctx.season === ctx.season && x.ctx.episode === ctx.episode) ?? -1
   if (at < 0) return false
   const [x] = e.extra.splice(at, 1); const t = torrentOf(hash)
   if (t) dropRow(t, x)
+  if (pinned === false) e.pinned = false
   save()
   return true
 }
 
-async function removeNow (hash, file) {
+export async function remove (hash, file) {
   if (!lib[hash]) return false
   log.info('torrent', 'remove', { hash, file })
   const e = lib[hash]
   const t = torrentOf(hash)
-  if (file != null && e.extra?.length) {
-    const k = +file
-    if (e.fileIdx === k) { const x = e.extra.shift(); if (t) dropRow(t, e); resume.delete(e); Object.assign(e, { ctx: x.ctx, fileIdx: x.fileIdx, name: x.name, held: x.held, priority: x.priority, error: x.error }); save(); return true }
-    const at = e.extra.findIndex(x => x.fileIdx === k)
-    if (at >= 0) { const [x] = e.extra.splice(at, 1); if (t) dropRow(t, x); save(); return true }
+  if (file != null) {
+    const is = rowIs(file)
+    if (!rowsOf(e).some(is)) return false // a second delete of a row already gone must not take the torrent's other rows with it
+    if (e.extra?.length) {
+      if (is(e)) { const x = e.extra.shift(); if (t) dropRow(t, e); resume.delete(e); Object.assign(e, { ctx: x.ctx, fileIdx: x.fileIdx, name: x.name, held: x.held, priority: x.priority, error: x.error }); save(); return true }
+      const at = e.extra.findIndex(is)
+      if (at >= 0) { const [x] = e.extra.splice(at, 1); if (t) dropRow(t, x); save(); return true }
+    }
   }
   const dir = e.dir ? path.join(DL, e.dir) : null
   const tops = t && !dir ? new Set(t.files.map(f => f.path.split(/[\\/]/)[0])) : []
-  if (t) await new Promise(resolve => client.remove(hash, { destroyStore: true }, resolve).catch(resolve))
+  if (t || destroying.has(hash)) await destroy(hash)
   // Removing the files leaves a pack's folders behind.
   if (dir) pruneEmpty(dir)
   for (const top of tops) pruneEmpty(path.join(DL, top))

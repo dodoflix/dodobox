@@ -26,7 +26,7 @@ const needOf = (r, ctx, n) => {
 // seconds (handshakes and slow start), so the race keeps going while any is still metadata-less or speeding up.
 export async function race (rivals, start, ctx = {}, { status = engine.status, remove = engine.remove, discard = engine.discardRow, wait = ms => new Promise(r => setTimeout(r, ms)) } = {}) {
   const t0 = Date.now()
-  const had = new Set(rivals.filter(r => status(r.infoHash, true)).map(r => r.infoHash)) // already in the library: the race only adds a row to those
+  const had = new Map(rivals.flatMap(r => { const st = status(r.infoHash, true); return st ? [[r.infoHash, st.pinned]] : [] })) // already in the library: the race only adds a row to those
   rivals.forEach(r => { racing.add(r.infoHash); start(r) })
   const speedOf = r => { const st = status(r.infoHash, true); return st ? { bps: st.speed, got: st.downloaded, phase: st.phase } : { bps: 0, got: 0, phase: 'metadata' } }
   const rank = (a, b) => (b.got + b.bps * 3) - (a.got + a.bps * 3)
@@ -48,7 +48,7 @@ export async function race (rivals, start, ctx = {}, { status = engine.status, r
   winner ||= seen.filter(x => x.phase !== 'metadata').sort(rank)[0]?.r || rivals[0]
   for (const r of rivals) {
     if (r === winner) continue
-    if (had.has(r.infoHash)) discard(r.infoHash, ctx)
+    if (had.has(r.infoHash)) discard(r.infoHash, ctx, had.get(r.infoHash))
     else if (status(r.infoHash, true)?.phase !== 'done') await remove(r.infoHash).catch(e => log.debug('race', 'dropping a losing version failed', { err: e }))
   }
   rivals.forEach(r => racing.delete(r.infoHash))
