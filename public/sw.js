@@ -14,10 +14,10 @@ self.addEventListener('fetch', e => {
   const u = new URL(e.request.url)
   if (e.request.method !== 'GET' || u.origin !== location.origin || /^\/(hls|raw)\//.test(u.pathname) || u.pathname === '/img' || e.request.headers.has('range')) return
   if (DATA.test(u.pathname)) {
-    // The answer depends on the language, the profile and the adult filter, so all three are part of the cache key.
-    // (A #fragment would not do: cache matching ignores it.)
+    // The answer depends on the language, the profile, the adult filter and whether the viewer holds a PIN session token (x-token), so all four are part of the cache key.
+    // Without the token, a PIN-locked profile's cached data is never handed out. (A #fragment would not do: cache matching ignores it.)
     const h = e.request.headers
-    const key = new Request(`${e.request.url}${u.search ? '&' : '?'}_sw=${encodeURIComponent([h.get('x-lang'), h.get('x-profile'), h.get('x-adult-filter')].join('|'))}`)
+    const key = new Request(`${e.request.url}${u.search ? '&' : '?'}_sw=${encodeURIComponent([h.get('x-lang'), h.get('x-profile'), h.get('x-adult-filter'), h.has('x-token')].join('|'))}`)
     e.respondWith(caches.open(VERSION).then(async c => {
       const hit = await c.match(key)
       const rid = h.get('x-rid'); const ac = new AbortController()

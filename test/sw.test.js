@@ -9,13 +9,14 @@ function boot () {
   const listeners = {}
   const fetched = []
   const net = { fn: async () => new Response('{}') }
+  const key = r => String(r.url ?? r).split('#')[0] // like the real Cache API, matching ignores the fragment
   const caches = {
     open: async name => {
       if (!store.has(name)) store.set(name, new Map())
       const m = store.get(name)
-      return { match: async r => m.get(r.url ?? r), put: async (r, res) => { m.set(r.url ?? r, res) } }
+      return { match: async r => m.get(key(r)), put: async (r, res) => { m.set(key(r), res) } }
     },
-    match: async r => { for (const m of store.values()) if (m.has(r.url ?? r)) return m.get(r.url ?? r) },
+    match: async r => { for (const m of store.values()) if (m.has(key(r))) return m.get(key(r)) },
     keys: async () => [...store.keys()],
     delete: async k => store.delete(k)
   }
@@ -80,4 +81,23 @@ test('one tab abandoning a request does not cancel another tab\'s request with t
   sw.listeners.message({ data: { abort: ['1'] }, source: { id: 'tabA' } })
   assert.equal(signals.p1.aborted, true)
   assert.equal(signals.p2.aborted, false)
+})
+
+test('offline, a locked profile\'s data cached under its PIN token is not handed to a request without the token', async () => {
+  const sw = boot()
+  const h = hdr('en', 'a', '0')
+  sw.net.fn = async () => reply({ list: ['secret'] }); await sw.fire('/api/me', { ...h, 'x-token': 't' })
+  offline(sw)
+  assert.deepEqual(await (await sw.fire('/api/me', { ...h, 'x-token': 't' })).json(), { list: ['secret'] })
+  assert.equal(await sw.fire('/api/me', h), undefined)
+})
+
+test('activating drops the caches of other releases', async () => {
+  const sw = boot()
+  await (await sw.fire('/js/main.js', {})) // opens the current cache
+  sw.store.set('old-release', new Map())
+  let done
+  sw.listeners.activate({ waitUntil: p => { done = p } })
+  await done
+  assert.deepEqual([...sw.store.keys()], ['dev'])
 })
