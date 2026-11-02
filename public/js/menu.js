@@ -1,4 +1,4 @@
-import { $, esc, icon, placeLeft } from './util.js'
+import { $, esc, icon, placeBy } from './util.js'
 import { S } from './session.js'
 import { showPicker } from './profiles.js'
 import { onBack } from './nav.js'
@@ -16,7 +16,7 @@ function open (focus) {
     <button role="menuitem" data-switch>${icon('user')}Switch profile</button>`
   document.body.append(pop)
   pop.style.top = r.bottom + 8 + 'px'
-  placeLeft(pop, Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.right - pop.offsetWidth)))
+  placeBy(pop, r)
   btn.setAttribute('aria-expanded', 'true')
   prevBack = onBack.handler
   back = onBack.handler = () => { close(); btn.focus(); return true }

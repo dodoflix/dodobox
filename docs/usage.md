@@ -48,6 +48,7 @@ Phones and laptops use plain HTTP on the local network, so "install as app" give
 - **Remembered per title**: the subtitle you picked (or Off), its timing and Auto sync result per episode, the audio track, quality, speed, Auto sync and subtitle size are kept in this browser, per profile.
 - **Audio**: starts on the title's original language, skipping dubs and commentaries. The track marked "Default" is the one Dodobox would choose.
 - **Subtitles**: picking a language only lists its files; choose a file on the right. Changing the subtitle stops an auto-translation that is still running.
+- **Arabic and Hebrew**: the interface is mirrored. The seek bar and volume bar fill from the right, so Left is forward: Left seeks 10 seconds ahead, Right seeks back, and in the volume bar Left raises the volume (Up and Down always raise and lower it). On a phone, a double tap on the left side of the picture seeks forward. In the home hero, Left shows the next title. Play and the "10 seconds" icons keep their shape; back and next arrows point the other way.
 
 ## Watch party
 

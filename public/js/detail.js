@@ -141,7 +141,7 @@ export async function title (root, type, id) {
     if (page >= pages) page = 0
     const rg = $('#ranges'); rg.hidden = pages < 2
     rg.innerHTML = pages < 2 ? '' : Array.from({ length: pages }, (_, k) => `<button class="chip ${k === page ? 'on' : ''}" data-p="${k}">${list[k * PAGE].episode}-${list[Math.min(list.length, (k + 1) * PAGE) - 1].episode}</button>`).join('')
-    const on = rg.querySelector('.on'); if (on) rg.scrollLeft = on.offsetLeft - rg.clientWidth / 2 + on.offsetWidth / 2
+    const on = rg.querySelector('.on'); if (on) rg.scrollLeft += on.getBoundingClientRect().left - rg.getBoundingClientRect().left - (rg.clientWidth - on.offsetWidth) / 2
     $('#eps').innerHTML = list.slice(page * PAGE, (page + 1) * PAGE).map(v => {
       const p = progress(type, id, v.season, v.episode); const r = p ? p[0] / p[1] : 0
       const future = v.released && new Date(v.released) > new Date()

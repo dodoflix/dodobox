@@ -4,8 +4,17 @@ export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;'
 export const enc = encodeURIComponent
 // A long season is listed one range of this many episodes at a time.
 export const EP_PAGE = 24
+export const rtl = () => document.documentElement.dir === 'rtl'
+// A pop-up hangs from the end edge of what opened it (the right in English, the left in Arabic and Hebrew) and stays on the screen.
 // html has scrollbar-gutter: both-edges, which shifts position: fixed by the gutter width; measure and cancel it.
-export const placeLeft = (el, left) => { el.style.left = left + 'px'; el.style.left = 2 * left - el.getBoundingClientRect().left + 'px' }
+export const placeBy = (el, r) => {
+  const left = Math.max(8, Math.min(innerWidth - el.offsetWidth - 8, rtl() ? r.left : r.right - el.offsetWidth))
+  el.style.left = left + 'px'; el.style.left = 2 * left - el.getBoundingClientRect().left + 'px'
+}
+// How far along a bar a pointer is, 0 to 1 from the bar's start: its right end in right-to-left languages.
+export const along = (e, el) => { const r = el.getBoundingClientRect(); return Math.max(0, Math.min(1, (rtl() ? r.right - e.clientX : e.clientX - r.left) / r.width)) }
+// Which way an arrow key moves along a line of text: 1 toward its end, -1 back. Left is forward in Arabic and Hebrew.
+export const stepOf = key => ((key === 'ArrowRight') !== rtl() ? 1 : -1)
 export const sleep = ms => new Promise(r => setTimeout(r, ms))
 export const bytes = n => n >= 1e12 ? (n / 1e12).toFixed(2) + ' TB' : n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : n >= 1e6 ? Math.round(n / 1e6) + ' MB' : Math.round(n / 1e3) + ' kB'
 export const clock = s => {

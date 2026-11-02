@@ -1,5 +1,5 @@
 // Replaces native <select class="field"> with a styled dropdown; the select stays hidden as the source of truth.
-import { esc, icon, placeLeft } from './util.js'
+import { esc, icon, placeBy } from './util.js'
 import { onBack } from './nav.js'
 
 let open = null
@@ -31,7 +31,7 @@ function build (sel) {
     const h = Math.min(pop.scrollHeight, innerHeight * 0.5)
     pop.style.maxHeight = Math.min(innerHeight * 0.5, Math.max(below, r.top) - 16) + 'px'
     pop.style.minWidth = Math.max(r.width, 180) + 'px'
-    placeLeft(pop, Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.right - pop.offsetWidth)))
+    placeBy(pop, r)
     pop.style.top = (below > h + 16 || below > r.top ? r.bottom + 6 : Math.max(8, r.top - h - 6)) + 'px'
     btn.setAttribute('aria-expanded', 'true')
     const prevBack = onBack.handler

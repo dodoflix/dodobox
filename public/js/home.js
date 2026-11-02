@@ -1,6 +1,6 @@
 import { cget, api, NOW, LATER, SOON } from './api.js'
 import { S, toggleList, inList } from './session.js'
-import { $, esc, icon, poster, skeletons, mins, enc, sized, fullWidth, hue, lowres, learnLink, slowLink, canTrailer } from './util.js'
+import { $, esc, icon, poster, skeletons, mins, enc, sized, fullWidth, hue, lowres, learnLink, slowLink, canTrailer, rtl, stepOf } from './util.js'
 import { glow, calm } from './ambient.js'
 import { usingKeys } from './nav.js'
 import { dragScroll } from './drag.js'
@@ -60,8 +60,8 @@ export async function home (root, only = '') {
     <section class="hero" id="hero" aria-roledescription="carousel" aria-label="Featured titles">
       <div class="bg"></div><div class="trailer-layer" id="htr" aria-hidden="true"></div>
       <div id="hero-slot"><div class="hero-body" aria-hidden="true"><div class="sk" style="height:5.2rem;width:min(30rem,85%)"></div><div class="sk" style="height:1rem;width:min(18rem,70%);margin-top:1.2rem"></div><div class="sk" style="height:3.1rem;width:min(10.5rem,55%);border-radius:var(--r-field);margin-top:1.6rem"></div></div></div>
-      <button class="hero-arrow l" aria-label="Previous title" tabindex="-1">${icon('left')}</button>
-      <button class="hero-arrow r" aria-label="Next title" tabindex="-1">${icon('right')}</button>
+      <button class="hero-arrow prev" aria-label="Previous title" tabindex="-1">${icon('left', 'mir')}</button>
+      <button class="hero-arrow next" aria-label="Next title" tabindex="-1">${icon('right', 'mir')}</button>
       <button class="hero-sound" id="hsound" aria-label="Turn trailer sound on" hidden>${icon('mute')}</button>
       <div class="dots" id="dots"></div>
     </section>
@@ -86,10 +86,11 @@ export async function home (root, only = '') {
   const fillDot = () => dots.children[idx]?.firstElementChild.style.setProperty('--p', Math.min(1, held / limit))
   const imgs = () => [...bg.querySelectorAll('img')]
   let track = null
+  const sign = () => (rtl() ? -1 : 1) // the slides run from the right in Arabic and Hebrew
   function place (animate, jump) {
     if (!track) return
     track.style.transition = animate && !jump ? '' : 'none'
-    track.style.transform = `translateX(${-idx * 100}%)`
+    track.style.transform = `translateX(${-idx * 100 * sign()}%)`
     if (jump) { bg.classList.remove('jump'); void bg.offsetWidth; bg.classList.add('jump') }
   }
   function loadAround (k) {
@@ -171,18 +172,18 @@ export async function home (root, only = '') {
   hero.addEventListener('pointerdown', e => { if (e.target.closest('a, button')) return; start = { x: e.clientX, y: e.clientY, t: Date.now(), live: false }; swiped = false })
   hero.addEventListener('pointermove', e => {
     if (!start) return
-    const dx = e.clientX - start.x; const dy = e.clientY - start.y
+    const dx = e.clientX - start.x; const dy = e.clientY - start.y; const lx = dx * sign() // lx: toward the previous slide is positive
     if (!start.live && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) { start.live = true; swiped = true; stopTrailer(); document.body.classList.add('dragging'); window.dispatchEvent(new Event('dragstrip')) }
     if (!start.live || !track) return
-    const edge = (idx === 0 && dx > 0) || (idx === items.length - 1 && dx < 0)
+    const edge = (idx === 0 && lx > 0) || (idx === items.length - 1 && lx < 0)
     const x = edge ? dx * 0.3 : dx
     track.style.transition = 'none'
-    track.style.transform = `translateX(calc(${-idx * 100}% + ${x}px))`
+    track.style.transform = `translateX(calc(${-idx * 100 * sign()}% + ${x}px))`
     slot.style.opacity = String(1 - Math.min(Math.abs(x) / hero.clientWidth, 1) * 0.9)
   })
   const end = e => {
     if (!start) return
-    const dx = e.clientX - start.x; const dy = e.clientY - start.y; const live = start.live
+    const dx = sign() * (e.clientX - start.x); const dy = e.clientY - start.y; const live = start.live
     const fast = Math.abs(dx) / Math.max(1, Date.now() - start.t) > 0.45
     start = null
     document.body.classList.remove('dragging')
@@ -195,11 +196,11 @@ export async function home (root, only = '') {
   hero.addEventListener('pointerup', end); hero.addEventListener('pointercancel', e => end(e))
   hero.addEventListener('click', e => { if (swiped) { e.preventDefault(); e.stopPropagation(); swiped = false } }, true)
   hero.addEventListener('dragstart', e => e.preventDefault())
-  hero.addEventListener('navedge', e => show(idx + (e.detail === 'ArrowLeft' ? -1 : 1), { user: true }))
+  hero.addEventListener('navedge', e => show(idx + stepOf(e.detail), { user: true }))
 
   hero.addEventListener('click', e => {
     const d = e.target.closest('[data-k]'); if (d) return show(+d.dataset.k, { user: true })
-    if (e.target.closest('.hero-arrow')) return show(idx + (e.target.closest('.hero-arrow').classList.contains('l') ? -1 : 1), { user: true })
+    if (e.target.closest('.hero-arrow')) return show(idx + (e.target.closest('.hero-arrow').classList.contains('prev') ? -1 : 1), { user: true })
     if (e.target.closest('#hsound')) { muted = !muted; muted ? trailer?.mute() : trailer?.unmute(); sound.innerHTML = icon(muted ? 'mute' : 'volume'); sound.setAttribute('aria-label', muted ? 'Turn trailer sound on' : 'Turn trailer sound off'); return }
     const l = e.target.closest('[data-list]')
     if (l) { const i = items[idx]; toggleList(i).then(() => { l.innerHTML = inList(i.type, i.id) ? icon('check') + 'In My List' : icon('plus') + 'My List' }) }
