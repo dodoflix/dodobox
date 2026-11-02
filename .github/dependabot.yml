@@ -5,7 +5,7 @@ updates:
     schedule:
       interval: weekly
     commit-message:
-      prefix: chore
+      prefix: fix
       prefix-development: chore
     groups:
       dev-dependencies:
@@ -28,4 +28,4 @@ updates:
       - dependency-name: node
         update-types: [version-update:semver-major]
     commit-message:
-      prefix: build
+      prefix: fix

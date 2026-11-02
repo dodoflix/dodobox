@@ -21,6 +21,15 @@ before(async () => {
 })
 after(shutdown)
 
+async function until (fn, ms = 30000) {
+  const t0 = Date.now()
+  for (;;) {
+    const v = await fn(); if (v) return v
+    if (Date.now() - t0 > ms) throw new Error('timeout')
+    await new Promise(r => setTimeout(r, 200))
+  }
+}
+
 test('an install from before data versions is brought up to date and keeps its profile', async () => {
   assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'schema.json'), 'utf8')).version, 1)
   assert.ok(fs.readdirSync(path.join(dir, 'backups')).length === 1, 'a copy is kept before anything changes')
@@ -32,8 +41,8 @@ test('an install from before data versions is brought up to date and keeps its p
 test('entries the old data got wrong are dropped when the profile loads, the rest is kept', async () => {
   const me = await (await fetch(`${base}/api/me`, { headers: { 'x-profile': 'old1' } })).json()
   assert.deepEqual(me.list.map(i => i.id), [MOVIE.id])
-  await new Promise(r => setTimeout(r, 300)) // saved names that differ from the catalog's are put right in the background
-  assert.equal((await (await fetch(`${base}/api/me`, { headers: { 'x-profile': 'old1' } })).json()).list[0].name, MOVIE.name)
+  // saved names that differ from the catalog's are put right in the background
+  await until(async () => (await (await fetch(`${base}/api/me`, { headers: { 'x-profile': 'old1' } })).json()).list[0].name === MOVIE.name)
   assert.deepEqual(me.history.map(i => i.id), ['tt1'])
   assert.equal(me.settings.quality, 'auto')
   assert.equal('autoNext' in me.settings, false)

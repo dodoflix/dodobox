@@ -7,4 +7,5 @@ test
 .github
 .idea
 *.md
+!THIRD_PARTY_NOTICES.md
 bench
