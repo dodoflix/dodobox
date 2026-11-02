@@ -15,7 +15,7 @@ const cache = new Map()
 try { for (const [k, v] of Object.entries(JSON.parse(fs.readFileSync(FILE, 'utf8')))) cache.set(k, v) } catch {}
 // An entry older than a week is looked up again anyway, and the newest ones are kept when the map passes its cap.
 export function prune () {
-  for (const [k, v] of cache) if (!(v.at > Date.now() - WEEK)) cache.delete(k)
+  for (const [k, v] of cache) if (!(v?.at > Date.now() - WEEK)) cache.delete(k)
   if (cache.size > MAX_ENTRIES) for (const [k] of [...cache].sort((a, b) => b[1].at - a[1].at).slice(MAX_ENTRIES)) cache.delete(k)
 }
 prune()

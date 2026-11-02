@@ -72,7 +72,7 @@ async function walk (dir, out, bad, depth = 0) {
   }
 }
 
-const under = (p, dir) => p === dir || p.startsWith(dir + path.sep)
+const under = (p, dir) => { const r = path.relative(dir, p); return r !== '..' && !r.startsWith('..' + path.sep) && !path.isAbsolute(r) } // right also for a folder typed with a trailing slash
 // Saves are queued so an older copy never lands after a newer one.
 let saving = Promise.resolve()
 const save = () => (saving = saving.then(() => putFile(FILE, stamp(known))).catch(e => log.warn('local', 'could not save local.json', { err: e })))
@@ -85,11 +85,16 @@ export function rescan () {
   scanning = (async () => {
     const t0 = Date.now()
     const files = []
-    const live = dirs()
+    const cfg = configured(); const live = []
+    for (const d of cfg) if (await stat(d).then(s => s.isDirectory(), () => false)) live.push(d) // async: a dead network mount must not stall the server
     // A configured folder that is not there (an unmounted drive) keeps its entries.
-    const bad = configured().filter(d => !live.includes(d))
+    const bad = cfg.filter(d => !live.includes(d))
     log.debug('local', 'scan start', { dirs: live.join(',') })
-    for (const d of live) await walk(d, files, bad)
+    for (const d of live) {
+      const n = files.length
+      await walk(d, files, bad)
+      if (files.length === n) bad.push(d) // an unmounted share often leaves an empty mount point: no files at all is not proof they are gone
+    }
     // What is already known is served at once; each new match joins the list as it is found.
     const entries = new Map()
     const todo = []

@@ -55,6 +55,26 @@ test('the matches of a folder that is briefly missing are kept for when it comes
   assert.deepEqual(lookups, [], 'nothing is matched again')
 })
 
+test('a folder that is there but empty (an unmounted share leaves its mount point) keeps its matches too', async () => {
+  fs.renameSync(two, two + '.away')
+  lookups = []
+  assert.equal(await local.rescan(), 1)
+  assert.ok(saved().data[two])
+  fs.renameSync(two + '.away', two)
+  assert.equal(await local.rescan(), 2)
+  assert.deepEqual(lookups, [])
+})
+
+test('a missing folder keeps its matches when it was typed with a trailing slash', async () => {
+  state.setSettings({ mediaDirs: [A, B + '/'] })
+  fs.renameSync(B, B + '.away')
+  assert.equal(await local.rescan(), 1)
+  assert.ok(saved().data[two])
+  fs.renameSync(B + '.away', B)
+  state.setSettings({ mediaDirs: [A, B] })
+  assert.equal(await local.rescan(), 2)
+})
+
 test('a folder that is no longer configured is forgotten', async () => {
   state.setSettings({ mediaDirs: [A] })
   assert.equal(await local.rescan(), 1)
