@@ -97,6 +97,7 @@ export async function watch (type, id, season, episode) {
   const subsEl = $('.pl-subs', root); const zones = { top: $('.top', subsEl), mid: $('.mid', subsEl), bot: $('.bot', subsEl) }; const menu = $('#menu', root)
   const openedAt = Date.now()
   let dead = false; let hash; let st; let info; let mode = 'direct'; let hls
+  const vid = Math.random().toString(36).slice(2, 12) // one id per open player, for the server to tell viewers of one title apart; randomUUID is missing on plain-http LAN origins
   let marks = {}; let skipTo = null // intro, recap and ending of the episode, and where the skip button leads
   const titleKey = `title:${getProfile()}:${type}:${id}`
   const P = store.get(titleKey, {})
@@ -264,7 +265,7 @@ export async function watch (type, id, season, episode) {
   // The layout changes with the screen (a phone turned sideways to watch), so a menu left open from the other layout is closed instead of left half-drawn.
   const fsChange = () => { $('#fs', root).innerHTML = icon(fsEl() ? 'exitfs' : 'fs'); closeMenu() }
   document.addEventListener('fullscreenchange', fsChange); document.addEventListener('webkitfullscreenchange', fsChange)
-  const narrow = matchMedia('(max-width: 700px)'); narrow.addEventListener('change', () => closeMenu())
+  const narrow = matchMedia('(max-width: 700px)'); const onNarrow = () => closeMenu(); narrow.addEventListener('change', onNarrow)
   if (document.pictureInPictureEnabled && !isTV) { $('#pip', root).hidden = false; $('#pip', root).onclick = () => (document.pictureInPictureElement ? document.exitPictureInPicture() : v.requestPictureInPicture()).catch(() => {}) }
   if (window.WebKitPlaybackTargetAvailabilityEvent) {
     v.addEventListener('webkitplaybacktargetavailabilitychanged', e => { $('#airplay', root).hidden = e.availability !== 'available' })
@@ -810,7 +811,7 @@ export async function watch (type, id, season, episode) {
     if (mode === 'direct') v.src = `/raw/${hash}/${st.fileIdx}`
     else {
       attachedKey = desiredKey(isLive())
-      const url = `/hls/${hash}/${st.fileIdx}/index.m3u8?a=${audio}${hq()}${subQuery(attachedKey)}`
+      const url = `/hls/${hash}/${st.fileIdx}/index.m3u8?a=${audio}${hq()}&v=${vid}${subQuery(attachedKey)}`
       if (engines[engineAt] !== 'hlsjs') v.src = url
       else {
         hls = new Hls({ startPosition: t > 5 ? t : -1, maxBufferLength: 40, backBufferLength: 30, manifestLoadingMaxRetry: 3, fragLoadingMaxRetry: 5, levelLoadingMaxRetry: 3 })
@@ -1075,9 +1076,9 @@ export async function watch (type, id, season, episode) {
   addEventListener('pagehide', save)
 
   const cleanup = () => {
-    dead = true; nowPlaying(null); detachParty?.(); save(); if (hash && st?.fileIdx != null) navigator.sendBeacon?.(`/api/release/${hash}/${st.fileIdx}`); clearTimeout(refreshT); pv = null; stopTranslating(); clearTimeout(wd); clearTimeout(syncTimer); clearTimeout(probeTimer); hls?.destroy(); timers.forEach(clearInterval); clearTimeout(idleT); clearTimeout(upT); clearTimeout(clickT)
+    dead = true; nowPlaying(null); detachParty?.(); save(); if (hash && st?.fileIdx != null) navigator.sendBeacon?.(`/api/release/${hash}/${st.fileIdx}?v=${vid}`); clearTimeout(refreshT); pv = null; stopTranslating(); clearTimeout(wd); clearTimeout(syncTimer); clearTimeout(probeTimer); hls?.destroy(); timers.forEach(clearInterval); clearTimeout(idleT); clearTimeout(upT); clearTimeout(clickT)
     document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', fsChange); document.removeEventListener('webkitfullscreenchange', fsChange); removeEventListener('pagehide', save)
-    document.removeEventListener('visibilitychange', onVisible); removeEventListener('orientationchange', onRotate); subRO.disconnect()
+    document.removeEventListener('visibilitychange', onVisible); removeEventListener('orientationchange', onRotate); subRO.disconnect(); narrow.removeEventListener('change', onNarrow)
     if (onBack.handler === backHandler) onBack.handler = null
     try { lock?.release() } catch {}
     try { if ('mediaSession' in navigator) navigator.mediaSession.metadata = null } catch {}

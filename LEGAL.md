@@ -28,4 +28,4 @@ If you are a rights holder and believe something in this repository infringes yo
 
 ## No warranty
 
-The software is provided as is, under the terms of the [MIT license](LICENSE).
+The software is provided as is, under the terms of the [MIT license](LICENSE). The ffmpeg build that ships in the installers and container images is under the GPL, with its licence and source offer in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md).

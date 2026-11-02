@@ -1,7 +1,7 @@
 // First-run flows: once per device (layout tuning) and once per profile (language, subtitles, taste).
 import { $, esc, icon, store, isTV, ua } from './util.js'
 import { S, setSetting } from './session.js'
-import { focusFirst } from './nav.js'
+import { focusFirst, onBack } from './nav.js'
 import { upgradeSelects } from './dropdown.js'
 import { uiLangFor } from './i18n.js'
 import { changePin } from './pin.js'
@@ -88,6 +88,9 @@ export async function profileOnboarding () {
     return l
   }
   const l = draw()
+  // Back (Escape, the remote) steps to the previous page; the first page must be answered, so it swallows the key.
+  const prevBack = onBack.handler
+  const back = onBack.handler = () => { if (page) { page--; draw() } return true }
   await new Promise(resolve => {
     l.onchange = e => { if (e.target.id === 'ob-lang') { lang = e.target.value; subs = lang !== 'en' || subs; $('#ob-subs', l).setAttribute('aria-checked', subs) } }
     l.onclick = e => {
@@ -103,6 +106,7 @@ export async function profileOnboarding () {
       if (e.target.closest('[data-next]')) { if (page === PAGES.length - 1) resolve(); else { page++; draw() } }
     }
   })
+  if (onBack.handler === back) onBack.handler = prevBack
   const [code, sub3] = langOf(lang)
   await Promise.all([setSetting('lang', code), setSetting('sublang', subs ? sub3 : 'off'), setSetting('interests', [...interests]), setSetting('sourceMode', mode), setSetting('adultFilter', adult), setSetting('discordPresence', discord), setSetting('onboarded', true), api('/api/settings', { method: 'PUT', body: { shareUploads: share } })])
   done()

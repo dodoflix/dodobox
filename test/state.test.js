@@ -181,3 +181,45 @@ test('titles that fail the checks at start are copied aside before they are drop
   assert.ok(r.files.some(f => f.startsWith('state.json.before-clean-')))
   assert.equal(r.state, JSON.stringify({ profiles: { a: profile } }), 'the file itself is untouched until something changes')
 })
+
+test('each save keeps the copy from just before it as state.json.bak', () => {
+  const id = state.profiles()[0].id
+  state.updateProfile(id, { name: 'Before' }); state.flush()
+  state.updateProfile(id, { name: 'After' }); state.flush()
+  assert.equal(JSON.parse(fs.readFileSync(path.join(tmp, 'state.json'), 'utf8')).profiles[id].name, 'After')
+  assert.equal(JSON.parse(fs.readFileSync(path.join(tmp, 'state.json.bak'), 'utf8')).profiles[id].name, 'Before')
+  assert.deepEqual(fs.readdirSync(tmp).filter(f => f.endsWith('.tmp')), [])
+})
+
+test('a save forces the file and its folder to disk before it counts as saved', t => {
+  const sync = t.mock.method(fs, 'fsyncSync')
+  const id = state.profiles()[0].id
+  state.updateProfile(id, { name: 'Durable' }); state.flush()
+  assert.ok(sync.mock.callCount() >= 2, 'the new file and the folder entry are both synced')
+})
+
+// A copy of the last good state next to a main file that a power cut damaged.
+function startDamaged (main) {
+  const dir = tmpdir('state-bak')
+  const good = { profiles: { a: { id: 'a', name: 'Ann', progress: {}, recent: {}, history: {}, ratings: {}, list: [], settings: {} } }, settings: {} }
+  if (main !== null) fs.writeFileSync(path.join(dir, 'state.json'), main)
+  fs.writeFileSync(path.join(dir, 'state.json.bak'), JSON.stringify(good))
+  const run = spawnSync(process.execPath, ['--input-type=module', '-e', "const s = await import('./src/state.js'); process.stdout.write('RESULT' + JSON.stringify(s.profiles()))"], { env: { ...process.env, DATA_DIR: dir, NO_DHT: '1' }, encoding: 'utf8' })
+  assert.equal(run.status, 0, run.stderr)
+  return { dir, profiles: JSON.parse(run.stdout.slice(run.stdout.indexOf('RESULT') + 6)), good: JSON.stringify(good) }
+}
+
+test('a zero-length or garbage state.json is replaced by the previous copy, which is kept aside from damage', () => {
+  for (const damaged of ['', '{"profiles":{"a":{"id"']) {
+    const r = startDamaged(damaged)
+    assert.deepEqual(r.profiles.map(p => p.name), ['Ann'])
+    assert.equal(fs.readFileSync(path.join(r.dir, 'state.json'), 'utf8'), r.good, 'the good copy is back under the real name')
+    assert.equal(fs.readFileSync(path.join(r.dir, 'state.json.bak'), 'utf8'), r.good)
+    assert.ok(fs.readdirSync(r.dir).some(f => f.startsWith('state.json.unreadable-')), 'the damaged file is still kept')
+  }
+})
+
+test('a missing state.json is restored from the previous copy', () => {
+  const r = startDamaged(null)
+  assert.deepEqual(r.profiles.map(p => p.name), ['Ann'])
+})

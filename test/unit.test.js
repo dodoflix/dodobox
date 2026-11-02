@@ -1,5 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import { spawnSync } from 'node:child_process'
 import { releaseSubLangs, parseQuality, rank, lengthFits, measured } from '../src/sources.js'
 import { srtToVtt, allowedSubUrl, sameShow, plausible, animeKeys, restRow } from '../src/subs.js'
 import { playlist, run } from '../src/transcode.js'
@@ -304,11 +307,45 @@ test('lookup finds a newer release by itself and reports a version once', async 
   const log = console.log; console.log = () => {}
   try {
     updates.set({ version: '', phase: 'idle' })
-    assert.equal(await updates.lookup('0.1.0'), true)
-    assert.equal(await updates.lookup('0.1.0'), true)
-    assert.equal(await updates.lookup('9.9.9'), false)
+    assert.equal(await updates.lookup('0.1.0'), 'newer')
+    assert.equal(await updates.lookup('0.1.0'), 'newer')
+    assert.equal(await updates.lookup('9.9.9'), 'current')
   } finally { globalThis.fetch = real; console.log = log }
   assert.deepEqual(seen, ['9.9.9'])
+})
+
+test('a lookup that could not reach the release page says it failed, not that Dodobox is current', async () => {
+  const real = globalThis.fetch
+  globalThis.fetch = async () => { throw new Error('offline') }
+  try { assert.equal(await updates.lookup('0.1.0'), 'failed') } finally { globalThis.fetch = real }
+})
+
+// start.sh and Dodobox.command are the same file; run it with a stand-in npm and node that only leave a note.
+test('the launcher installs dependencies on first run and whenever package-lock.json differs from the last install, and stops when a first install fails', { skip: process.platform === 'win32' }, () => {
+  const dir = tmpdir('launcher'); const bin = path.join(dir, 'bin'); const app = path.join(dir, 'app')
+  fs.mkdirSync(bin); fs.mkdirSync(app)
+  fs.writeFileSync(path.join(bin, 'node'), '#!/bin/sh\necho node >> "$NOTES"\n', { mode: 0o755 })
+  // A real npm leaves node_modules/.package-lock.json untouched when the tree is already right.
+  fs.writeFileSync(path.join(bin, 'npm'), '#!/bin/sh\necho npm >> "$NOTES"\n[ -z "$NPM_FAIL" ] || exit 1\nmkdir -p node_modules\n[ -f node_modules/.package-lock.json ] || echo {} > node_modules/.package-lock.json\n', { mode: 0o755 })
+  fs.copyFileSync(path.join(import.meta.dirname, '..', 'start.sh'), path.join(app, 'start.sh'))
+  const lock = path.join(app, 'package-lock.json'); const notes = path.join(dir, 'notes')
+  fs.writeFileSync(lock, '{"a":1}')
+  const launch = extra => {
+    fs.writeFileSync(notes, '')
+    const r = spawnSync('sh', [path.join(app, 'start.sh')], { env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, NOTES: notes, ...extra }, encoding: 'utf8' })
+    return { status: r.status, ran: fs.readFileSync(notes, 'utf8').split('\n').filter(Boolean) }
+  }
+
+  assert.deepEqual(launch({ NPM_FAIL: '1' }), { status: 1, ran: ['npm'] }, 'a first install that fails must not start the app')
+  assert.deepEqual(launch(), { status: 0, ran: ['npm', 'node'] }, 'no node_modules: install, then start')
+  assert.deepEqual(launch(), { status: 0, ran: ['node'] }, 'nothing changed: just start')
+  fs.writeFileSync(lock, '{"a":2}')
+  assert.deepEqual(launch({ NPM_FAIL: '1' }), { status: 0, ran: ['npm', 'node'] }, 'an update that cannot be fetched still starts with what is installed')
+  assert.deepEqual(launch(), { status: 0, ran: ['npm', 'node'] }, 'and is tried again next time')
+  assert.deepEqual(launch(), { status: 0, ran: ['node'] })
+  // A downgrade or an archive brings a lock file with an old time stamp: only its content says it changed.
+  fs.writeFileSync(lock, '{"a":3}'); fs.utimesSync(lock, new Date(2020, 0, 1), new Date(2020, 0, 1))
+  assert.deepEqual(launch(), { status: 0, ran: ['npm', 'node'] }, 'a different lock file with an older time is still installed')
 })
 
 test('ffmpeg\'s file report is read as streams: codecs, languages, titles, defaults, size and duration', () => {

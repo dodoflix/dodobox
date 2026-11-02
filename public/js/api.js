@@ -62,7 +62,7 @@ export async function api (path, { method = 'GET', body, raw, ref, headers } = {
   for (let i = 0; i < tries; i++) {
     let wait = 350 * 2 ** i * (0.75 + Math.random() / 2)
     const release = method === 'GET' && ref ? await slot(ref) : () => {}
-    const id = ref && method === 'GET' ? String(++rid) : ''
+    const id = ref?.signal && method === 'GET' ? String(++rid) : '' // only page-scoped requests can be cancelled by leaving the page
     if (id) live.add(id)
     try {
       const r = await fetch(path, { signal: ref?.signal, method, headers: { ...(id && { 'x-rid': id }), 'x-profile': profile, ...(token && { 'x-token': token }), 'x-lang': lang, 'x-adult-filter': safe ? '1' : '0', ...(body && !raw && { 'content-type': 'application/json' }), ...headers }, body: body && !raw ? JSON.stringify(body) : body, keepalive: method !== 'GET' && !raw })

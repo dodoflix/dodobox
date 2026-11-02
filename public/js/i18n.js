@@ -64,8 +64,9 @@ export async function initI18n (code) {
     for (const m of muts) {
       if (m.type === 'childList') m.addedNodes.forEach(translateTree)
       else if (m.type === 'characterData') translateText(m.target)
-      else if (m.type === 'attributes') { const out = lookup(m.target.getAttribute(m.attributeName) || ''); if (out != null && !m.target.closest('[translate="no"]')) m.target.setAttribute(m.attributeName, out) }
+      else if (m.type === 'attributes') { const out = lookup(m.target.getAttribute(m.attributeName) || ''); if (out != null && out !== m.target.getAttribute(m.attributeName) && !m.target.closest('[translate="no"]')) m.target.setAttribute(m.attributeName, out) }
     }
+    obs.takeRecords() // what this callback wrote is already translated; seeing it again would translate the translation
   })
   obs.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATTRS })
 }

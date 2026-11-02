@@ -34,8 +34,10 @@ const slots = () => (state.settings().shareUploads ? 10 : 0)
 // webtorrent has no public switch for this; the value is read on every rechoke (10 s), so a change reaches running torrents too.
 export const applySharing = () => { for (const t of client.torrents) t._rechokeNumSlots = slots() }
 
+const NO_FILE = 'No playable file found in torrent'
+// Each torrent keeps its files in its own folder, so two torrents with a same-named file never share one. Entries from before this have no `dir` and stay where they are.
 function attach (entry) {
-  const t = client.add(entry.magnet, { path: DL, uploads: slots() })
+  const t = client.add(entry.magnet, { path: entry.dir ? path.join(DL, entry.dir) : DL, uploads: slots() })
   const t0 = Date.now(); const h = entry.hash.slice(0, 8)
   log.info('torrent', 'add', { hash: entry.hash, ctx: entry.ctx && `${entry.ctx.type}:${entry.ctx.id}:${entry.ctx.season ?? ''}:${entry.ctx.episode ?? ''}`, trackers: (entry.magnet.match(/&tr=/g) || []).length })
   t.setMaxListeners(50) // every open read of the file listens for verified pieces
@@ -49,14 +51,14 @@ function attach (entry) {
     log.info('torrent', 'ready', { hash: h, ms: Date.now() - t0, peers: t.numPeers })
     for (const f of t.files) f.deselect()
     const idx = entry.fileIdx ?? pickFile(t.files.map(f => ({ name: f.path, length: f.length })), entry.ctx)
-    if (idx < 0) { entry.error = 'No playable file found in torrent'; log.warn('torrent', entry.error, { hash: h, files: t.files.map(f => f.path).slice(0, 8).join(' | ') }); return }
+    if (idx < 0) { entry.broken = NO_FILE; log.warn('torrent', entry.broken, { hash: h, files: t.files.map(f => f.path).slice(0, 8).join(' | ') }); return }
     entry.fileIdx = idx
     entry.name = t.files[idx].name
     log.info('torrent', 'file chosen', { hash: h, idx, name: entry.name, size: t.files[idx].length })
     selectRow(t, entry)
     for (const x of entry.extra || []) {
       x.fileIdx ??= pickFile(t.files.map(f => ({ name: f.path, length: f.length })), x.ctx)
-      if (x.fileIdx >= 0) { x.name = t.files[x.fileIdx].name; selectRow(t, x) }
+      if (x.fileIdx >= 0) { x.name = t.files[x.fileIdx].name; selectRow(t, x) } else x.error = NO_FILE
     }
     save()
   })
@@ -70,20 +72,20 @@ export function add ({ hash, magnet, ctx, fileIdx, pinned }) {
   // The provider's fileIdx is only a hint for pickFile (it can be stale for multi-file packs).
   ctx.fileIdx = fileIdx
   if (!lib[hash]) {
-    lib[hash] = { hash, magnet, ctx, added: Date.now() }
+    lib[hash] = { hash, magnet, ctx, added: Date.now(), dir: hash }
     save()
     attach(lib[hash])
   } else if (ctx.episode != null && lib[hash].ctx?.episode !== ctx.episode && (pinned || lib[hash].pinned)) {
     addExtra(hash, ctx)
   } else if (ctx.episode != null && lib[hash].ctx?.episode !== ctx.episode && !lib[hash].pinned) {
     const t = client.torrents.find(x => x.infoHash === hash)
-    Object.assign(lib[hash], { ctx, fileIdx: undefined, error: undefined })
+    Object.assign(lib[hash], { ctx, fileIdx: undefined, error: undefined, broken: undefined })
     resume.delete(lib[hash])
     if (t?.ready) {
       dropRow(t, lib[hash])
       for (const f of t.files) f.deselect()
       const idx = pickFile(t.files.map(f => ({ name: f.path, length: f.length })), ctx)
-      if (idx >= 0) { lib[hash].fileIdx = idx; lib[hash].name = t.files[idx].name; selectRow(t, lib[hash]) }
+      if (idx >= 0) { lib[hash].fileIdx = idx; lib[hash].name = t.files[idx].name; selectRow(t, lib[hash]) } else lib[hash].broken = NO_FILE
       save()
     }
   }
@@ -99,7 +101,7 @@ function addExtra (hash, ctx) {
   const t = torrentOf(hash)
   if (t?.ready) {
     x.fileIdx = pickFile(t.files.map(f => ({ name: f.path, length: f.length })), ctx)
-    if (x.fileIdx >= 0) { x.name = t.files[x.fileIdx].name; selectRow(t, x) }
+    if (x.fileIdx >= 0) { x.name = t.files[x.fileIdx].name; selectRow(t, x) } else x.error = NO_FILE
   }
   save()
 }
@@ -229,24 +231,32 @@ export function prioritizeCtx (ctx, on) {
 const torrentOf = hash => client.torrents.find(t => t.infoHash === hash)
 
 const rowsOf = e => [e, ...(e.extra || [])]
-const rowFor = (e, file) => (file == null ? e : rowsOf(e).find(x => x.fileIdx === +file) || e)
+// A row for an episode the pack lacks has no file, so it is named by its episode: `e<season>x<episode>`. Every other row is named by its file index.
+const token = r => `e${r.ctx.season ?? ''}x${r.ctx.episode ?? ''}`
+const rowIs = file => r => (typeof file === 'string' && file[0] === 'e' ? token(r) === file : r.fileIdx === +file)
+const rowFor = (e, file) => (file == null ? e : rowsOf(e).find(rowIs(file)) || e)
 
+// A row for an episode the pack lacks has no file (-1), so rows are looked up by episode token as well as by file.
 export function status (hash, silent, file) {
   const e = lib[hash]
   if (!e) return null
-  if (!silent) touch(hash, file == null ? e.fileIdx : +file)
-  const row = rowFor(e, file)
+  if (!silent) touch(hash, file == null ? e.fileIdx : rowFor(e, file).fileIdx)
+  return rowStatus(e, rowFor(e, file))
+}
+
+function rowStatus (e, row) {
+  const hash = e.hash
   const t = torrentOf(hash)
   const f = row.fileIdx != null && t?.ready ? t.files[row.fileIdx] : null
   return {
     hash,
-    key: row.fileIdx != null ? `${hash}:${row.fileIdx}` : hash,
+    key: row.fileIdx == null ? hash : `${hash}:${row.fileIdx < 0 ? token(row) : row.fileIdx}`,
     ctx: row.ctx,
     pinned: !!e.pinned,
     held: !!row.held,
     priority: !!row.priority,
-    error: row.error || e.error,
-    phase: row.error || e.error ? 'error' : !t?.ready ? 'metadata' : f?.done ? 'done' : paused.has(rowKey(e, row)) ? 'paused' : 'downloading',
+    error: row.error || e.broken,
+    phase: row.error || e.broken ? 'error' : !t?.ready ? 'metadata' : f?.done ? 'done' : paused.has(rowKey(e, row)) ? 'paused' : 'downloading',
     pausedReason: paused.get(rowKey(e, row)) || null,
     peers: t?.numPeers ?? 0,
     torrent: t && { name: t.name, size: t.length, files: t.files.length, pieceLength: t.pieceLength, uploaded: t.uploaded, uploadSpeed: t.uploadSpeed, ratio: t.ratio },
@@ -260,7 +270,7 @@ export function status (hash, silent, file) {
   }
 }
 
-// The file turned out to be another title: the entry is marked failed so it is never offered for this one again.
+// The file turned out to be another title: that row is marked failed so it is never offered for this one again. The rest of a pack is untouched.
 export function reject (hash, file, why) {
   const e = lib[hash]; if (!e) return
   log.warn('torrent', 'source rejected', { hash, file, why })
@@ -268,10 +278,29 @@ export function reject (hash, file, why) {
   save()
 }
 
-export const library = () => Object.values(lib).sort((a, b) => b.added - a.added).flatMap(e => rowsOf(e).map(r => status(e.hash, true, r.fileIdx ?? undefined)).filter(Boolean))
+export const library = () => Object.values(lib).sort((a, b) => b.added - a.added).flatMap(e => rowsOf(e).map(r => rowStatus(e, r)))
 
 function pruneEmpty (dir) {
   try { for (const d of fs.readdirSync(dir, { withFileTypes: true })) if (d.isDirectory()) pruneEmpty(path.join(dir, d.name)); fs.rmdirSync(dir) } catch { /* not empty, or already gone */ }
+}
+
+// Webtorrent never calls back for a torrent a concurrent remove already took out of the client, so overlapping removals share one destroy.
+const destroying = new Map() // hash -> Promise
+const destroy = hash => {
+  if (!destroying.has(hash)) destroying.set(hash, new Promise(resolve => client.remove(hash, { destroyStore: true }, resolve).catch(resolve)).finally(() => destroying.delete(hash)))
+  return destroying.get(hash)
+}
+
+// Takes back one row a race added to a torrent that was already in the library; the torrent and its other rows stay.
+// `pinned` is whether the torrent was pinned before the race: starting a pinned row pins the whole torrent.
+export function discardRow (hash, ctx, pinned) {
+  const e = lib[hash]; const at = e?.extra?.findIndex(x => x.ctx.season === ctx.season && x.ctx.episode === ctx.episode) ?? -1
+  if (at < 0) return false
+  const [x] = e.extra.splice(at, 1); const t = torrentOf(hash)
+  if (t) dropRow(t, x)
+  if (pinned === false) e.pinned = false
+  save()
+  return true
 }
 
 export async function remove (hash, file) {
@@ -279,15 +308,20 @@ export async function remove (hash, file) {
   log.info('torrent', 'remove', { hash, file })
   const e = lib[hash]
   const t = torrentOf(hash)
-  if (file != null && e.extra?.length) {
-    const k = +file
-    if (e.fileIdx === k) { const x = e.extra.shift(); if (t) dropRow(t, e); resume.delete(e); Object.assign(e, { ctx: x.ctx, fileIdx: x.fileIdx, name: x.name, held: x.held, priority: x.priority }); save(); return true }
-    const at = e.extra.findIndex(x => x.fileIdx === k)
-    if (at >= 0) { const [x] = e.extra.splice(at, 1); if (t) dropRow(t, x); save(); return true }
+  if (file != null) {
+    const is = rowIs(file)
+    if (!rowsOf(e).some(is)) return false // a second delete of a row already gone must not take the torrent's other rows with it
+    if (e.extra?.length) {
+      if (is(e)) { const x = e.extra.shift(); if (t) dropRow(t, e); resume.delete(e); Object.assign(e, { ctx: x.ctx, fileIdx: x.fileIdx, name: x.name, held: x.held, priority: x.priority, error: x.error }); save(); return true }
+      const at = e.extra.findIndex(is)
+      if (at >= 0) { const [x] = e.extra.splice(at, 1); if (t) dropRow(t, x); save(); return true }
+    }
   }
-  const tops = t ? new Set(t.files.map(f => f.path.split(/[\\/]/)[0])) : []
-  if (t) await new Promise(resolve => client.remove(hash, { destroyStore: true }, resolve))
+  const dir = e.dir ? path.join(DL, e.dir) : null
+  const tops = t && !dir ? new Set(t.files.map(f => f.path.split(/[\\/]/)[0])) : []
+  if (t || destroying.has(hash)) await destroy(hash)
   // Removing the files leaves a pack's folders behind.
+  if (dir) pruneEmpty(dir)
   for (const top of tops) pruneEmpty(path.join(DL, top))
   delete lib[hash]
   save()
@@ -364,7 +398,7 @@ export function touch (hash, file) {
 
 export function findEntry (ctx) {
   for (const e of Object.values(lib)) {
-    if (e.error) continue
+    if (e.broken) continue
     for (const r of rowsOf(e)) if (!r.error && r.ctx.type === ctx.type && r.ctx.id === ctx.id && r.ctx.season === ctx.season && r.ctx.episode === ctx.episode) return { hash: e.hash, file: r.fileIdx }
   }
   return null

@@ -83,7 +83,6 @@ export const ROWS = [
   ['Recent', 'Son aramalar', 'Recientes', 'Récents', 'Zuletzt'],
   ['No results', 'Sonuç yok', 'Sin resultados', 'Aucun résultat', 'Keine Ergebnisse'],
   // Library
-  ['Downloaded', 'İndirilenler', 'Descargado', 'Téléchargé', 'Heruntergeladen'],
   ['Your files', 'Dosyaların', 'Tus archivos', 'Vos fichiers', 'Deine Dateien'],
   ['Nothing yet', 'Henüz bir şey yok', 'Aún nada', 'Rien pour le moment', 'Noch nichts'],
   ['Anything you watch is kept here for next time.', 'İzlediğin her şey bir sonraki sefer için burada saklanır.', 'Todo lo que veas se guarda aquí para la próxima vez.', 'Tout ce que vous regardez est conservé ici pour la prochaine fois.', 'Alles, was du ansiehst, wird hier für das nächste Mal gespeichert.'],
@@ -452,7 +451,8 @@ export const ROWS = [
   ['Use Smallest', 'En küçüğü kullan', 'Usar Más pequeño', 'Utiliser Le plus petit', 'Kleinste verwenden'],
   ['Share while downloading', 'İndirirken paylaş', 'Compartir mientras se descarga', 'Partager pendant le téléchargement', 'Beim Herunterladen teilen'],
   ['Lets other people on the torrent network download from this computer. Off keeps your upload line free for games and calls. Some downloads may start a little slower.', 'Torrent ağındaki diğer kişilerin bu bilgisayardan indirmesine izin verir. Kapalıyken yükleme hattın oyunlar ve görüşmeler için boş kalır. Bazı indirmeler biraz geç başlayabilir.', 'Permite que otras personas de la red torrent descarguen desde este equipo. Desactivado deja libre tu línea de subida para juegos y llamadas. Algunas descargas pueden empezar algo más despacio.', 'Permet à d\'autres personnes du réseau torrent de télécharger depuis cet ordinateur. Désactivé, votre débit montant reste libre pour les jeux et les appels. Certains téléchargements peuvent démarrer un peu plus lentement.', 'Erlaubt anderen im Torrent-Netzwerk, von diesem Computer herunterzuladen. Aus bleibt dein Upload für Spiele und Anrufe frei. Manche Downloads starten etwas langsamer.'],
-  ['Sharing', 'Paylaşım', 'Compartir', 'Partage', 'Teilen']
+  ['Sharing', 'Paylaşım', 'Compartir', 'Partage', 'Teilen'],
+  ['First', 'İlk', 'Primero', 'Premier', 'Zuerst']
 ]
 
 // Patterns for text that carries numbers or names. $1, $2 refer to captured groups; the same order for every language.
@@ -474,7 +474,7 @@ export const PATTERNS = [
   [/^Looking in: (.+)$/, ['Aranan klasör: $1', 'Buscando en: $1', 'Recherche dans : $1', 'Suche in: $1']],
   [/^(.+) used$/, ['$1 kullanıldı', '$1 usados', '$1 utilisés', '$1 belegt']],
   [/^(.+) limit$/, ['$1 sınır', 'Límite de $1', 'Limite de $1', '$1 Limit']],
-  [/^(.+) of (.+) used\. Oldest unwatched downloads are removed automatically when it fills up\.( Downloads you start yourself are kept\.)?$/, ['$2 içinden $1 kullanıldı. Dolunca en eski izlenmemiş indirmeler otomatik silinir.', '$1 de $2 usados. Las descargas más antiguas sin ver se eliminan automáticamente al llenarse.', '$1 sur $2 utilisés. Les plus anciens téléchargements non vus sont supprimés automatiquement quand c\'est plein.', '$1 von $2 belegt. Die ältesten ungesehenen Downloads werden bei Bedarf automatisch gelöscht.']],
+  [/^(.+) of (.+) used\. Oldest unwatched downloads are removed automatically when it fills up\. Downloads you start yourself are kept\.$/, ['$2 içinden $1 kullanıldı. Dolunca en eski izlenmemiş indirmeler otomatik silinir. Kendi başlattığın indirmeler saklanır.', '$1 de $2 usados. Las descargas más antiguas sin ver se eliminan automáticamente al llenarse. Las descargas que inicias tú se conservan.', '$1 sur $2 utilisés. Les plus anciens téléchargements non vus sont supprimés automatiquement quand c\'est plein. Les téléchargements que vous lancez vous-même sont conservés.', '$1 von $2 belegt. Die ältesten ungesehenen Downloads werden bei Bedarf automatisch gelöscht. Selbst gestartete Downloads bleiben erhalten.']],
   [/^Auto picks the best version your connection and screen can use \(this server's internet: about (\d+) Mbps\)\. Choose a level to force it\.$/, ['Otomatik, bağlantının ve ekranın kullanabileceği en iyi sürümü seçer (bu sunucunun interneti: yaklaşık $1 Mbps). Zorlamak için bir seviye seç.', 'Automática elige la mejor versión que admiten tu conexión y pantalla (internet de este servidor: unos $1 Mbps). Elige un nivel para forzarlo.', 'Auto choisit la meilleure version supportée par votre connexion et votre écran (internet de ce serveur : environ $1 Mbit/s). Choisissez un niveau pour l\'imposer.', 'Automatisch wählt die beste Version für Verbindung und Bildschirm (Internet dieses Servers: etwa $1 Mbit/s). Wähle eine Stufe, um sie zu erzwingen.']],
   [/^Auto picks the best version your connection and screen can use\. Choose a level to force it\.$/, ['Otomatik, bağlantının ve ekranın kullanabileceği en iyi sürümü seçer. Zorlamak için bir seviye seç.', 'Automática elige la mejor versión que admiten tu conexión y pantalla. Elige un nivel para forzarlo.', 'Auto choisit la meilleure version supportée par votre connexion et votre écran. Choisissez un niveau pour l\'imposer.', 'Automatisch wählt die beste Version für Verbindung und Bildschirm. Wähle eine Stufe, um sie zu erzwingen.']],
   [/^Video encoder: software$/, ['Video kodlayıcı: yazılım', 'Codificador de vídeo: software', 'Encodeur vidéo : logiciel', 'Video-Encoder: Software']],

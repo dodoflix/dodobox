@@ -5,14 +5,22 @@ import './data.js'
 import { DATA } from './paths.js'
 import { fetchRetry } from './http.js'
 import { log } from './log.js'
+import { putFile } from './store.js'
 
 const FILE = path.join(DATA, 'locale-cache.json')
 const WEEK = 7 * 24 * 3600e3
 const UA = { 'user-agent': 'dodobox/1.0 (self-hosted media app)', accept: 'application/sparql-results+json' }
+const MAX_ENTRIES = 5000
 const cache = new Map()
 try { for (const [k, v] of Object.entries(JSON.parse(fs.readFileSync(FILE, 'utf8')))) cache.set(k, v) } catch {}
+// An entry older than a week is looked up again anyway, and the newest ones are kept when the map passes its cap.
+export function prune () {
+  for (const [k, v] of cache) if (!(v?.at > Date.now() - WEEK)) cache.delete(k)
+  if (cache.size > MAX_ENTRIES) for (const [k] of [...cache].sort((a, b) => b[1].at - a[1].at).slice(MAX_ENTRIES)) cache.delete(k)
+}
+prune()
 let saveT
-const save = () => { clearTimeout(saveT); saveT = setTimeout(() => fs.writeFile(FILE, JSON.stringify(Object.fromEntries(cache)), () => {}), 4000).unref() }
+const save = () => { clearTimeout(saveT); saveT = setTimeout(() => { prune(); putFile(FILE, JSON.stringify(Object.fromEntries(cache))).catch(e => log.warn('locale', 'could not save locale-cache.json', { err: e })) }, 4000).unref() }
 
 const valid = lang => /^[a-z]{2,3}$/.test(lang || '') && lang !== 'en'
 // Each catalog id type lives under a different property.

@@ -1,8 +1,9 @@
 // Replaces native <select class="field"> with a styled dropdown; the select stays hidden as the source of truth.
 import { esc, icon, placeLeft } from './util.js'
+import { onBack } from './nav.js'
 
 let open = null
-const close = () => { if (open) { open.pop.remove(); open.btn.setAttribute('aria-expanded', 'false'); open.btn.focus({ preventScroll: true }); document.removeEventListener('pointerdown', outside, true); open = null } }
+const close = () => { if (open) { if (onBack.handler === open.back) onBack.handler = open.prevBack; open.pop.remove(); open.btn.setAttribute('aria-expanded', 'false'); open.btn.focus({ preventScroll: true }); document.removeEventListener('pointerdown', outside, true); open = null } }
 const outside = e => { if (open && !open.pop.contains(e.target) && !open.btn.contains(e.target)) close() }
 
 function build (sel) {
@@ -22,7 +23,7 @@ function build (sel) {
   function show () {
     close()
     const pop = document.createElement('div')
-    pop.className = 'dd-pop'; pop.setAttribute('role', 'listbox'); pop.dataset.modal = ''
+    pop.className = 'dd-pop'; pop.setAttribute('role', 'listbox'); pop.dataset.modal = ''; pop.dataset.keys = 'own'
     pop.innerHTML = [...sel.options].map((o, i) => `<button type="button" role="option" data-i="${i}" aria-selected="${o.selected}" class="${o.selected ? 'on' : ''}"><span>${esc(o.textContent)}</span>${o.selected ? icon('check') : ''}</button>`).join('')
     document.body.append(pop)
     const r = btn.getBoundingClientRect()
@@ -33,7 +34,9 @@ function build (sel) {
     placeLeft(pop, Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.right - pop.offsetWidth)))
     pop.style.top = (below > h + 16 || below > r.top ? r.bottom + 6 : Math.max(8, r.top - h - 6)) + 'px'
     btn.setAttribute('aria-expanded', 'true')
-    open = { pop, btn }
+    const prevBack = onBack.handler
+    const back = onBack.handler = () => { close(); return true }
+    open = { pop, btn, back, prevBack }
     document.addEventListener('pointerdown', outside, true)
     ;(pop.querySelector('.on') || pop.firstElementChild)?.focus()
     pop.querySelector('.on')?.scrollIntoView({ block: 'center' })
@@ -47,7 +50,6 @@ function build (sel) {
       const items = [...pop.children]; const i = items.indexOf(document.activeElement)
       if (e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); items[Math.min(items.length - 1, i + 1)].focus() }
       else if (e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); items[Math.max(0, i - 1)].focus() }
-      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close() }
       else if (e.key.length === 1) { const n = items.find(b => b.textContent.trim().toLowerCase().startsWith(e.key.toLowerCase())); n?.focus() }
     })
   }

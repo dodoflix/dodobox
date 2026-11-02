@@ -2,6 +2,9 @@
 import zlib from 'node:zlib'
 import { fetchRetry, once } from './http.js'
 
+// A subtitle file is plain text of a few hundred KB; a crafted archive that expands past this is refused, not inflated.
+export const MAX_SUB = 3e6
+
 const BASE = 'https://yifysubtitles.ch'
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36'
 export const yifyHeaders = { 'user-agent': UA, referer: BASE + '/' }
@@ -45,7 +48,7 @@ export function unzipFirst (buf) {
     if (!/\.(srt|sub|ass|ssa|vtt)$/i.test(name)) continue
     const start = local + 30 + buf.readUInt16LE(local + 26) + buf.readUInt16LE(local + 28)
     const data = buf.subarray(start, start + csize)
-    return method === 0 ? data : zlib.inflateRawSync(data)
+    return method === 0 ? data : zlib.inflateRawSync(data, { maxOutputLength: MAX_SUB })
   }
   throw new Error('no subtitle in zip')
 }

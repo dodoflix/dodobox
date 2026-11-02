@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
+import { readdir, stat } from 'node:fs/promises'
 import { catalog } from './meta.js'
 import './data.js'
 import { DATA } from './paths.js'
@@ -11,19 +12,18 @@ import { VIDEO_EXT, hasWords } from './release.js'
 import { sidecarsFor, SUB_FILE } from './sidecar.js'
 import { sendRange, MIME } from './range.js'
 import { log } from './log.js'
-import { readStamped, stamp } from './stamped.js'
+import { readAnyVersion, stamp } from './stamped.js'
+import { putFile } from './store.js'
 
 const FILE = path.join(DATA, 'local.json')
 const MIN_BYTES = +process.env.MIN_LOCAL_BYTES || 30e6
-const known = readStamped(FILE) || {}
+// Which title a file is does not change with the release, so this cache is read whatever version saved it.
+const known = readAnyVersion(FILE) || {}
 let index = []
 let scanning = null
 
-export const dirs = () => {
-  const cfg = settings().mediaDirs
-  const list = cfg || [process.env.MEDIA_DIR, path.join(os.homedir(), 'Videos'), path.join(os.homedir(), 'Movies')].filter(Boolean)
-  return list.filter(d => { try { return fs.statSync(d).isDirectory() } catch { return false } })
-}
+const configured = () => settings().mediaDirs || [process.env.MEDIA_DIR, path.join(os.homedir(), 'Videos'), path.join(os.homedir(), 'Movies')].filter(Boolean)
+export const dirs = () => configured().filter(d => { try { return fs.statSync(d).isDirectory() } catch { return false } })
 
 const clean = s => s.replace(/[._]+/g, ' ').replace(/\[[^\]]*\]|\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim()
 const JUNK = /\b(2160p|1080p|720p|480p|4k|bluray|brrip|bdrip|webrip|web-?dl|hdtv|dvdrip|x26[45]|h26[45]|hevc|aac|ac3|dts|remux|proper|repack|extended|uncut)\b.*$/i
@@ -56,46 +56,67 @@ async function matchOnline (p) {
   return null
 }
 
-function walk (dir, out, depth = 0) {
+// Folders and files that could not be read are collected in `bad`: what the scan knew about them must survive a mount that is briefly gone.
+async function walk (dir, out, bad, depth = 0) {
   if (depth > 6) return
   let items
-  try { items = fs.readdirSync(dir, { withFileTypes: true }) } catch (e) { log.warn('local', 'cannot read folder', { dir, err: e.code || e }); return }
+  try { items = await readdir(dir, { withFileTypes: true }) } catch (e) { bad.push(dir); log.warn('local', 'cannot read folder', { dir, err: e.code || e }); return }
   for (const it of items) {
     if (it.name.startsWith('.')) continue
     const p = path.join(dir, it.name)
     if (p === DATA) continue
-    if (it.isDirectory()) walk(p, out, depth + 1)
+    if (it.isDirectory()) await walk(p, out, bad, depth + 1)
     else if (VIDEO_EXT.test(it.name) && !/sample|trailer|featurette/i.test(it.name)) {
-      try { const st = fs.statSync(p); if (st.size >= MIN_BYTES) out.push({ p, size: st.size, mtime: st.mtimeMs }) } catch {}
+      try { const st = await stat(p); if (st.size >= MIN_BYTES) out.push({ p, size: st.size, mtime: st.mtimeMs }) } catch { bad.push(p) }
     }
   }
 }
+
+const under = (p, dir) => { const r = path.relative(dir, p); return r !== '..' && !r.startsWith('..' + path.sep) && !path.isAbsolute(r) } // right also for a folder typed with a trailing slash
+// Saves are queued so an older copy never lands after a newer one.
+let saving = Promise.resolve()
+const save = () => (saving = saving.then(() => putFile(FILE, stamp(known))).catch(e => log.warn('local', 'could not save local.json', { err: e })))
+const entryOf = (f, k) => ({ id: 'l' + crypto.createHash('sha1').update(f.p).digest('hex').slice(0, 16), path: f.p, size: f.size, ...k.match, season: k.parsed.season ?? null, episode: k.parsed.episode ?? null })
+// Unmatched files are retried hourly (a lookup service may have been down).
+const stale = (k, f) => !k || k.mtime !== f.mtime || k.size !== f.size || (!k.match && Date.now() - (k.at || 0) > 3600e3)
 
 export function rescan () {
   if (scanning) return scanning
   scanning = (async () => {
     const t0 = Date.now()
     const files = []
-    log.debug('local', 'scan start', { dirs: dirs().join(',') })
-    for (const d of dirs()) walk(d, files)
-    const next = []
-    for (const f of files) {
-      let k = known[f.p]
-      // Unmatched files are retried hourly (a lookup service may have been down).
-      if (!k || k.mtime !== f.mtime || k.size !== f.size || (!k.match && Date.now() - (k.at || 0) > 3600e3)) {
-        const parsed = parseName(f.p)
-        k = { mtime: f.mtime, size: f.size, at: Date.now(), parsed, match: parsed ? await hooks.match(parsed) : null }
-        known[f.p] = k
-        log.debug('local', k.match ? 'matched' : 'no match', { file: f.p, parsed: parsed && `${parsed.title}${parsed.season != null ? ` S${parsed.season}E${parsed.episode}` : ''}`, as: k.match && `${k.match.type}:${k.match.mid}` })
-      }
-      if (k.match) {
-        const e = { id: 'l' + crypto.createHash('sha1').update(f.p).digest('hex').slice(0, 16), path: f.p, size: f.size, ...k.match, season: k.parsed.season ?? null, episode: k.parsed.episode ?? null }
-        next.push(e)
-      }
+    const cfg = configured(); const live = []
+    for (const d of cfg) if (await stat(d).then(s => s.isDirectory(), () => false)) live.push(d) // async: a dead network mount must not stall the server
+    // A configured folder that is not there (an unmounted drive) keeps its entries.
+    const bad = cfg.filter(d => !live.includes(d))
+    log.debug('local', 'scan start', { dirs: live.join(',') })
+    for (const d of live) {
+      const n = files.length
+      await walk(d, files, bad)
+      if (files.length === n) bad.push(d) // an unmounted share often leaves an empty mount point: no files at all is not proof they are gone
     }
-    for (const p of Object.keys(known)) if (!files.some(f => f.p === p)) delete known[p]
-    index = next
-    fs.writeFile(FILE, stamp(known), () => {})
+    // What is already known is served at once; each new match joins the list as it is found.
+    const entries = new Map()
+    const todo = []
+    for (const f of files) {
+      const k = known[f.p]
+      if (k?.match) entries.set(f.p, entryOf(f, k))
+      if (stale(k, f)) todo.push(f)
+    }
+    index = [...entries.values()]
+    let fresh = 0
+    for (const f of todo) {
+      const parsed = parseName(f.p)
+      const k = { mtime: f.mtime, size: f.size, at: Date.now(), parsed, match: parsed ? await hooks.match(parsed) : null }
+      known[f.p] = k
+      if (k.match) entries.set(f.p, entryOf(f, k)); else entries.delete(f.p)
+      index = [...entries.values()]
+      if (++fresh % 25 === 0) save()
+      log.debug('local', k.match ? 'matched' : 'no match', { file: f.p, parsed: parsed && `${parsed.title}${parsed.season != null ? ` S${parsed.season}E${parsed.episode}` : ''}`, as: k.match && `${k.match.type}:${k.match.mid}` })
+    }
+    const seen = new Set(files.map(f => f.p))
+    for (const p of Object.keys(known)) if (!seen.has(p) && !bad.some(d => under(p, d))) delete known[p]
+    await save()
     log.info('local', 'scan done', { files: files.length, matched: index.length, ms: Date.now() - t0 })
     return index.length
   })().finally(() => { scanning = null })
@@ -143,10 +164,12 @@ export function readSidecar (id, i) {
   return { name: s.name, buf: fs.readFileSync(s.path) }
 }
 
-export function serve (id, req, res) {
+// The size comes from the file now, not from the last scan: a file replaced or cut short since would get a wrong content-length.
+export async function serve (id, req, res) {
   const e = byId(id)
-  if (!e) { res.writeHead(404).end(); return }
-  sendRange(req, res, { length: e.size, type: MIME[path.extname(e.path).slice(1).toLowerCase()] || 'application/octet-stream', stream: (start, end) => fs.createReadStream(e.path, { start, end }) })
+  const st = e && await stat(e.path).catch(() => null)
+  if (!st?.isFile()) { res.writeHead(404).end(); return }
+  sendRange(req, res, { length: st.size, type: MIME[path.extname(e.path).slice(1).toLowerCase()] || 'application/octet-stream', stream: (start, end) => fs.createReadStream(e.path, { start, end }) })
 }
 
 export function watch () {

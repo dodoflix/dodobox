@@ -2,7 +2,8 @@
 # Coverage gates on what the push changes. CI still checks every file. Skip once with `git push --no-verify`.
 base=$(git merge-base origin/main HEAD 2>/dev/null) || exec npm run test:coverage
 changed=$(git diff --name-only --diff-filter=ACMR "$base" HEAD)
-src=$(echo "$changed" | grep -E '^(server\.js|src/[^/]+\.js)$')
+# files the coverage runs leave out (see package.json, plus translate-hq-worker.js, which only translate-hq.js loads) cannot be in the report, so they are not named to the floor check
+src=$(echo "$changed" | grep -E '^(server\.js|src/[^/]+\.js)$' | grep -vE '^src/(translate(-hq(-worker)?)?|presence|net|data)\.js$')
 echo "$changed" | grep -qE '^(server\.js|src/|test/|e2e/|public/)' || exit 0
 # whole suites run (a file's coverage comes from any test); only the 90% floor is limited to changed source files
 npm run test:coverage:unit -- $src || exit 1

@@ -39,7 +39,7 @@ import { once } from './src/http.js'
 import { langOfName } from './src/sidecar.js'
 import { DATA } from './src/paths.js'
 import * as updates from './src/update.js'
-import { probe, playlist, segment, warm, cancel, embeddedSub, anyToVtt, encodes, SEG } from './src/transcode.js'
+import { probe, playlist, segment, warm, cancel, watching, embeddedSub, anyToVtt, encodes, SEG } from './src/transcode.js'
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url))
 const PUBLIC = path.join(ROOT, 'public')
@@ -69,7 +69,7 @@ const body = req => new Promise((resolve, reject) => {
 })
 // For a failure that is handled by carrying on: it still goes to the log.
 const swallow = (what, fallback) => e => { log.debug('server', `${what} failed`, { err: e }); return fallback }
-const SECRET_FIELD = /^(pin|current|password|code|token|text)$/i
+const SECRET_FIELD = /^(pin|current|pass(word)?|code|token|text)$/i
 const clip = (v, n = 200) => (typeof v === 'string' && v.length > n ? v.slice(0, n) + '...' : v)
 const jbody = async req => {
   try {
@@ -81,6 +81,8 @@ const jbody = async req => {
 
 let port
 const rawUrl = (hash, idx) => `http://127.0.0.1:${port}/raw/${hash}/${idx}`
+// Viewers are told apart by the id their player sends (`v`), by address when it sends none: one leaving must not stop the conversion another still watches.
+const viewer = (req, q) => (/^\w{1,40}$/.test(q.get('v') || '') ? q.get('v') : (req.socket.remoteAddress || '').replace(/^::ffff:/, ''))
 const statusOf = (h, silent, file) => local.isLocal(h) ? local.status(h) : engine.status(h, silent, file)
 // A profile with a PIN is only itself for a request that carries a session token issued after the PIN was entered; otherwise it is nobody.
 const unlocked = (id, req) => !state.hasPin(id) || lock.valid(id, req.headers['x-token'])
@@ -129,6 +131,23 @@ const audioOf = req => state.profile(pid(req))?.settings.lang
 const sublangOf = req => state.profile(pid(req))?.settings.sublang
 
 const wrong = new Set() // ponytail: forgotten on restart, which costs one more wrong download; persist if that bites
+// A file whose length is far from the title's runtime is a different title: it is dropped and refused.
+async function lengthMatches (h, s, info) {
+  const c = s.ctx
+  if (!c || c.type === 'anime' || local.isLocal(h)) return true
+  const m = await meta(c.type, c.id).catch(swallow('meta lookup', null))
+  if (!m || lengthFits(info.duration, runtimeOf(m))) return true
+  wrong.add(`${c.type}:${c.id}:${h}`); engine.reject(h, s.fileIdx, 'This video is a different title')
+  return false
+}
+// The stream's routes only serve a file that is a video of the right length.
+async function hlsInfo (h, i, req, q) {
+  watching(`${h}:${i}`, viewer(req, q))
+  const info = await probe(rawUrl(h, i), `${h}:${i}`)
+  const s = statusOf(h, true)
+  if (s && !await lengthMatches(h, { ...s, fileIdx: +i }, info)) throw Object.assign(new Error('This video is a different title'), { code: 409 })
+  return info
+}
 const notAired = date => !!date && new Date(date) > new Date()
 async function play (b) {
   log.info('play', 'request', { type: b.type, id: b.id, season: b.season, episode: b.episode, hash: b.infoHash, pin: b.pin, mode: b.mode, exclude: (b.exclude || []).length })
@@ -157,12 +176,13 @@ async function play (b) {
   log.info('play', 'sources', { title: m.name, found: list.length, first: first && { hash: first.infoHash, name: first.title, seeders: first.seeders, size: first.size }, asked: b.infoHash })
   if (!first) throw Object.assign(new Error('Nothing playable found for this title right now'), { code: 404 })
   // A download that failed earlier (no playable file, bad torrent) is dropped so the version gets a fresh try instead of failing again at once.
-  for (const r of [first, ...list.slice(0, 3)]) if (engine.status(r.infoHash, true)?.phase === 'error') await engine.remove(r.infoHash).catch(swallow('dropping a failed download'))
+  // Only the failed row goes when the pack holds other episodes.
+  for (const r of [first, ...list.slice(0, 3)]) { const x = engine.status(r.infoHash, true); if (x?.phase === 'error') await engine.remove(r.infoHash, x.fileIdx).catch(swallow('dropping a failed download')) }
   // A pack may number its files by TVDB season or absolutely; the engine needs those numbers to open the right file.
   const numbers = item.type === 'anime' && !item.movie ? await episodeNumbers(+String(item.id).replace('al:', ''), item.episode) : null
   const start = pick => engine.add({ hash: pick.infoHash, magnet: pick.magnet, ctx: { type: item.type, id: item.id, title: m.name, poster: m.poster, season: item.season, episode: item.episode, release: pick.release, provider: pick.provider, seeders: pick.seeders, ...numbers && { tvdbSeason: numbers.tvdbSeason, tvdbEpisode: numbers.tvdbEpisode, abs: numbers.abs } }, fileIdx: pick.fileIdx, pinned: !!b.pin })
   const rivals = b.infoHash ? [first] : rivalsOf(list, first, { ...ctxOf(b), runtimeMin: item.runtimeMin, year: item.year, kind: item.type })
-  const pick = rivals.length > 1 ? await race(rivals, start, { ...ctxOf(b), runtimeMin: item.runtimeMin }) : first
+  const pick = rivals.length > 1 ? await race(rivals, start, { ...ctxOf(b), runtimeMin: item.runtimeMin, season: item.season, episode: item.episode }) : first
   const e = start(pick)
   log.info('play', 'chosen', { hash: pick.infoHash, name: pick.title, seeders: pick.seeders, raced: rivals.length > 1 ? rivals.length : undefined })
   // The next episode is usually what is watched next: its list is ready by then.
@@ -341,7 +361,7 @@ const routes = [
   ['GET', /^\/api\/health$/, (req, res) => json(req, res, { app: 'dodobox', version: VERSION })],
   ['GET', /^\/api\/server$/, async (req, res) => json(req, res, {
     version: VERSION, port, urls: lanAddresses().map(a => `http://${a}:${port}`), mdns: `http://dodobox.local:${port}`,
-    encoder: await encoder(), internetMbps: Math.round(speed.downMbps()), mediaDirs: local.dirs(), localCount: local.all().length, update: updates.info()
+    encoder: await encoder(), internetMbps: Math.round(speed.downMbps()), mediaDirs: local.dirs(), localCount: local.all().length, update: updates.info(), betterTranslation: better.available
   })],
   // Updates: anyone can see that one exists, only a request from the computer Dodobox runs on can start it.
   ['GET', /^\/api\/update$/, (req, res) => json(req, res, updates.view(VERSION, isLocal(req)))],
@@ -463,19 +483,12 @@ const routes = [
   }],
   ['GET', /^\/api\/status\/(\w+)$/, (req, res, [, h], q) => { const s = statusOf(h, false, q.get('file')); if (s) speed.observe(s.speed); s ? json(req, res, s) : fail(req, res, 404, 'unknown source') }],
   // The player was left: stop converting for it.
-  ['POST', /^\/api\/release\/(\w+)\/(\d+)$/, (req, res, [, h, i]) => { cancel(`${h}:${i}`); json(req, res, { ok: true }) }],
+  ['POST', /^\/api\/release\/(\w+)\/(\d+)$/, (req, res, [, h, i], q) => { cancel(`${h}:${i}`, viewer(req, q)); json(req, res, { ok: true }) }],
   ['GET', /^\/api\/info\/(\w+)$/, async (req, res, [, h]) => {
     const s = statusOf(h)
     if (!s || s.fileIdx == null) return fail(req, res, 409, 'not ready')
     const info = await probe(rawUrl(h, s.fileIdx), `${h}:${s.fileIdx}`, s.name || '')
-    const c = s.ctx
-    if (c && c.type !== 'anime' && !local.isLocal(h)) {
-      const m = await meta(c.type, c.id).catch(swallow('meta lookup', null))
-      if (m && !lengthFits(info.duration, runtimeOf(m))) {
-        wrong.add(`${c.type}:${c.id}:${h}`); engine.reject(h, s.fileIdx, 'This video is a different title')
-        return fail(req, res, 409, 'This video is a different title')
-      }
-    }
+    if (!await lengthMatches(h, s, info)) return fail(req, res, 409, 'This video is a different title')
     json(req, res, { ...s, ...info, sidecar: (local.isLocal(h) ? local.sidecars(h) : engine.sidecars(h, s.fileIdx)).map(({ path, ...x }) => x) })
   }],
   // Intro, recap and ending of the episode being played; the player asks once the file is probed, so starting playback never waits for it.
@@ -500,8 +513,8 @@ const routes = [
   ['GET', /^\/raw\/(\w+)\/(\d+)$/, (req, res, [, h, i]) => local.isLocal(h) ? local.serve(h, req, res) : engine.serve(h, +i, req, res)],
   // Safari hands HLS to AirPlay by URL, so only subtitles inside the stream reach a TV; with `sl` or `sub` the playlist becomes a master playlist with a WebVTT rendition.
   ['GET', /^\/hls\/(\w+)\/(\d+)\/index\.m3u8$/, async (req, res, [, h, i], q) => {
-    const info = await probe(rawUrl(h, i), `${h}:${i}`)
-    const qs = new URLSearchParams([...q].filter(([k]) => k === 'a' || k === 'h')).toString()
+    const info = await hlsInfo(h, i, req, q)
+    const qs = new URLSearchParams([...q].filter(([k]) => k === 'a' || k === 'h' || k === 'v')).toString()
     let body = playlist(info.duration, qs ? '?' + qs : '')
     if (q.get('sub') || q.get('sl')) {
       const sq = new URLSearchParams([...q].filter(([k]) => ['sub', 'sl', 'sn', 't', 'mid', 's', 'e'].includes(k))).toString()
@@ -513,8 +526,8 @@ const routes = [
     res.writeHead(200, { 'content-type': 'application/vnd.apple.mpegurl', 'cache-control': 'no-store' }).end(body)
   }],
   ['GET', /^\/hls\/(\w+)\/(\d+)\/media\.m3u8$/, async (req, res, [, h, i], q) => {
-    const info = await probe(rawUrl(h, i), `${h}:${i}`)
-    const qs = new URLSearchParams([...q].filter(([k]) => k === 'a' || k === 'h')).toString()
+    const info = await hlsInfo(h, i, req, q)
+    const qs = new URLSearchParams([...q].filter(([k]) => k === 'a' || k === 'h' || k === 'v')).toString()
     res.writeHead(200, { 'content-type': 'application/vnd.apple.mpegurl', 'cache-control': 'no-store' }).end(playlist(info.duration, qs ? '?' + qs : ''))
   }],
   ['GET', /^\/hls\/(\w+)\/(\d+)\/subs\.m3u8$/, async (req, res, [, h, i], q) => {
@@ -547,10 +560,17 @@ const routes = [
     res.writeHead(200, { 'content-type': 'text/vtt; charset=utf-8', 'cache-control': 'no-store' }).end(`WEBVTT\nX-TIMESTAMP-MAP=MPEGTS:0,LOCAL:00:00:00.000\n${body.startsWith('\n') ? body : '\n' + body}`)
   }],
   ['GET', /^\/hls\/(\w+)\/(\d+)\/seg(\d+)\.ts$/, async (req, res, [, h, i, n], q) => {
-    const audio = +q.get('a') || 0; const maxH = Math.min(2160, Math.max(240, +q.get('h') || 1080))
-    await probe(rawUrl(h, i), `${h}:${i}`) // refuses a file that is not a video before ffmpeg reads it
-    const data = await segment(rawUrl(h, i), `${h}:${i}`, +n, audio, maxH)
-    probe(rawUrl(h, i), `${h}:${i}`).then(info => warm(rawUrl(h, i), `${h}:${i}`, +n, Math.ceil(info.duration / SEG) - 1, audio, maxH)).catch(swallow('warming segments'))
+    const a = q.get('a') || '0'
+    // A viewer who went away (a seek, a closed player) stops waiting for its segment, also while the file is still being probed.
+    const gone = new AbortController()
+    res.on('close', () => { if (!res.writableEnded) gone.abort() })
+    const info = await hlsInfo(h, i, req, q) // refuses a file that is not a video before ffmpeg reads it
+    const last = Math.ceil(info.duration / SEG) - 1
+    if (!/^\d+$/.test(a) || +a >= Math.max(1, info.audio.length) || +n > last) return fail(req, res, 404, 'no such segment')
+    const audio = +a; const maxH = Math.min(2160, Math.max(240, +q.get('h') || 1080))
+    const data = await segment(rawUrl(h, i), `${h}:${i}`, +n, audio, maxH, gone.signal)
+    if (gone.signal.aborted) return
+    warm(rawUrl(h, i), `${h}:${i}`, +n, last, audio, maxH)
     res.writeHead(200, { 'content-type': 'video/mp2t', 'content-length': data.length, 'cache-control': 'max-age=3600' }).end(data)
   }],
 
@@ -650,8 +670,8 @@ const routes = [
   ['POST', /^\/api\/downloads\/(.+)\/(prioritize|unprioritize)$/, (req, res, [, k, what]) => json(req, res, { ok: downloads.prioritize(decodeURIComponent(k), what === 'prioritize') })],
   ['DELETE', /^\/api\/downloads\/(.+)$/, (req, res, [, k]) => { downloads.cancel(decodeURIComponent(k)); json(req, res, { ok: true }) }],
   ['GET', /^\/api\/library$/, async (req, res) => json(req, res, await hideAdult(engine.library().filter(r => !racing.has(r.hash)), safeOf(req), e => e.ctx || {}))],
-  ['POST', /^\/api\/library\/(\w+)(?::(\d+))?\/(pause|resume|prioritize|unprioritize)$/, (req, res, [, h, f, what]) => json(req, res, { ok: what === 'pause' || what === 'resume' ? engine.hold(h.toLowerCase(), f, what === 'pause') : engine.prioritize(h.toLowerCase(), f, what === 'prioritize') })],
-  ['DELETE', /^\/api\/library\/(\w+)(?::(\d+))?$/, async (req, res, [, h, f]) => json(req, res, { ok: await engine.remove(h, f) })]
+  ['POST', /^\/api\/library\/(\w+)(?::(\d+|e\d*x\d*))?\/(pause|resume|prioritize|unprioritize)$/, (req, res, [, h, f, what]) => json(req, res, { ok: what === 'pause' || what === 'resume' ? engine.hold(h.toLowerCase(), f, what === 'pause') : engine.prioritize(h.toLowerCase(), f, what === 'prioritize') })],
+  ['DELETE', /^\/api\/library\/(\w+)(?::(\d+|e\d*x\d*))?$/, async (req, res, [, h, f]) => json(req, res, { ok: await engine.remove(h, f) })]
 ]
 
 const staticCache = new Map()
@@ -706,7 +726,11 @@ function accessLog (req, res, url, t0, routed) {
 }
 
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, 'http://x')
+  let url
+  try { url = new URL(req.url, 'http://x') } catch {
+    // A request line that is no address (`GET //`) gets an answer and a closed connection instead of a socket nobody serves.
+    return void res.writeHead(400, { 'content-type': 'application/json', connection: 'close' }).end('{"error":"bad request"}')
+  }
   const t0 = Date.now(); let routed = false
   accessLog(req, res, url, t0, () => routed)
   res.setHeader('x-content-type-options', 'nosniff')
@@ -782,7 +806,7 @@ export async function stop () {
   log.info('start', 'stopping')
   try { bonjour?.unpublishAll(); bonjour?.destroy() } catch {}
   party.leave()
-  state.flush()
+  try { state.flush() } catch (e) { log.error('start', 'could not save state while stopping', { err: e }) }
   server.closeAllConnections()
   await new Promise(r => server.close(r))
   await engine.shutdown()
@@ -796,5 +820,10 @@ process.on('uncaughtException', e => console.error('[uncaught]', e?.stack || e))
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const s = await start().catch(e => { console.error(e.code === 'EADDRINUSE' ? `Port ${process.env.PORT || 3000} is busy. Is Dodobox already running?` : e.message); process.exit(1) })
   openBrowser(`http://localhost:${s.address().port}`)
-  for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { log.info('start', `received ${sig}`); stop().then(() => process.exit(0)) })
+  for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => {
+    log.info('start', `received ${sig}`)
+    // Ctrl-C always ends the process, even when a step of the shutdown fails or hangs.
+    setTimeout(() => process.exit(1), 10e3).unref()
+    stop().then(() => process.exit(0), e => { log.error('start', 'shutdown failed', { err: e }); process.exit(1) })
+  })
 }

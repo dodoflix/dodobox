@@ -75,6 +75,8 @@
       "public/**",
       "desktop/**",
       "package.json",
+      "THIRD_PARTY_NOTICES.md",
+      "LICENSE",
       "!desktop/prune.cjs"
     ],
     "afterPack": "desktop/prune.cjs",
