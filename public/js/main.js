@@ -38,6 +38,11 @@ function pending (type, id) {
   layer.innerHTML = `<div class="pl"><div class="pl-load"><div class="bg" style="background-image:url('${esc(lowres(k?.poster) || k?.poster || '')}')"></div><div class="msg"><h2 translate="no">${esc(k?.name || '')}</h2><p>Getting ready...</p><div class="hair"><i></i></div></div></div></div>`
 }
 
+// A player or trailer that failed to load leaves its placeholder and the scroll lock behind; this removes them.
+const clearLayer = () => { const layer = $('#layer'); layer.hidden = true; layer.innerHTML = ''; layer.className = ''; document.documentElement.classList.remove('lock') }
+// A page left while it loaded is cancelled on purpose: the page that replaced it owns the screen and nothing went wrong.
+const failed = (e, mine) => { if (mine !== seq || e.name === 'AbortError') return; clearLayer(); toast(e.message); location.hash = '#/' }
+
 async function route () {
   const mine = ++seq
   dropImages()
@@ -48,18 +53,23 @@ async function route () {
   if (page === 'trailer') {
     player?.(); player = null
     pending(args[0], args[1])
-    try { player = await (await import('./trailer.js')).watchTrailer(args[0], args[1]) } catch (e) { toast(e.message); location.hash = '#/' }
-    if (mine !== seq) { player?.(); player = null }
+    try {
+      const p = await (await import('./trailer.js')).watchTrailer(args[0], args[1])
+      if (mine !== seq) p(); else player = p
+    } catch (e) { failed(e, mine) }
     return
   }
   if (page === 'watch') {
     player?.(); player = null
     pending(args[0], args[1])
-    try { player = await (await import('./player.js')).watch(args[0], args[1], args[2], args[3]) } catch (e) { toast(e.message); location.hash = '#/' }
-    if (mine !== seq) { player?.(); player = null }
+    try {
+      const p = await (await import('./player.js')).watch(args[0], args[1], args[2], args[3])
+      if (mine !== seq) p(); else player = p
+    } catch (e) { failed(e, mine) }
     return
   }
   if (player) { player(); player = null }
+  clearLayer()
 
   scrolls.set(lastPage, scrollY)
   newPage()
@@ -69,12 +79,15 @@ async function route () {
   const key = location.hash
   try {
     // Only the home page is in the first download; every other page's code loads when it is first opened.
-    if (page === 'browse') cleanup = await (await import('./browse.js')).browse(main, args[0], q)
-    else if (page === 'search') cleanup = await (await import('./browse.js')).search(main, q)
-    else if (page === 'title') cleanup = await (await import('./detail.js')).title(main, args[0], args[1])
-    else if (page === 'library') cleanup = await (await import('./library.js')).library(main)
-    else if (page === 'settings') cleanup = await (await import('./settings.js')).settings(main)
-    else cleanup = await home(main)
+    let c
+    if (page === 'browse') c = await (await import('./browse.js')).browse(main, args[0], q)
+    else if (page === 'search') c = await (await import('./browse.js')).search(main, q)
+    else if (page === 'title') c = await (await import('./detail.js')).title(main, args[0], args[1])
+    else if (page === 'library') c = await (await import('./library.js')).library(main)
+    else if (page === 'settings') c = await (await import('./settings.js')).settings(main)
+    else c = await home(main)
+    // A page that finished after another one took over must not replace the newer page's cleanup.
+    if (mine !== seq) c?.(); else cleanup = c
   } catch (e) {
     if (mine !== seq) return
     main.innerHTML = `<div class="view page"><div class="empty"><h2>Something went wrong</h2><p>${esc(e.message)}</p><p><a class="btn btn-ink" href="${esc(key)}" onclick="location.reload()">Try again</a></p></div></div>`

@@ -89,8 +89,8 @@ export async function library (root) {
     t = setTimeout(async () => { loop(await draw().catch(() => false)) }, document.hidden ? 60e3 : moving ? 4000 : 30e3)
   }
   const onShow = () => { if (!document.hidden && !dead) { clearTimeout(t); draw().then(loop, () => loop(false)) } }
-  document.addEventListener('visibilitychange', onShow)
   loop(await draw())
+  document.addEventListener('visibilitychange', onShow) // only once the page exists: a failed first draw has no cleanup to remove it
   cget('/api/local', 30e3).then(local => {
     if (dead || !local.length) return
     const seen = new Set(); const uniq = local.filter(e => { const k = e.type + e.mid; return seen.has(k) ? false : (seen.add(k), true) })

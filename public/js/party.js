@@ -2,6 +2,7 @@
 // The server (src/party.js) talks to them; this page hears about it over /api/party/events and answers with /api/party/send.
 import { esc, enc, toast, icon, hue, sized } from './util.js'
 import { api, cget } from './api.js'
+import { onBack } from './nav.js'
 import { emojify, PICKER, REACTIONS, onlyEmoji, parseLink, LINK, trimLink } from './emoji.js'
 
 const LAG = 0.25 // seconds a command is old by the time it arrives
@@ -78,9 +79,14 @@ document.addEventListener('input', e => {
 document.addEventListener('paste', e => { if (e.target.matches?.('.pp-pass input[name=code]')) { e.preventDefault(); fill(e.target, e.clipboardData?.getData('text') || '') } })
 document.addEventListener('focusin', e => { if (e.target.matches?.('.pp-pass input[readonly]')) e.target.removeAttribute('readonly') })
 // Escape closes the emoji picker before it closes the panel.
+const closeInner = () => {
+  if (!picking && !trayFor) return false
+  picking = false; document.querySelectorAll('.pp-emoji').forEach(p => { p.hidden = true }); hideTray()
+  return true
+}
 document.addEventListener('keydown', e => {
   if (!e.target.closest?.('.party-pop')) return
-  if (e.key === 'Escape' && (picking || trayFor)) { e.stopPropagation(); picking = false; document.querySelectorAll('.pp-emoji').forEach(p => { p.hidden = true }); hideTray() }
+  if (e.key === 'Escape') { if (closeInner()) e.stopPropagation() }
   else if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.pp-log p')) { e.preventDefault(); showTray(e.target.closest('li')); document.querySelector('.pp-tray button')?.focus() }
 }, true)
 
@@ -337,7 +343,8 @@ function draw () {
   if (keep && code) code.value = keep
 }
 
-export function closePanel () { pop?.remove(); pop = null; popPanel = null }
+let popBack; let popPrevBack
+export function closePanel () { if (onBack.handler === popBack) onBack.handler = popPrevBack; pop?.remove(); pop = null; popPanel = null }
 
 // A popover on the page, from the profile menu or the chip.
 export function openPanel (host) {
@@ -352,11 +359,12 @@ export function openPanel (host) {
   draw()
   const log = pop.querySelector('.pp-log'); if (log) log.scrollTop = log.scrollHeight
   pop.querySelector('[data-autofocus]')?.focus()
+  popPrevBack = onBack.handler
+  popBack = onBack.handler = () => { if (!closeInner()) closePanel(); return true }
   const outside = e => { if (pop && !pop.contains(e.target) && !e.target.closest('[data-party]')) { closePanel(); document.removeEventListener('pointerdown', outside, true) } }
   document.addEventListener('pointerdown', outside, true)
   pop.addEventListener('submit', e => popPanel?.submit(e))
   pop.addEventListener('click', e => popPanel?.click(e))
-  pop.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); closePanel() } })
 }
 
 // ---- the player ----

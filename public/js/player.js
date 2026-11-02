@@ -264,7 +264,7 @@ export async function watch (type, id, season, episode) {
   // The layout changes with the screen (a phone turned sideways to watch), so a menu left open from the other layout is closed instead of left half-drawn.
   const fsChange = () => { $('#fs', root).innerHTML = icon(fsEl() ? 'exitfs' : 'fs'); closeMenu() }
   document.addEventListener('fullscreenchange', fsChange); document.addEventListener('webkitfullscreenchange', fsChange)
-  const narrow = matchMedia('(max-width: 700px)'); narrow.addEventListener('change', () => closeMenu())
+  const narrow = matchMedia('(max-width: 700px)'); const onNarrow = () => closeMenu(); narrow.addEventListener('change', onNarrow)
   if (document.pictureInPictureEnabled && !isTV) { $('#pip', root).hidden = false; $('#pip', root).onclick = () => (document.pictureInPictureElement ? document.exitPictureInPicture() : v.requestPictureInPicture()).catch(() => {}) }
   if (window.WebKitPlaybackTargetAvailabilityEvent) {
     v.addEventListener('webkitplaybacktargetavailabilitychanged', e => { $('#airplay', root).hidden = e.availability !== 'available' })
@@ -1077,7 +1077,7 @@ export async function watch (type, id, season, episode) {
   const cleanup = () => {
     dead = true; nowPlaying(null); detachParty?.(); save(); if (hash && st?.fileIdx != null) navigator.sendBeacon?.(`/api/release/${hash}/${st.fileIdx}`); clearTimeout(refreshT); pv = null; stopTranslating(); clearTimeout(wd); clearTimeout(syncTimer); clearTimeout(probeTimer); hls?.destroy(); timers.forEach(clearInterval); clearTimeout(idleT); clearTimeout(upT); clearTimeout(clickT)
     document.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', fsChange); document.removeEventListener('webkitfullscreenchange', fsChange); removeEventListener('pagehide', save)
-    document.removeEventListener('visibilitychange', onVisible); removeEventListener('orientationchange', onRotate); subRO.disconnect()
+    document.removeEventListener('visibilitychange', onVisible); removeEventListener('orientationchange', onRotate); subRO.disconnect(); narrow.removeEventListener('change', onNarrow)
     if (onBack.handler === backHandler) onBack.handler = null
     try { lock?.release() } catch {}
     try { if ('mediaSession' in navigator) navigator.mediaSession.metadata = null } catch {}

@@ -1,11 +1,12 @@
 // Search without leaving the page: a panel over whatever is open. The #/search page stays for links and the TV layout.
 import { cget, NOW } from './api.js'
 import { $, esc, icon, enc, sized, store } from './util.js'
+import { onBack } from './nav.js'
 
 const TYPES = [['movie', 'Movies'], ['series', 'Series'], ['anime', 'Anime']]
 const LABEL = { movie: 'Movie', series: 'Series', anime: 'Anime' }
 const SHOWN = 5
-let el = null; let input = null; let res = null; let seq = 0; let t; let opener = null
+let el = null; let input = null; let res = null; let seq = 0; let t; let opener = null; let back; let prevBack
 
 const row = i => `<a class="qs-row" href="#/title/${i.type}/${enc(i.id)}"><span class="qs-th" ${i.poster ? `style="background-image:url('${esc(sized(i.poster, 120))}')"` : ''}></span><span class="qs-t"><span translate="no">${esc(i.name)}</span><small>${LABEL[i.type]}${i.year ? ` · ${i.year}` : ''}</small></span></a>`
 
@@ -26,6 +27,7 @@ async function run (term) {
 export function closeSearch () {
   if (!el || el.hidden) return
   el.hidden = true; seq++
+  if (onBack.handler === back) onBack.handler = prevBack
   document.documentElement.classList.remove('lock')
   $('#top .icon-btn')?.classList.remove('on')
   opener?.focus?.({ preventScroll: true }); opener = null
@@ -33,7 +35,7 @@ export function closeSearch () {
 
 function build () {
   el = document.createElement('div')
-  el.id = 'qs'; el.hidden = true
+  el.id = 'qs'; el.hidden = true; el.dataset.modal = ''; el.dataset.keys = 'own'
   el.innerHTML = `<div class="qs-box" role="dialog" aria-label="Search">
     <form class="searchbox" role="search">${icon('search')}<input type="search" placeholder="Movies, series, anime" autocomplete="off" enterkeyhint="search"><button type="button" class="icon-btn" aria-label="Close">${icon('close')}</button></form>
     <div class="qs-res"></div></div>`
@@ -54,7 +56,6 @@ function build () {
     if (e.target.closest('a')) closeSearch()
   }
   el.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { e.preventDefault(); return closeSearch() }
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
     const rows = [input, ...el.querySelectorAll('.qs-row')]
     const at = rows.indexOf(document.activeElement)
@@ -68,6 +69,8 @@ export function openSearch () {
   if (!el) build()
   opener = document.activeElement
   el.hidden = false
+  prevBack = onBack.handler
+  back = onBack.handler = () => { closeSearch(); return true }
   document.documentElement.classList.add('lock')
   $('#top .icon-btn')?.classList.add('on')
   input.value = ''; idle()

@@ -7,8 +7,11 @@ addEventListener('keydown', () => { lastWasKey = true }, true)
 addEventListener('pointerdown', () => { lastWasKey = false }, true)
 export const usingKeys = () => lastWasKey || isTV
 
+// offsetParent is null for every fixed-position element, which is what the pin pad and the pop-ups are.
+const visible = el => el.checkVisibility?.() ?? el.getClientRects().length > 0
+
 const scope = () => {
-  const open = [...document.querySelectorAll('[data-modal]')].filter(el => !el.hidden && el.offsetParent !== null).pop()
+  const open = [...document.querySelectorAll('[data-modal]')].filter(el => visible(el)).pop()
   return open || document.getElementById('shell')
 }
 
@@ -70,7 +73,7 @@ addEventListener('keydown', e => {
   if (!e.key.startsWith('Arrow') || typing) return
   if (t.matches?.('input[type=range], select') && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return
   const root = scope()
-  if (root.dataset.keys === 'own') return // the player handles its own arrows until its controls are shown
+  if (root.dataset.keys === 'own') return // the player, the menus and quick search handle their own arrows
   const list = candidates(root)
   const from = list.includes(document.activeElement) ? document.activeElement : null
   if (!from) { e.preventDefault(); focusFirst(root); return }
