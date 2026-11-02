@@ -2,16 +2,19 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
+import { fileURLToPath } from 'node:url'
 import { fork, spawn } from 'node:child_process'
 import { DATA } from './paths.js'
 import { log } from './log.js'
 
 const DIR = path.join(DATA, 'translate', 'hq')
-const WORKER = new URL('./translate-hq-worker.js', import.meta.url).pathname
+const WORKER = fileURLToPath(new URL('./translate-hq-worker.js', import.meta.url))
 const READY = path.join(DIR, 'ready')
 const GEN = 'v4'
 const NLLB = { tr: 'tur_Latn', es: 'spa_Latn', fr: 'fra_Latn', de: 'deu_Latn', it: 'ita_Latn', pt: 'por_Latn', ru: 'rus_Cyrl', nl: 'nld_Latn', pl: 'pol_Latn', ja: 'jpn_Jpan', ko: 'kor_Hang', zh: 'zho_Hans', ar: 'arb_Arab', id: 'ind_Latn', sv: 'swe_Latn', hi: 'hin_Deva', vi: 'vie_Latn', el: 'ell_Grek', he: 'heb_Hebr' }
-export const supports = code => code in NLLB
+// The desktop apps ship no Node or npm to install the translator with.
+export const available = !process.versions.electron
+export const supports = code => available && code in NLLB
 const marker = () => { try { return fs.readFileSync(READY, 'utf8').split(':') } catch { return [] } }
 export const installed = () => marker()[0] === GEN
 export const device = () => marker()[1] || null
@@ -19,8 +22,9 @@ export const progress = { pct: 0, failedAt: 0 }
 
 const CPUS = Math.max(1, Math.min(4, Math.floor(os.availableParallelism() / 4)))
 const size = () => (device() === 'gpu' ? 2 : CPUS) // two processes keep the card busy while one waits for its answer
-let procs = null; let idle; let serial = 0; const waiting = new Map()
+let procs = null; let idle; let serial = 0
 function start (_, k) {
+  const waiting = new Map() // per process: one that dies must not fail the lines running on the others
   const c = fork(WORKER, [DIR, '3'], { stdio: ['ignore', 'ignore', 'ignore', 'ipc'] })
   try { os.setPriority(c.pid, 19) } catch {}
   const files = new Map()
@@ -54,7 +58,7 @@ export async function line (k, code, text) { const w = await workers(); return w
 let installing = null
 export function ensure (retry) {
   if (retry) progress.failedAt = 0
-  if (installed() || installing || Date.now() - progress.failedAt < 2 * 60e3) return
+  if (!available || installed() || installing || Date.now() - progress.failedAt < 2 * 60e3) return
   progress.pct = 0
   installing = install().catch(e => { progress.failedAt = Date.now(); log.error('translate-hq', 'install failed', { err: e }) }).finally(() => { installing = null })
 }
@@ -63,11 +67,17 @@ export function status () {
   if (installing) return { state: 'installing', pct: progress.pct }
   return { state: progress.failedAt && Date.now() - progress.failedAt < 2 * 60e3 ? 'failed' : 'idle' }
 }
+// On Windows npm is npm.cmd, which only runs through a shell; the folder is quoted for it because it may hold spaces.
+export function npmCall (platform, dir) {
+  const win = platform === 'win32'
+  return [win ? 'npm.cmd' : 'npm', ['install', '@huggingface/transformers@4.3.1', '--ignore-scripts', '--no-audit', '--no-fund', '--prefix', win ? `"${dir}"` : dir], { stdio: 'ignore', shell: win }]
+}
 async function install () {
   fs.mkdirSync(DIR, { recursive: true })
   fs.writeFileSync(path.join(DIR, 'package.json'), '{"private":true,"type":"module"}')
   // The install scripts only fetch GPU binaries and image tooling this does not use.
-  await new Promise((resolve, reject) => spawn('npm', ['install', '@huggingface/transformers@4.3.1', '--ignore-scripts', '--no-audit', '--no-fund', '--prefix', DIR], { stdio: 'ignore' }).on('exit', c => c ? reject(new Error('npm ' + c)) : resolve()).on('error', reject))
+  const [cmd, args, opts] = npmCall(process.platform, DIR)
+  await new Promise((resolve, reject) => spawn(cmd, args, opts).on('exit', c => c ? reject(new Error('npm ' + c)) : resolve()).on('error', reject))
   progress.pct = 0.1
   await workers() // downloads the model on the first load
   fs.writeFileSync(READY, `${GEN}:${workers.found}`)

@@ -8,10 +8,15 @@ import { DATA } from './paths.js'
 import { fetchRetry } from './http.js'
 import * as hq from './translate-hq.js'
 import { log } from './log.js'
+import { putFileSync, touch, trim, trimSoon } from './store.js'
 
 const REGISTRY = 'https://firefox.settings.services.mozilla.com/v1/buckets/main/collections/translations-models/records'
 const FILES = 'https://firefox-settings-attachments.cdn.mozilla.net/'
 const DIR = path.join(DATA, 'translate')
+// Cached translations can be made again: the oldest unused ones go when the folder passes this size.
+const CACHE_DIR = path.join(DIR, 'cache')
+const CACHE_BYTES = 100e6
+trim(CACHE_DIR, CACHE_BYTES).catch(() => {})
 const ENGINE_SRC = new URL('../node_modules/@browsermt/bergamot-translator/worker/', import.meta.url)
 const MODEL_LANG = { zh: 'zh-Hans', no: 'nb' }
 export const modelLang = code => MODEL_LANG[code] || code
@@ -94,26 +99,37 @@ const SETTINGS = { 'beam-size': +process.env.TRANSLATE_BEAM || 5 }
 
 const SIZE = Math.min(4, Math.max(1, os.availableParallelism() - 1))
 let pool = null; let idle
-async function spawn () {
+async function spawn (mine) {
   const worker = new Worker(engineFile())
   const pending = new Map(); let serial = 0
+  const fail = e => { for (const p of pending.values()) p.reject(e); pending.clear(); mine.stop() }
   worker.on('message', ({ id, result, error }) => { const p = pending.get(id); pending.delete(id); if (p) error ? p.reject(Object.assign(new Error(error.message), { stack: error.stack })) : p.resolve(result) })
-  worker.on('error', e => { for (const p of pending.values()) p.reject(e); pending.clear(); pool = null })
-  worker.on('exit', () => { pool = null })
+  worker.on('error', fail)
+  worker.on('exit', () => fail(new Error('translation worker stopped')))
   const w = { worker, loaded: new Set(), call: (name, ...args) => new Promise((resolve, reject) => { pending.set(++serial, { resolve, reject }); worker.postMessage({ id: serial, name, args }) }) }
+  mine.workers.push(w)
   await w.call('initialize', {})
   return w
 }
+// One pool is one set of workers that live and die together: a failure of any of them ends all of them, and only clears the shared
+// `pool` if it still is this one (a late exit event must not take down its replacement).
+export function startPool (make, size, forget) {
+  const mine = { workers: [], stop () { forget(mine); for (const w of mine.workers) w.worker.terminate() } }
+  mine.ready = Promise.all(Array.from({ length: size }, () => make(mine))).catch(e => { mine.stop(); throw e })
+  return mine
+}
+const forgetPool = mine => { if (pool === mine) pool = null }
 // The server stops with its workers: a pool left running keeps the process from exiting.
 export async function stopPool () {
   clearTimeout(idle)
   const running = pool; pool = null
-  for (const w of await Promise.resolve(running ?? []).catch(() => [])) w.worker.terminate()
+  await running?.ready.catch(() => {})
+  running?.stop()
 }
 async function ready (code, report) {
-  pool ||= Promise.all(Array.from({ length: SIZE }, spawn))
-  const workers = await pool
-  clearTimeout(idle); idle = setTimeout(() => { workers.forEach(w => w.worker.terminate()); pool = null }, 10 * 60e3).unref() // the models take memory
+  const mine = pool ||= startPool(spawn, SIZE, forgetPool)
+  const workers = await mine.ready
+  clearTimeout(idle); idle = setTimeout(() => mine.stop(), 10 * 60e3).unref() // the models take memory
   const need = workers.filter(w => !w.loaded.has(code))
   if (need.length) {
     const buffers = await modelBuffers(code, report)
@@ -250,7 +266,7 @@ export function translateSubtitle (vtt, code, report, signal) {
   const key = keyOf(code, vtt)
   const file = path.join(DIR, 'cache', key + '.vtt')
   if (cache.has(key)) return Promise.resolve(cache.get(key))
-  try { const t = fs.readFileSync(file, 'utf8'); cache.set(key, t); return Promise.resolve(t) } catch {}
+  try { const t = fs.readFileSync(file, 'utf8'); touch(file); cache.set(key, t); return Promise.resolve(t) } catch {}
   let j = running.get(key)
   if (!j || j.stop) {
     j = { waiting: 0, stop: false }
@@ -260,11 +276,11 @@ export function translateSubtitle (vtt, code, report, signal) {
       const t0 = Date.now()
       const t = await translateVtt(vtt, code, report, mine)
       log.info('translate', 'subtitle translated', { code, ms: Date.now() - t0, chars: t.length })
-      fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, t)
+      fs.mkdirSync(CACHE_DIR, { recursive: true }); putFileSync(file, t); trimSoon(CACHE_DIR, CACHE_BYTES)
       cache.set(key, t); if (cache.size > 40) cache.delete(cache.keys().next().value)
       return t
     })
-    mine.done.then(() => {}, e => { if (!e.cancelled) log.warn('translate', 'subtitle translation failed', { code, err: e }) }).then(() => { if (running.get(key) === mine) running.delete(key) })
+    mine.done.then(() => {}, e => { if (e.code !== 499) log.warn('translate', 'subtitle translation failed', { code, err: e }) }).then(() => { if (running.get(key) === mine) running.delete(key) })
     running.set(key, mine)
   }
   const mine = j
