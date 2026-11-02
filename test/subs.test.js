@@ -118,3 +118,46 @@ test('yify: movie subtitles are read from the page, filtered to the asked langua
     assert.equal(asked, 1)
   } finally { globalThis.fetch = real }
 })
+
+// The addon is the only source of languages the profile did not ask for; REST answers every language when it is not given one.
+function stubAddon ({ addonFails }) {
+  const real = globalThis.fetch
+  const rest = []
+  globalThis.fetch = async url => {
+    const u = new URL(url)
+    if (u.hostname === 'opensubtitles-v3.strem.io') return addonFails() ? new Response('down', { status: 503 }) : json({ subtitles: [addonFile, { ...addonFile, lang: 'ger', url: 'https://subs5.strem.io/ger' }] })
+    if (u.hostname === 'rest.opensubtitles.org') {
+      rest.push(u.pathname)
+      const all = [restFile(1), { ...restFile(3), SubLanguageID: 'fre' }, { ...restFile(4), SubLanguageID: 'spa' }]
+      return json(/sublanguageid-(\w+)/.test(u.pathname) ? all.filter(s => s.SubLanguageID === u.pathname.match(/sublanguageid-(\w+)/)[1]) : all)
+    }
+    return new Response('nothing', { status: 404 })
+  }
+  return { rest, restore: () => { globalThis.fetch = real } }
+}
+
+test('subtitles: while the addon is down, other languages still come from REST (one unfiltered lookup) and the list stays partial', async () => {
+  const { rest, restore } = stubAddon({ addonFails: () => true }); timing.quickMs = 5000; timing.graceMs = 5000 // wait for the whole lookup
+  try {
+    const q = { type: 'movie', id: 'tt9100010', titles: ['Stub Movie'] }
+    const list = await listSubtitles(q, ['tur'], '')
+    assert.deepEqual([...new Set(list.map(s => s.lang))].sort(), ['fre', 'spa', 'tur'])
+    assert.ok(list.every(s => s.partial), 'what the addon would have added may still follow')
+    assert.equal(rest.filter(p => !p.includes('sublanguageid')).length, 1, 'one request without a language filter')
+  } finally { restore(); timing.quickMs = 3500; timing.graceMs = 500 }
+})
+
+test('subtitles: a list cached while the addon failed is flagged partial on every ask; once the cache is stale the addon\'s files join', async () => {
+  let down = true
+  const { restore } = stubAddon({ addonFails: () => down }); timing.quickMs = 5000; timing.graceMs = 5000
+  const now = Date.now
+  try {
+    const q = { type: 'movie', id: 'tt9100011', titles: ['Stub Movie'] }
+    const first = await listSubtitles(q, ['tur'], '')
+    assert.ok(first.length && first.every(s => s.partial))
+    assert.ok((await listSubtitles(q, ['tur'], '')).every(s => s.partial), 'the second ask is served from the cache')
+    down = false; Date.now = () => now() + 120e3 // past the 90 s an incomplete list is kept
+    const list = await listSubtitles(q, ['tur'], '')
+    assert.ok(list.some(s => s.lang === 'ger') && list.every(s => !s.partial), 'the complete list')
+  } finally { Date.now = now; restore(); timing.quickMs = 3500; timing.graceMs = 500 }
+})
