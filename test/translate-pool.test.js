@@ -1,23 +1,15 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import { EventEmitter } from 'node:events'
 import { tmpdir } from './support/tmp.js'
 
 process.env.DATA_DIR = tmpdir('translate-pool')
-const { startPool } = await import('../src/translate.js')
-const { npmCall } = await import('../src/translate-hq.js')
+const { startPool, attach } = await import('../src/translate.js')
+const { npmInstall } = await import('../src/translate-hq.js')
 
 const fake = () => ({ terminated: false, terminate () { this.terminated = true } })
-
-test('a failing worker ends every worker of its pool and clears the pool', async () => {
-  let pool = null; const made = []
-  const forget = p => { if (pool === p) pool = null }
-  pool = startPool(async mine => { const w = { worker: fake() }; made.push(w); mine.workers.push(w); return w }, 3, forget)
-  await pool.ready
-  const first = pool
-  first.stop()
-  assert.ok(made.every(w => w.worker.terminated))
-  assert.equal(pool, null)
-})
 
 test('a late stop of an old pool leaves its replacement in place', async () => {
   let pool = null
@@ -41,16 +33,37 @@ test('a pool whose startup rejects terminates the workers it made and can be rep
   assert.ok(made.every(w => w.worker.terminated))
 })
 
-test('the translator install runs npm.cmd through a shell with a quoted folder on Windows', () => {
-  const dir = 'C:\\Users\\Ann Lee\\dodobox\\hq'
-  const [cmd, args, opts] = npmCall('win32', dir)
-  assert.equal(cmd, 'npm.cmd')
-  assert.equal(opts.shell, true)
-  assert.equal(args.at(-1), `"${dir}"`)
-  const [ucmd, uargs, uopts] = npmCall('linux', '/home/ann lee/hq')
-  assert.equal(ucmd, 'npm')
-  assert.equal(uopts.shell, false)
-  assert.equal(uargs.at(-1), '/home/ann lee/hq')
+test('a worker that stops fails its pending and later calls and ends the whole pool', async () => {
+  let pool = null
+  const forget = p => { if (pool === p) pool = null }
+  const threads = []
+  pool = startPool(async mine => { const t = Object.assign(new EventEmitter(), { sent: [], postMessage (m) { this.sent.push(m) }, terminate () { if (!this.stopped) setImmediate(() => this.emit('exit', 1)); this.stopped = true } }); threads.push(t); return attach(t, mine) }, 2, forget)
+  const [a, b] = await pool.ready
+  const answered = a.call('x'); threads[0].emit('message', { id: 1, result: 'ok' })
+  assert.equal(await answered, 'ok')
+  const waiting = b.call('y')
+  threads[0].emit('error', new Error('boom'))
+  await assert.rejects(waiting, /stopped/)
+  assert.ok(threads.every(t => t.stopped))
+  assert.equal(pool, null)
+  await assert.rejects(a.call('z'), /boom/) // a call made after the stop must not wait forever
+  await new Promise(resolve => setImmediate(resolve)) // their exit events arrive late and change nothing
+  await assert.rejects(b.call('z'), /stopped/)
+})
+
+test('the translator install runs npm in the folder, through a shell, with a path holding spaces', { skip: process.platform === 'win32' }, async () => {
+  const dir = path.join(tmpdir('translate-npm'), 'Ann Lee')
+  fs.mkdirSync(dir)
+  const bin = path.join(dir, 'bin'); fs.mkdirSync(bin)
+  const out = path.join(dir, 'out.txt')
+  fs.writeFileSync(path.join(bin, 'npm'), '#!/bin/sh\npwd > "$OUT"\necho "$@" >> "$OUT"\nexit ${FAIL:-0}\n', { mode: 0o755 })
+  process.env.OUT = out; process.env.PATH = bin + path.delimiter + process.env.PATH
+  await npmInstall(dir)
+  const [cwd, args] = fs.readFileSync(out, 'utf8').split('\n')
+  assert.equal(fs.realpathSync(cwd), fs.realpathSync(dir))
+  assert.match(args, /^install @huggingface\/transformers@4\.3\.1 .*--prefix \.$/)
+  process.env.FAIL = '3'
+  await assert.rejects(npmInstall(dir), /npm 3/)
 })
 
 test('the better translator is offered nowhere the desktop app runs it', async () => {

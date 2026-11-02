@@ -34,7 +34,8 @@ function start (_, k) {
     if (p) m.error ? p.reject(new Error(m.error)) : p.resolve(m.result)
   })
   c.on('exit', () => { procs = procs?.filter(x => x !== c); if (!procs?.length) procs = null; for (const p of waiting.values()) p.reject(new Error('translator stopped')); waiting.clear() })
-  c.call = (msg) => new Promise((resolve, reject) => { waiting.set(++serial, { resolve, reject }); c.send({ ...msg, id: serial }) })
+  // A send to a process that already exited is an unhandled 'error' event, which would end the server.
+  c.call = (msg) => c.connected ? new Promise((resolve, reject) => { waiting.set(++serial, { resolve, reject }); c.send({ ...msg, id: serial }) }) : Promise.reject(new Error('translator stopped'))
   return c
 }
 async function workers () {
@@ -46,8 +47,9 @@ async function workers () {
   // A card with little memory may fit only one copy of the model: the ones that cannot load are dropped.
   const rest = await Promise.allSettled(list.slice(1).map(c => load(c, found)))
   const ok = [list[0], ...list.slice(1).filter((c, i) => rest[i].status === 'fulfilled')]
-  list.filter(c => !ok.includes(c)).forEach(c => c.kill())
-  procs = ok
+  const dropped = list.filter(c => !ok.includes(c))
+  dropped.forEach(c => c.kill())
+  if (procs) procs = procs.filter(c => !dropped.includes(c)) // not `ok`: processes that exited meanwhile must stay gone
   workers.found = found
   return ok
 }
@@ -56,6 +58,8 @@ export async function count () { return (await workers()).length }
 export async function line (k, code, text) { const w = await workers(); return w[k % w.length].call({ type: 'translate', to: NLLB[code], text }) }
 
 let installing = null
+// A shell finds npm.cmd on Windows (it cannot be run without one) and a bare string takes no quoting: the folder is the working directory, which may hold spaces.
+export const npmInstall = dir => new Promise((resolve, reject) => spawn('npm install @huggingface/transformers@4.3.1 --ignore-scripts --no-audit --no-fund --prefix .', { cwd: dir, shell: true, stdio: 'ignore' }).on('exit', c => c ? reject(new Error('npm ' + c)) : resolve()).on('error', reject))
 export function ensure (retry) {
   if (retry) progress.failedAt = 0
   if (!available || installed() || installing || Date.now() - progress.failedAt < 2 * 60e3) return
@@ -67,17 +71,11 @@ export function status () {
   if (installing) return { state: 'installing', pct: progress.pct }
   return { state: progress.failedAt && Date.now() - progress.failedAt < 2 * 60e3 ? 'failed' : 'idle' }
 }
-// On Windows npm is npm.cmd, which only runs through a shell; the folder is quoted for it because it may hold spaces.
-export function npmCall (platform, dir) {
-  const win = platform === 'win32'
-  return [win ? 'npm.cmd' : 'npm', ['install', '@huggingface/transformers@4.3.1', '--ignore-scripts', '--no-audit', '--no-fund', '--prefix', win ? `"${dir}"` : dir], { stdio: 'ignore', shell: win }]
-}
 async function install () {
   fs.mkdirSync(DIR, { recursive: true })
   fs.writeFileSync(path.join(DIR, 'package.json'), '{"private":true,"type":"module"}')
   // The install scripts only fetch GPU binaries and image tooling this does not use.
-  const [cmd, args, opts] = npmCall(process.platform, DIR)
-  await new Promise((resolve, reject) => spawn(cmd, args, opts).on('exit', c => c ? reject(new Error('npm ' + c)) : resolve()).on('error', reject))
+  await npmInstall(DIR)
   progress.pct = 0.1
   await workers() // downloads the model on the first load
   fs.writeFileSync(READY, `${GEN}:${workers.found}`)

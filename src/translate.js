@@ -99,15 +99,19 @@ const SETTINGS = { 'beam-size': +process.env.TRANSLATE_BEAM || 5 }
 
 const SIZE = Math.min(4, Math.max(1, os.availableParallelism() - 1))
 let pool = null; let idle
-async function spawn (mine) {
-  const worker = new Worker(engineFile())
-  const pending = new Map(); let serial = 0
-  const fail = e => { for (const p of pending.values()) p.reject(e); pending.clear(); mine.stop() }
+// Wraps a thread: its calls fail as soon as it (or any worker of its pool) stops, also the ones made after that, which would never be answered.
+export function attach (worker, mine) {
+  const pending = new Map(); let serial = 0; let dead = null
+  const fail = e => { dead ||= e; for (const p of pending.values()) p.reject(dead); pending.clear(); mine.stop() }
   worker.on('message', ({ id, result, error }) => { const p = pending.get(id); pending.delete(id); if (p) error ? p.reject(Object.assign(new Error(error.message), { stack: error.stack })) : p.resolve(result) })
   worker.on('error', fail)
   worker.on('exit', () => fail(new Error('translation worker stopped')))
-  const w = { worker, loaded: new Set(), call: (name, ...args) => new Promise((resolve, reject) => { pending.set(++serial, { resolve, reject }); worker.postMessage({ id: serial, name, args }) }) }
+  const w = { worker, loaded: new Set(), call: (name, ...args) => dead ? Promise.reject(dead) : new Promise((resolve, reject) => { pending.set(++serial, { resolve, reject }); worker.postMessage({ id: serial, name, args }) }) }
   mine.workers.push(w)
+  return w
+}
+async function spawn (mine) {
+  const w = attach(new Worker(engineFile()), mine)
   await w.call('initialize', {})
   return w
 }
