@@ -1,4 +1,5 @@
-FROM node:26-slim
+# Pinned by digest so Dependabot proposes a fix: commit, and so a release, when the image is rebuilt with security updates.
+FROM node:26-slim@sha256:e4db4c914bf8ad241bd24804fc25d272d89bad97e68cdc8a1414862790a02c39
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev

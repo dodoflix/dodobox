@@ -1,9 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
-import { spawnSync } from 'node:child_process'
+import { execFile, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -83,10 +84,19 @@ test('the coverage floor matches a named file by absolute or relative path', () 
   assert.equal(floor(rec('src/a.js', 10, 10) + rec('src/b.js', 10, 1), 'src/a.js').status, 0)
 })
 
-test('the container health check follows PORT', () => {
-  const line = fs.readFileSync(path.join(root, 'Dockerfile'), 'utf8').split('\n').find(l => l.startsWith('HEALTHCHECK'))
-  assert.match(line, /process\.env\.PORT/)
-  assert.doesNotMatch(line, /:3000\//)
+test('the container health check asks the port the server was given', async () => {
+  const script = /^HEALTHCHECK .* CMD node -e "(.+)"$/m.exec(fs.readFileSync(path.join(root, 'Dockerfile'), 'utf8'))[1]
+  const asked = []
+  const srv = http.createServer((req, res) => { asked.push(req.url); res.writeHead(req.url === '/api/health' ? 200 : 404).end() })
+  await new Promise(r => srv.listen(0, '127.0.0.1', r))
+  const check = port => new Promise(resolve => execFile(process.execPath, ['-e', script], { env: { ...process.env, PORT: String(port) } }, err => resolve(err ? err.code : 0)))
+  try {
+    assert.equal(await check(srv.address().port), 0)
+    assert.deepEqual(asked, ['/api/health'])
+    const { port } = srv.address()
+    await new Promise(r => srv.close(r))
+    assert.equal(await check(port), 1, 'nothing answers on that port')
+  } finally { srv.close() }
 })
 
 test('dependency and base image updates are released as fixes', () => {
