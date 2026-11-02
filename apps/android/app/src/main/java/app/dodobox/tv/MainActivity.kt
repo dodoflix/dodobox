@@ -58,10 +58,11 @@ class MainActivity : Activity() {
             webViewClient = object : WebViewClient() {
                 // Links outside the Dodobox server (e.g. party chat links) open in the system browser, so Back stays in the app.
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                    if (!request.isForMainFrame) return false
                     val u = request.url
                     val o = origin
-                    if (o != null && u.scheme == o.scheme && u.host == o.host && u.port == o.port) return false
-                    try { startActivity(Intent(Intent.ACTION_VIEW, u)) } catch (_: ActivityNotFoundException) {}
+                    if (o != null && u.scheme == o.scheme && u.host.equals(o.host, true) && u.port == o.port) return false
+                    try { startActivity(Intent(Intent.ACTION_VIEW, u)) } catch (e: ActivityNotFoundException) {}
                     return true
                 }
             }
@@ -86,7 +87,7 @@ class MainActivity : Activity() {
         val ok = try {
             (URL("$url/api/health").openConnection() as HttpURLConnection).run { connectTimeout = 2500; readTimeout = 2500; responseCode == 200 }
         } catch (e: Exception) { false }
-        main.post { done(ok) }
+        main.post { if (!isDestroyed) done(ok) }
     }
 
     private fun open(url: String) {
@@ -121,6 +122,8 @@ class MainActivity : Activity() {
                     override fun onResolveFailed(i: NsdServiceInfo, c: Int) {}
                     override fun onServiceResolved(i: NsdServiceInfo) {
                         val h = i.host
+                        // A link-local IPv6 address needs its scope id, which a WebView URL cannot carry.
+                        if (h is Inet6Address && h.isLinkLocalAddress) return
                         val addr = if (h is Inet6Address) "[${h.hostAddress?.substringBefore('%')}]" else h.hostAddress
                         val url = "http://$addr:${i.port}"
                         main.post { open(url) }
@@ -133,10 +136,10 @@ class MainActivity : Activity() {
         main.postDelayed({ if (web.visibility != View.VISIBLE) askAddress() }, 9000)
     }
 
-    private fun stopDiscovery() { try { listener?.let { nsd?.stopServiceDiscovery(it) } } catch (_: Exception) {}; listener = null }
+    private fun stopDiscovery() { try { listener?.let { nsd?.stopServiceDiscovery(it) } } catch (e: Exception) {}; listener = null }
 
     private fun askAddress() {
-        if (isFinishing) return
+        if (isFinishing || isDestroyed || web.visibility == View.VISIBLE) return
         dialog?.dismiss()
         val input = EditText(this).apply { hint = "192.168.1.20:3000"; inputType = InputType.TYPE_TEXT_VARIATION_URI; setSingleLine() }
         dialog = android.app.AlertDialog.Builder(this)
@@ -166,5 +169,5 @@ class MainActivity : Activity() {
         else -> super.onKeyDown(keyCode, event)
     }
 
-    override fun onDestroy() { stopDiscovery(); web.destroy(); super.onDestroy() }
+    override fun onDestroy() { stopDiscovery(); main.removeCallbacksAndMessages(null); dialog?.dismiss(); web.destroy(); super.onDestroy() }
 }
