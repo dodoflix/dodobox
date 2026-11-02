@@ -153,15 +153,19 @@ function fakeDom () {
 }
 
 test('the interface translator settles: a runtime-set label that translates to itself does not loop', async () => {
-  const { initI18n } = await import('../public/js/i18n.js')
-  for (const lang of ['fr', 'de']) {
+  const { ROWS } = await import('../public/js/lang/strings.js')
+  const { initI18n, tr, UI_LANGS } = await import('../public/js/i18n.js')
+  for (const lang of UI_LANGS.filter(l => l !== 'en')) {
     const dom = fakeDom()
     await initI18n(lang)
     const pp = dom.el({ 'aria-label': 'Play' })
     dom.body.append(pp)
     assert.ok(dom.settle() < 20)
-    pp.setAttribute('aria-label', 'Pause') // what the player does when playback starts: French and German keep the word
-    assert.ok(dom.settle() < 20, `${lang} keeps rewriting aria-label="Pause"`)
+    // what the player does when playback starts ("Pause": French and German keep the word), and any other string a language leaves as it is
+    for (const key of ['Pause', ...ROWS.map(r => r[0]).filter(k => tr(k) === k)]) {
+      pp.setAttribute('aria-label', key)
+      assert.ok(dom.settle() < 20, `${lang} keeps rewriting aria-label="${key}"`)
+    }
   }
   await initI18n('en')
 })
@@ -180,20 +184,18 @@ test('text the translator wrote is not translated a second time', async () => {
 })
 
 test('the storage sentence keeps "Downloads you start yourself are kept" in every language', async () => {
-  const { ROWS, PATTERNS } = await import('../public/js/lang/strings.js')
-  const { initI18n, tr } = await import('../public/js/i18n.js')
+  const { initI18n, tr, UI_LANGS } = await import('../public/js/i18n.js')
   const en = '1.2 GB of 10 GB used. Oldest unwatched downloads are removed automatically when it fills up. Downloads you start yourself are kept.'
   const seen = new Set()
-  for (const code of ['tr', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'nl', 'pl', 'ja', 'ko', 'zh', 'ar', 'id', 'sv', 'hi', 'vi', 'el', 'he']) {
+  for (const code of UI_LANGS.filter(l => l !== 'en')) {
     fakeDom()
     await initI18n(code)
     const out = tr(en)
     assert.ok(out.includes('1.2 GB') && out.includes('10 GB'), code)
-    assert.ok(!/[A-Za-z]{4} you start/.test(out), `${code}: sentence left in English`)
+    assert.ok(!out.includes('you start'), `${code}: sentence left in English`)
+    assert.notEqual(tr('First'), 'First', `${code}: "First" is not translated`)
     seen.add(out)
   }
-  assert.equal(seen.size, 19, 'one distinct sentence per language')
-  assert.equal(tr('First'), 'ראשון')
+  assert.equal(seen.size, UI_LANGS.length - 1, 'one distinct sentence per language')
   await initI18n('en')
-  assert.ok(ROWS.some(r => r[0] === 'First') && PATTERNS.length)
 })
