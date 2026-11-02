@@ -3,7 +3,7 @@ import { $, esc, icon, store, isTV, ua } from './util.js'
 import { S, setSetting } from './session.js'
 import { focusFirst, onBack } from './nav.js'
 import { upgradeSelects } from './dropdown.js'
-import { uiLangFor } from './i18n.js'
+import { initI18n, savedUiLang, uiLangFor } from './i18n.js'
 import { changePin } from './pin.js'
 import { api, cget } from './api.js'
 import { netWarnings, notesHTML } from './netwarn.js'
@@ -45,8 +45,7 @@ export function installTip () {
 }
 
 export async function profileOnboarding () {
-  const guess = (navigator.language || 'en').slice(0, 2)
-  let lang = langOf(S.me.settings.lang !== 'en' ? S.me.settings.lang : guess)[0]
+  let lang = langOf(S.me.settings.lang !== 'en' ? S.me.settings.lang : savedUiLang())[0]
   let subs = lang !== 'en'
   const interests = new Set(S.me.settings.interests || [])
   let mode = S.me.settings.sourceMode || 'compact'
@@ -59,7 +58,7 @@ export async function profileOnboarding () {
   const chips = (list, on, attr) => list.map(([v, n]) => `<button class="chip ${on(v) ? 'on' : ''}" data-${attr}="${v}" aria-pressed="${on(v)}">${n}</button>`).join('')
   const PAGES = [
     { title: () => `Hi ${esc(S.me.name)}, make it yours`, rows: () => `
-        <label class="ob-row"><span><b>Language</b><small>Titles, descriptions and subtitles use it when available.</small></span>
+        <label class="ob-row"><span><b>App language</b><small>Titles, descriptions and subtitles use it when available.</small></span>
           <select class="field" id="ob-lang">${LANGUAGES.map(([c, , n]) => `<option value="${c}" ${c === lang ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
         <div class="ob-row"><span><b>Show subtitles</b><small>Turned on automatically when they exist.</small></span>
           <button class="switch" role="switch" id="ob-subs" aria-checked="${subs}" aria-label="Show subtitles"></button></div>` },
@@ -92,7 +91,15 @@ export async function profileOnboarding () {
   const prevBack = onBack.handler
   const back = onBack.handler = () => { if (page) { page--; draw() } return true }
   await new Promise(resolve => {
-    l.onchange = e => { if (e.target.id === 'ob-lang') { lang = e.target.value; subs = lang !== 'en' || subs; $('#ob-subs', l).setAttribute('aria-checked', subs) } }
+    // The interface switches at once and the page is drawn again in it.
+    l.onchange = async e => {
+      if (e.target.id !== 'ob-lang') return
+      lang = e.target.value; subs = lang !== 'en' || subs
+      store.set('ui', uiLangFor(lang))
+      await initI18n(lang)
+      draw()
+      $('.dd-btn', l).focus()
+    }
     l.onclick = e => {
       const sw = e.target.closest('#ob-subs'); if (sw) { subs = !subs; sw.setAttribute('aria-checked', subs) }
       const c = e.target.closest('[data-i]'); if (c) { interests.has(c.dataset.i) ? interests.delete(c.dataset.i) : interests.add(c.dataset.i); c.classList.toggle('on'); c.setAttribute('aria-pressed', interests.has(c.dataset.i)) }
@@ -110,7 +117,4 @@ export async function profileOnboarding () {
   const [code, sub3] = langOf(lang)
   await Promise.all([setSetting('lang', code), setSetting('sublang', subs ? sub3 : 'off'), setSetting('interests', [...interests]), setSetting('sourceMode', mode), setSetting('adultFilter', adult), setSetting('discordPresence', discord), setSetting('onboarded', true), api('/api/settings', { method: 'PUT', body: { shareUploads: share } })])
   done()
-  // The interface follows the language: reload once so every screen starts in it.
-  store.set('ui', uiLangFor(code))
-  if (uiLangFor(code) !== document.documentElement.lang) location.reload()
 }

@@ -53,7 +53,8 @@ export const rows = [
   'Använd Auto', 'Använd Balanserad', 'Kvaliteten är för hög för den här anslutningen. Använd Auto', 'Använd Minsta',
   'Dela under nedladdning', 'Låter andra i torrentnätverket ladda ner från den här datorn. Av håller din uppladdningslinje fri för spel och samtal. Vissa nedladdningar kan starta lite långsammare.',
   'Delning',
-/*first*/ 'Först'
+/*first*/ 'Först',
+/*app language*/ 'Appspråk'
 ]
 export const patterns = [
   'Hej $1, gör det till ditt', 'Säsong $1', 'Säsong $1 · Avsnitt $2', 'Avsnitt $1', 'Återuppta S$1 A$2', 'S$1 A$2$3', 'Sänds $1', '$1 h $2 min', '$1 min', '$1$2 h $3 min kvar', '$1$2 min kvar',
