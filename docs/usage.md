@@ -6,7 +6,7 @@ Start the server and open its address (the start scripts open it for you; with `
 
 ## Desktop app
 
-Each [release](https://github.com/dodoflix/dodobox/releases) has installers for Windows (setup and portable), macOS (Apple silicon and Intel, `.dmg`) and Linux x64 (`AppImage`, `.deb`). The app is just the server: it sits in the system tray and has no window of its own. Click the tray icon to open Dodobox in your browser. The tray menu also copies the address for phones and TVs, turns on "Start when I sign in" (Windows and macOS), shows the data folder, shows the log file and quits. Data lives in the app's folder for your user.
+Each [release](https://github.com/dodoflix/dodobox/releases) has installers for Windows (setup and portable), macOS (Apple silicon and Intel, `.dmg`) and Linux x64 (`AppImage`, `.deb`). The app is just the server: it sits in the system tray and has no window of its own. Click the tray icon to open Dodobox in your browser. The tray menu also copies the address for phones and TVs, turns on "Start when I sign in" (Windows and macOS), shows the data folder, shows the log file and quits. The portable exe registers its own file for "Start when I sign in", so keep it where it is once you turn that on. On macOS the builds are not signed, so the system may ignore "Start when I sign in"; add Dodobox under System Settings, General, Login Items instead. Data lives in the app's folder for your user.
 
 The installers are not signed yet, so the system warns on first run:
 
@@ -33,7 +33,7 @@ Open the address the server prints (for example `http://192.168.1.20:3000`, or `
 
 Dodobox checks the releases page for a newer version now and then.
 
-- **Desktop app**: it asks whether to update. On Windows (installer) and Linux (AppImage) choosing "Update now" downloads it, then offers to restart. The portable exe, the `.deb` and the macOS builds are not signed, so for those it opens the download page. "Check for updates" in the tray menu checks right away.
+- **Desktop app**: it asks whether to update. On Windows (installer) and Linux (AppImage) choosing "Update now" downloads it, then offers to restart. The portable exe, the `.deb` and the macOS builds are not signed, so for those it opens the download page. "Check for updates" in the tray menu checks right away and says so when it could not reach the releases page.
 - **Docker, npm and source**: it only writes a line in the log with how to update (`docker pull ghcr.io/dodoflix/dodobox:latest`, then recreate the container). Settings shows the new version next to the current one.
 - Set `NO_UPDATE_CHECK=1` to turn the check off.
 
@@ -100,8 +100,8 @@ Dodobox looks in your Videos and Movies folders (and `MEDIA_DIR`) and matches fi
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `PORT` | `3000` | HTTP port |
-| `HOST` | `0.0.0.0` | Use `127.0.0.1` to allow only this computer. There is no login: anyone on your network can use it |
-| `DATA_DIR` | `./data` | Downloads, profiles and caches |
+| `HOST` | `0.0.0.0` | Use `127.0.0.1` to allow only this computer. There is no login: anyone on your network can use it. In Docker the health check calls `127.0.0.1` on `PORT`, so `HOST` must include loopback (`0.0.0.0` or `127.0.0.1`) or the container is reported unhealthy |
+| `DATA_DIR` | `data` next to the app | Downloads, profiles and caches. The default does not depend on the folder you start the server from; an older `./data` in the current folder is still used while the app folder has no `data` |
 | `MEDIA_DIR` | none | An extra folder of your own media |
 | `DODOBOX_ENCODER` | automatic | Force `libx264` if a graphics-card encoder misbehaves |
 | `OPEN` | unset | Set to `1` to open a browser on start (the start scripts do) |
@@ -118,6 +118,8 @@ Dodobox looks in your Videos and Movies folders (and `MEDIA_DIR`) and matches fi
 | `UPLOAD_KBPS` | `512` | Upload cap in KB/s while something is being watched or prioritized and Share while downloading is on; otherwise uploads are held to 32 KB/s and downloads to half of the measured line, so a housemate's game or call keeps its ping |
 | `NO_SPEEDTEST` | unset | Skip measuring the server's internet speed at start |
 | `NO_UPDATE_CHECK` | unset | Do not look for a newer release |
+
+The storage limit covers downloads. Cached pictures, subtitles and translations are kept separately and trimmed on their own, oldest unused first, to about 300 MB, 50 MB and 100 MB.
 
 Everything else (storage limit, sharing while downloading, subtitle language, quality, download size) is in Settings. Quality is Auto by default: Dodobox picks the best version your line and screen can use. Choose 4K, 1080p, 720p or Data saver to force it.
 
