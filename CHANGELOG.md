@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.10.1](https://github.com/dodoflix/dodobox/compare/v0.10.0...v0.10.1) (2026-11-03)
+
+
+### Bug fixes
+
+* **android:** open the address dialog on the UI thread, stop old discoveries and keep off-origin links out of the app ([#139](https://github.com/dodoflix/dodobox/issues/139)) ([394325b](https://github.com/dodoflix/dodobox/commit/394325bbd0e1cc857bc833978e8bef6096b0587b))
+* bump hls.js from 1.7.3 to 1.7.4 ([#149](https://github.com/dodoflix/dodobox/issues/149)) ([7166d32](https://github.com/dodoflix/dodobox/commit/7166d32de91abb2593cab66cc65bcefdc36761eb))
+* **data:** bound the caches, limit decompressed archives, make state.json durable and keep the local library cache across releases and unmounted folders ([#125](https://github.com/dodoflix/dodobox/issues/125) [#126](https://github.com/dodoflix/dodobox/issues/126) [#127](https://github.com/dodoflix/dodobox/issues/127) [#129](https://github.com/dodoflix/dodobox/issues/129) [#130](https://github.com/dodoflix/dodobox/issues/130)) ([394325b](https://github.com/dodoflix/dodobox/commit/394325bbd0e1cc857bc833978e8bef6096b0587b))
+* default DATA_DIR beside the app, honour PORT in the Docker healthcheck, release on dependency and base-image security updates and fail the coverage floor on empty reports ([#141](https://github.com/dodoflix/dodobox/issues/141) [#142](https://github.com/dodoflix/dodobox/issues/142) [#143](https://github.com/dodoflix/dodobox/issues/143) [#145](https://github.com/dodoflix/dodobox/issues/145)) ([394325b](https://github.com/dodoflix/dodobox/commit/394325bbd0e1cc857bc833978e8bef6096b0587b))
+* **desktop:** turn autostart off, report a failed update check and install dependencies in the launchers after an upgrade ([#136](https://github.com/dodoflix/dodobox/issues/136) [#138](https://github.com/dodoflix/dodobox/issues/138) [#144](https://github.com/dodoflix/dodobox/issues/144)) ([394325b](https://github.com/dodoflix/dodobox/commit/394325bbd0e1cc857bc833978e8bef6096b0587b))
+* **downloads:** keep library torrents when a race ends, give each torrent its own folder, and mark and remove failed episodes one by one ([#118](https://github.com/dodoflix/dodobox/issues/118) [#119](https://github.com/dodoflix/dodobox/issues/119) [#120](https://github.com/dodoflix/dodobox/issues/120) [#121](https://github.com/dodoflix/dodobox/issues/121) [#122](https://github.com/dodoflix/dodobox/issues/122)) ([394325b](https://github.com/dodoflix/dodobox/commit/394325bbd0e1cc857bc833978e8bef6096b0587b))
+* **offline:** key the offline cache by language, profile, PIN and adult filter and never cache errors ([#133](https://github.com/dodoflix/dodobox/issues/133)) ([394325b](https://github.com/dodoflix/dodobox/commit/394325bbd0e1cc857bc833978e8bef6096b0587b))
+* **server:** mask the OpenSubtitles password, always exit on SIGTERM, refuse bad request lines and keep a conversion running while another player still watches ([#114](https://github.com/dodoflix/dodobox/issues/114) [#115](https://github.com/dodoflix/dodobox/issues/115) [#116](https://github.com/dodoflix/dodobox/issues/116) [#123](https://github.com/dodoflix/dodobox/issues/123) [#124](https://github.com/dodoflix/dodobox/issues/124)) ([394325b](https://github.com/dodoflix/dodobox/commit/394325bbd0e1cc857bc833978e8bef6096b0587b))
+* **subs:** keep the partial flag on cached lists and list other languages while the addon is down ([#154](https://github.com/dodoflix/dodobox/issues/154)) ([704027f](https://github.com/dodoflix/dodobox/commit/704027f654f21f8f5b57d2fa0494364c8eae39c1))
+* **translation:** stop leaking workers after a failure and install Best quality on Windows and paths with spaces ([#128](https://github.com/dodoflix/dodobox/issues/128) [#137](https://github.com/dodoflix/dodobox/issues/137)) ([394325b](https://github.com/dodoflix/dodobox/commit/394325bbd0e1cc857bc833978e8bef6096b0587b))
+* **ui:** clear the loading overlay on failure, keep arrows and Escape inside pop-ups and stop leaking listeners ([#131](https://github.com/dodoflix/dodobox/issues/131) [#132](https://github.com/dodoflix/dodobox/issues/132) [#134](https://github.com/dodoflix/dodobox/issues/134)) ([394325b](https://github.com/dodoflix/dodobox/commit/394325bbd0e1cc857bc833978e8bef6096b0587b))
+* **ui:** mirror the interface for Arabic and Hebrew ([#155](https://github.com/dodoflix/dodobox/issues/155)) ([077e752](https://github.com/dodoflix/dodobox/commit/077e752e6beb53e190b3a2772a55c452b2816e0d))
+* **ui:** stop the interface freezing once a video plays, restore the storage sentence in every language and translate First ([#117](https://github.com/dodoflix/dodobox/issues/117) [#135](https://github.com/dodoflix/dodobox/issues/135)) ([394325b](https://github.com/dodoflix/dodobox/commit/394325bbd0e1cc857bc833978e8bef6096b0587b))
+* **ui:** switch the app language at once in onboarding, label it App language and redraw the whole app in it ([#150](https://github.com/dodoflix/dodobox/issues/150)) ([03a7857](https://github.com/dodoflix/dodobox/commit/03a78576939e5e4e5c182952b9228dceeea8cf84))
+
+
+### Documentation
+
+* add the ffmpeg GPL notice with its source and update the usage and architecture docs ([#140](https://github.com/dodoflix/dodobox/issues/140)) ([394325b](https://github.com/dodoflix/dodobox/commit/394325bbd0e1cc857bc833978e8bef6096b0587b))
+
 ## [0.10.0](https://github.com/dodoflix/dodobox/compare/v0.9.0...v0.10.0) (2026-10-31)
 
 
