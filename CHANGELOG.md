@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.11.0](https://github.com/dodoflix/dodobox/compare/v0.10.1...v0.11.0) (2026-11-03)
+
+
+### Features
+
+* **updates:** check for updates when the app opens and every hour, and add Check for updates in Settings ([#157](https://github.com/dodoflix/dodobox/issues/157)) ([5ebab4a](https://github.com/dodoflix/dodobox/commit/5ebab4a30fbfe54e624ec657c1fd2be367d397ae))
+
+
+### Bug fixes
+
+* **updates:** make Later put the update notice off for a day instead of for good ([#158](https://github.com/dodoflix/dodobox/issues/158)) ([5ebab4a](https://github.com/dodoflix/dodobox/commit/5ebab4a30fbfe54e624ec657c1fd2be367d397ae))
+
 ## [0.10.1](https://github.com/dodoflix/dodobox/compare/v0.10.0...v0.10.1) (2026-11-03)
 
 
