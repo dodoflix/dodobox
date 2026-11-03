@@ -2,7 +2,7 @@
 
 ## First run
 
-Start the server and open its address (the start scripts open it for you; with `npm start` open the printed address yourself). The very first screen has an app language picker (your browser's language to begin with) that switches the screen at once, so the profile form and the setup are already in the language you pick. Create a profile and go through three short pages: language and subtitles, what you like, and privacy. Changing the language on the first page also applies at once. Each person keeps their own Continue Watching, My List and preferences.
+Start the server and open its address (the start scripts open it for you; with `npm start` open the printed address yourself). Create a profile and go through three short pages: language and subtitles, what you like, and privacy. The first screen follows your browser's language; changing the language on the first page switches the app at once. Each person keeps their own Continue Watching, My List and preferences.
 
 ## Desktop app
 
