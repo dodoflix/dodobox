@@ -112,7 +112,6 @@ export function sameShow (s, q) {
 // The lookup paths for one language, best first. Anime: by catalog id when known, then by title. The title is searched as plain
 // words (punctuation breaks the search: "86 eighty-six" finds nothing, "86 eighty six" does) and as release files name it, "Title - 01".
 export function restPaths ({ type, id, season, episode, titles, imdb, tvdbSeason, tvdbEpisode, abs }, code) {
-  const lang = `sublanguageid-${code}`
   const words = t => encodeURIComponent(t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim())
   const ep2 = String(episode).padStart(2, '0')
   // "Title 600" is the form that finds a long show's late episodes (files named by absolute number, filed under no season or episode);
@@ -122,7 +121,7 @@ export function restPaths ({ type, id, season, episode, titles, imdb, tvdbSeason
     : type === 'series' ? [`episode-${episode}/imdbid-${id.slice(2)}/season-${season}`]
       : [...(imdb ? animeKeys({ episode, tvdbSeason, tvdbEpisode, abs }).map(([s, e]) => `episode-${e}/imdbid-${imdb.slice(2)}/season-${s}`) : []),
         ...names.map(n => `query-${n}%20${episode}`), ...names.map(n => `episode-${episode}/query-${n}`), ...names.map(n => `query-${n}%20-%20${ep2}`)]
-  ).map(p => `${p}/${lang}`)
+  ).map(p => (code ? `${p}/sublanguageid-${code}` : p))
 }
 // A raw OpenSubtitles row as a subtitle, or null when it is not for what was asked. `p` is the path that found it.
 export function restRow (s, p, q) {
@@ -176,13 +175,13 @@ const mark = (list, partial) => (partial ? list.map(s => ({ ...s, partial: true 
 export async function listSubtitles (q, langs = [], release = '', profile = '') {
   const key = JSON.stringify([q.type, q.id, q.season, q.episode, langs, release])
   const hit = listCache.get(key)
-  if (hit && Date.now() - hit.at < hit.ttl) return usable(hit.list, profile)
+  if (hit && Date.now() - hit.at < hit.ttl) return usable(mark(hit.list, !hit.complete), profile)
   let job = jobs.get(key)
   if (!job) {
     job = lookup(q, langs, release)
     job.full = job.full.then(r => {
       // A list built while a provider failed is kept briefly: it is better than nothing, but not the answer for hours.
-      if (r.list.length) { listCache.set(key, { at: Date.now(), list: r.list, ttl: r.complete ? 6 * 3600e3 : 90e3 }); if (listCache.size > 300) listCache.delete(listCache.keys().next().value) }
+      if (r.list.length) { listCache.set(key, { at: Date.now(), list: r.list, complete: r.complete, ttl: r.complete ? 6 * 3600e3 : 90e3 }); if (listCache.size > 300) listCache.delete(listCache.keys().next().value) }
       return r
     }).finally(() => jobs.delete(key))
     jobs.set(key, job)
@@ -221,10 +220,13 @@ export function plausible (rel, q) {
 }
 // Starts every provider once; `quick` is what the fast ones (the addon and, for movies, the yify page) give, `full` waits for all.
 function lookup (q, langs, release) {
-  const [addonP, restP, yifyP] = [addon(q), langs.length ? rest(q, langs) : [], q.type === 'movie' && langs.length ? yifyList(q.id, langs) : []]
+  // The addon is the only source of languages the profile did not ask for: while it is down, one lookup without a language filter stands in for it.
+  const addonP = addon(q)
+  const [restP, yifyP] = [langs.length ? rest(q, langs) : [], q.type === 'movie' && langs.length ? yifyList(q.id, langs) : []]
+  const anyP = addonP.then(() => [], () => restOne(q, ''))
   const quick = Promise.allSettled([addonP, yifyP]).then(r => assemble(q, langs, release, r.flatMap(x => x.value || [])))
-  const full = Promise.allSettled([addonP, restP, yifyP]).then(([a, b, c]) => ({
-    list: assemble(q, langs, release, [...(a.value || []), ...(b.value || []), ...(c.value || [])]),
+  const full = Promise.allSettled([addonP, restP, yifyP, anyP]).then(([a, b, c, d]) => ({
+    list: assemble(q, langs, release, [...(a.value || []), ...(b.value || []), ...(c.value || []), ...(d.value || [])]),
     complete: a.status === 'fulfilled' && b.status === 'fulfilled' && !b.value?.incomplete // the yify page is an extra: its being down is not a reason to keep asking
   }))
   return { quick, full }
