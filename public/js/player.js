@@ -5,7 +5,7 @@ import { nowPlaying, pingPresence } from './presence.js'
 import { mapTime, offsetAt, classify } from './syncmap.js'
 import { looksEnglish } from './english.js'
 import { previewLayout, chunkShape } from './previewmap.js'
-import { $, EP_PAGE, esc, epName, icon, enc, clock, bytes, store, sleep, toast, isTV, isSafari, lowres, sized, thumbW, hue } from './util.js'
+import { $, EP_PAGE, esc, epName, icon, enc, clock, bytes, store, sleep, toast, isTV, isSafari, lowres, sized, thumbW, hue, rtl, along, stepOf } from './util.js'
 import { glow } from './ambient.js'
 import { onBack } from './nav.js'
 import { accountStatus, connectAccount } from './opensubs.js'
@@ -55,7 +55,7 @@ export async function watch (type, id, season, episode) {
     <div class="pl-subs" aria-hidden="true"><div class="top"></div><div class="mid"></div><div class="bot"></div></div>
     <div class="pl-fx l"></div><div class="pl-fx r"></div>
     <div class="pl-spin" hidden></div>
-    <div class="pl-top"><button class="cbtn" id="back" aria-label="Back">${icon('left')}</button>
+    <div class="pl-top"><button class="cbtn" id="back" aria-label="Back">${icon('left', 'mir')}</button>
       <div class="ttl"><b translate="no">${esc(m.name)}</b>${flat ? '' : `<span><span>S${season} E${episode}</span>${epTitle ? ` · <span translate="no">${esc(epTitle)}</span>` : ''}</span>`}</div></div>
     <div class="pl-center"><button id="big" aria-label="Play or pause">${icon('play')}</button></div>
     <div class="pl-bottom">
@@ -67,7 +67,7 @@ export async function watch (type, id, season, episode) {
         ${volumeHTML()}
         <span class="time" id="time">0:00</span>
         <span class="sp"></span>
-        ${next ? `<button class="cbtn" id="nxt" aria-label="Next episode">${icon('next')}</button>` : ''}
+        ${next ? `<button class="cbtn" id="nxt" aria-label="Next episode">${icon('next', 'mir')}</button>` : ''}
         ${flat || vids.length < 2 ? '' : `<button class="cbtn" id="m-eps" aria-label="Episodes">${icon('list')}</button>`}
         <button class="cbtn only-s" id="m-settings" aria-label="Settings">${icon('gear')}</button>
         <button class="cbtn" id="m-party" aria-label="Watch party">${icon('party')}</button>
@@ -88,7 +88,7 @@ export async function watch (type, id, season, episode) {
     <div class="pl-next" id="up" hidden></div>
     <div class="pl-cast" id="casting" hidden></div>
     <div class="pl-load" id="load"><div class="bg" style="background-image:url('${esc(lowres(m.poster) || m.poster || '')}')"></div>
-      <button class="cbtn pl-back" id="back2" aria-label="Back">${icon('left')}</button>
+      <button class="cbtn pl-back" id="back2" aria-label="Back">${icon('left', 'mir')}</button>
       <div class="msg"><h2 id="l-title" translate="no">${esc(m.name)}</h2><p id="l-line">Getting ready...</p><div class="hair"><i id="l-bar"></i></div><div class="netnotes" id="l-net"></div><div class="actions" id="l-act"></div></div></div>
     <input type="file" id="subfile" accept=".srt,.vtt,.ass,.ssa,.sub" hidden>
   </div>`
@@ -141,7 +141,7 @@ export async function watch (type, id, season, episode) {
   const fail = (title, line) => { report('error', `player: ${title}`, { line, title: id, type }); return setLoad({ title, line, actions: '<button class="btn btn-ink" id="retry" data-autofocus>Try again</button><a class="btn btn-ghost" href="#/title/' + type + '/' + enc(id) + '">Go back</a>' }) }
 
   const fx = (side, text) => { const el = $(`.pl-fx.${side}`, root); el.textContent = text; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go') }
-  const seekBy = d => { if (!v.duration) return; v.currentTime = Math.max(0, Math.min(v.duration - 0.5, v.currentTime + d)); fx(d > 0 ? 'r' : 'l', (d > 0 ? '+' : '') + d + 's'); wake() }
+  const seekBy = d => { if (!v.duration) return; v.currentTime = Math.max(0, Math.min(v.duration - 0.5, v.currentTime + d)); fx((d > 0) !== rtl() ? 'r' : 'l', (d > 0 ? '+' : '') + d + 's'); wake() }
 
   let idleT; let ui = true
   const setUI = on => { ui = on; root.classList.toggle('ui', on); root.dataset.keys = isTV && on ? '' : 'own' }
@@ -183,7 +183,7 @@ export async function watch (type, id, season, episode) {
   function paintTime () {
     const d = v.duration || 0; const t = dragging ? scrub._t : v.currentTime
     $('.done', scrub).style.width = d ? t / d * 100 + '%' : '0'
-    $('.knob', scrub).style.left = d ? t / d * 100 + '%' : '0'
+    $('.knob', scrub).style.insetInlineStart = d ? t / d * 100 + '%' : '0'
     let b = 0; for (let i = 0; i < v.buffered.length; i++) if (v.buffered.start(i) <= v.currentTime + 0.5 && v.buffered.end(i) > b) b = v.buffered.end(i)
     $('.buf', scrub).style.width = d ? b / d * 100 + '%' : '0'
     $('#time', root).textContent = d ? `${clock(t)} / ${clock(d)}` : clock(t)
@@ -192,7 +192,7 @@ export async function watch (type, id, season, episode) {
   v.addEventListener('timeupdate', () => { paintTime(); upNextCheck(); paintSkip() })
   v.addEventListener('progress', paintTime); v.addEventListener('durationchange', paintTime)
   v.addEventListener('seeking', paintTime) // timeupdate only follows once the new spot has loaded
-  const at2 = e => { const r = scrub.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * (v.duration || 0) }
+  const at2 = e => along(e, scrub) * (v.duration || 0)
   // Frames for the seek bar come from the server a section of the video at a time, as soon as the part of the file a section sits in is on disk:
   // the sections near the playing spot first, and the one under the pointer at once. Until a section is there the frame shows it is loading;
   // a section that cannot be had yet leaves the time alone and is asked for again later.
@@ -233,12 +233,12 @@ export async function watch (type, id, season, episode) {
     if (fr._u !== url) { fr._u = url; fr.style.backgroundImage = `url(${url})`; fr.style.backgroundSize = `${cols * 100}% ${rows * 100}%` }
     fr.style.backgroundPosition = `${cols > 1 ? j % cols / (cols - 1) * 100 : 0}% ${rows > 1 ? Math.floor(j / cols) / (rows - 1) * 100 : 0}%`
   }
-  const tip = e => { const t = at2(e); const el = $('.tip', scrub); const at = t / (v.duration || 1) * 100 + '%'; el.textContent = clock(t); el.style.left = at; frame(t, at); return t }
+  const tip = e => { const t = at2(e); const el = $('.tip', scrub); const at = t / (v.duration || 1) * 100 + '%'; el.textContent = clock(t); el.style.insetInlineStart = at; frame(t, at); return t }
   scrub.addEventListener('pointermove', e => { const t = tip(e); if (dragging) { scrub._t = t; paintTime() } })
   scrub.addEventListener('pointerdown', e => { dragging = true; scrub.classList.add('drag'); scrub.setPointerCapture(e.pointerId); scrub._t = tip(e); paintTime() })
   scrub.addEventListener('pointerup', e => { if (!dragging) return; dragging = false; scrub.classList.remove('drag'); v.currentTime = at2(e); wake() })
   scrub.addEventListener('keydown', e => {
-    if (e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); seekBy(-10) } else if (e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); seekBy(10) }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); seekBy(10 * stepOf(e.key)) }
   })
 
   const toggle = () => { if (castCtl) return castCtl.toggle(); v.paused ? v.play().catch(() => {}) : v.pause() }
@@ -281,7 +281,7 @@ export async function watch (type, id, season, episode) {
       clickT = setTimeout(toggle, 230)
     } else {
       const side = e.clientX < innerWidth / 3 ? -1 : e.clientX > innerWidth * 2 / 3 ? 1 : 0
-      if (Date.now() - lastTap.t < 320 && side && side === lastTap.side) { clearTimeout(clickT); seekBy(10 * side); lastTap = { t: 0 } } else {
+      if (Date.now() - lastTap.t < 320 && side && side === lastTap.side) { clearTimeout(clickT); seekBy(10 * stepOf(side < 0 ? 'ArrowLeft' : 'ArrowRight')); lastTap = { t: 0 } } else {
         lastTap = { t: Date.now(), side }
         clickT = setTimeout(() => { ui ? setUI(false) : wake() }, 320)
       }
@@ -351,7 +351,7 @@ export async function watch (type, id, season, episode) {
         info?.audio?.length > 1 ? ['audio', 'Audio', LANG(info.audio.find(a => a.i === audio)?.lang || 'und')] : null,
         ['quality', 'Quality and speed', `${q ? q[1] : quality}${v.playbackRate !== 1 ? ` · ${v.playbackRate}×` : ''}`],
         partyPanel ? ['party', 'Watch party', ''] : null
-      ].filter(Boolean).map(([k, n, x]) => row(n, { data: `data-menu="${k}"`, extra: `${x ? `<small>${esc(x)}</small>` : ''}${icon('right')}` })).join('') + row('Try another version', { data: 'data-another' }) + row('Playback stats', { on: statsOn, data: 'data-stats' })
+      ].filter(Boolean).map(([k, n, x]) => row(n, { data: `data-menu="${k}"`, extra: `${x ? `<small>${esc(x)}</small>` : ''}${icon('right', 'mir')}` })).join('') + row('Try another version', { data: 'data-another' }) + row('Playback stats', { on: statsOn, data: 'data-stats' })
     }
     if (menuKind === 'audio') h = '<h4>Audio</h4>' + info.audio.map(a => row(esc(LANG(a.lang || 'und')) + (a.title ? ` · ${esc(a.title)}` : '') + (a.i === bestAudio() ? '<small class="hint">Default</small>' : ''), { on: a.i === audio, data: `data-a="${a.i}"`, extra: `<small>${esc(a.codec)}</small>` })).join('')
     if (menuKind === 'subs') return drawSubsMenu()
@@ -997,7 +997,7 @@ export async function watch (type, id, season, episode) {
     skipTo = m ? m.end : null
     if (b.hidden === !m) { if (m) b.dataset.k = m.k; return }
     b.hidden = !m
-    if (m) { b.dataset.k = m.k; b.innerHTML = `${icon('next')}${m.k === 'recap' ? 'Skip recap' : 'Skip intro'}` }
+    if (m) { b.dataset.k = m.k; b.innerHTML = `${icon('next', 'mir')}${m.k === 'recap' ? 'Skip recap' : 'Skip intro'}` }
   }
   const skip = () => { if (skipTo != null) { v.currentTime = skipTo; paintSkip(); wake() } }
   $('#skip', root).onclick = skip
@@ -1018,7 +1018,7 @@ export async function watch (type, id, season, episode) {
     if (k === 'MediaRewind') return seekBy(-10)
     if (k === 'MediaFastForward') return seekBy(10)
     if (e.target.closest?.('#menu') && k !== 'Escape') return
-    if (own && (k === 'ArrowLeft' || k === 'ArrowRight')) { e.preventDefault(); seekBy(k === 'ArrowRight' ? 10 : -10); return }
+    if (own && (k === 'ArrowLeft' || k === 'ArrowRight')) { e.preventDefault(); seekBy(10 * stepOf(k)); return }
     if (own && (k === 'ArrowUp' || k === 'ArrowDown')) {
       e.preventDefault()
       if (isTV) { wake(); return }

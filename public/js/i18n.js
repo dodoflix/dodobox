@@ -25,12 +25,18 @@ function lookup (text) {
 
 export const tr = text => (current === 'en' ? text : lookup(text) ?? text)
 
+// A number with its Latin unit ("0 kB", "1.5 Mbps", "2 h 30 min") is kept in one piece inside a right-to-left sentence; left alone, the unit jumps to the number's other side.
+const NUMBER_UNIT = /\d[\d.,]* ?[A-Za-z]+(?:\/[A-Za-z]+)?(?: \d[\d.,]* ?[A-Za-z]+)*/g
+const isolate = s => (document.documentElement.dir === 'rtl' && !s.includes('\u2066') ? s.replace(NUMBER_UNIT, '\u2066$&\u2069') : s)
+
 function translateText (node) {
   const p = node.parentElement
   if (!p || p.closest('[translate="no"], script, style, textarea')) return
   const raw = node.nodeValue; const core = collapse(raw)
   const out = lookup(raw)
   if (out != null && out !== core) node.nodeValue = raw.replace(raw.trim(), out)
+  const shown = isolate(node.nodeValue)
+  if (shown !== node.nodeValue) node.nodeValue = shown
 }
 
 function translateTree (root) {

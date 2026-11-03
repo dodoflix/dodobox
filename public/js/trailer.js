@@ -1,5 +1,5 @@
 // Trailers: video-host embeds driven through the player API with Dodobox's own controls; the embed stays invisible until it is really playing so a blocked trailer never shows the host's error card.
-import { $, esc, icon, clock, isTV, enc, lowres, layered, fullWidth } from './util.js'
+import { $, esc, icon, clock, isTV, enc, lowres, layered, fullWidth, along, stepOf } from './util.js'
 import { cget } from './api.js'
 import { volumeHTML, bindVolume } from './volume.js'
 import { onBack } from './nav.js'
@@ -81,7 +81,7 @@ export async function watchTrailer (type, id) {
   glow(m.poster)
   layer.innerHTML = `<div class="pl paused ui veil" data-modal data-keys="own" id="tp">
     <div class="tp-stage"></div><div class="tp-cover" style="background-image:${esc(layered(m.background || m.poster, fullWidth()))}"></div>
-    <div class="pl-top"><button class="cbtn" id="back" aria-label="Back">${icon('left')}</button><div class="ttl"><b translate="no">${esc(m.name)}</b><span>Trailer</span></div></div>
+    <div class="pl-top"><button class="cbtn" id="back" aria-label="Back">${icon('left', 'mir')}</button><div class="ttl"><b translate="no">${esc(m.name)}</b><span>Trailer</span></div></div>
     <div class="pl-center"><button id="big" aria-label="Play or pause">${icon('play')}</button></div>
     <div class="pl-bottom">
       <div class="scrub" id="scrub" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0"><div class="track"><div class="done"></div><div class="knob"></div><div class="tip">0:00</div></div></div>
@@ -95,7 +95,7 @@ export async function watchTrailer (type, id) {
         <button class="cbtn" id="fs" aria-label="Full screen">${icon('fs')}</button>
       </div></div>
     <div class="pl-load" id="load"><div class="bg" style="background-image:url('${esc(lowres(m.poster) || m.poster || '')}')"></div>
-      <button class="cbtn pl-back" id="back2" aria-label="Back">${icon('left')}</button>
+      <button class="cbtn pl-back" id="back2" aria-label="Back">${icon('left', 'mir')}</button>
       <div class="msg"><h2 translate="no">${esc(m.name)}</h2><p id="l-line">Loading the trailer...</p><div class="hair"><i></i></div><div class="actions" id="l-act"></div></div></div>
   </div>`
   const root = $('#tp', layer)
@@ -112,7 +112,7 @@ export async function watchTrailer (type, id) {
   const paint = () => {
     const d = st.duration || 0; const t = dragging ? scrub._t : st.time
     $('.done', scrub).style.width = d ? t / d * 100 + '%' : '0'
-    $('.knob', scrub).style.left = d ? t / d * 100 + '%' : '0'
+    $('.knob', scrub).style.insetInlineStart = d ? t / d * 100 + '%' : '0'
     $('#time', root).textContent = d ? `${clock(t)} / ${clock(d)}` : clock(t)
     scrub.setAttribute('aria-valuenow', Math.floor(t)); scrub.setAttribute('aria-valuemax', Math.floor(d))
   }
@@ -147,12 +147,12 @@ export async function watchTrailer (type, id) {
   const toggle = () => (st.state === 1 ? send(frame, 'pauseVideo') : (st.state === 0 && send(frame, 'seekTo', [0, true]), send(frame, 'playVideo')))
   const seek = t => { send(frame, 'seekTo', [Math.max(0, Math.min(st.duration || t, t)), true]); st.time = t; paint(); wake() }
   const scrub = $('#scrub', root)
-  const at = e => { const r = scrub.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * (st.duration || 0) }
-  const tip = e => { const t = at(e); const el = $('.tip', scrub); el.textContent = clock(t); el.style.left = t / (st.duration || 1) * 100 + '%'; return t }
+  const at = e => along(e, scrub) * (st.duration || 0)
+  const tip = e => { const t = at(e); const el = $('.tip', scrub); el.textContent = clock(t); el.style.insetInlineStart = t / (st.duration || 1) * 100 + '%'; return t }
   scrub.addEventListener('pointermove', e => { const t = tip(e); if (dragging) { scrub._t = t; paint() } })
   scrub.addEventListener('pointerdown', e => { dragging = true; scrub.classList.add('drag'); scrub.setPointerCapture(e.pointerId); scrub._t = tip(e); paint() })
   scrub.addEventListener('pointerup', e => { if (!dragging) return; dragging = false; scrub.classList.remove('drag'); seek(at(e)) })
-  scrub.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); seek(st.time - 10) } else if (e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); seek(st.time + 10) } })
+  scrub.addEventListener('keydown', e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); seek(st.time + 10 * stepOf(e.key)) } })
 
   $('#pp', root).onclick = toggle; $('#big', root).onclick = toggle
   $('#b10', root).onclick = () => seek(st.time - 10); $('#f10', root).onclick = () => seek(st.time + 10)
@@ -167,7 +167,7 @@ export async function watchTrailer (type, id) {
     if (e.ctrlKey || e.metaKey || e.altKey || e.target.matches?.('input')) return
     const k = e.key
     if (k === ' ' || k === 'k') { if (e.target.matches?.('a, button') && k === ' ') return; e.preventDefault(); toggle(); wake() }
-    else if (k === 'ArrowLeft' && !isTV) { e.preventDefault(); seek(st.time - 10) } else if (k === 'ArrowRight' && !isTV) { e.preventDefault(); seek(st.time + 10) }
+    else if ((k === 'ArrowLeft' || k === 'ArrowRight') && !isTV) { e.preventDefault(); seek(st.time + 10 * stepOf(k)) }
     else if (k === 'f') toggleFS()
     else if (k === 'm') $('.vm', root).click()
     else if (k === 'MediaPlayPause') toggle()

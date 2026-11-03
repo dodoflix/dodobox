@@ -1,6 +1,6 @@
 // Watch party, the page's side: a panel to start, join and leave, and the player's playback kept in step with the other members.
 // The server (src/party.js) talks to them; this page hears about it over /api/party/events and answers with /api/party/send.
-import { esc, enc, toast, icon, hue, sized } from './util.js'
+import { esc, enc, toast, icon, hue, sized, rtl } from './util.js'
 import { api, cget } from './api.js'
 import { onBack } from './nav.js'
 import { emojify, PICKER, REACTIONS, onlyEmoji, parseLink, LINK, trimLink } from './emoji.js'
@@ -160,7 +160,7 @@ function chatHtml (s) {
     <form class="pp-say"><div class="pp-emoji" role="group" aria-label="Emoji"${picking && live ? '' : ' hidden'}>${PICKER.map(e => `<button type="button" data-a="pick" data-e="${e}">${e}</button>`).join('')}</div>
       <input class="field" name="chat" placeholder="Message the party" value="${esc(draft)}" autocomplete="off" maxlength="500" enterkeyhint="send" aria-label="Message the party"${live ? '' : ' disabled'}>
       <button type="button" class="icon-btn" data-a="emoji" aria-label="Emoji" aria-expanded="${picking && live}"${live ? '' : ' disabled'}>${icon('smile')}</button>
-      <button class="icon-btn" aria-label="Send"${live ? '' : ' disabled'}>${icon('send')}</button></form></section>`
+      <button class="icon-btn" aria-label="Send"${live ? '' : ' disabled'}>${icon('send', 'mir')}</button></form></section>`
 }
 const nearEnd = log => log.scrollHeight - log.scrollTop - log.clientHeight < 40
 // A log that was at the bottom stays at the bottom when its height changes (a poster arriving above it, a person wrapping to a new line).
@@ -185,7 +185,7 @@ function placeTray (li, el) {
   const box = li.closest('.pp-chat').getBoundingClientRect(); const log = li.closest('.pp-log').getBoundingClientRect(); const b = li.querySelector('p').getBoundingClientRect()
   if (b.bottom < log.top + 8 || b.top > log.bottom - 8) return hideTray()
   el.style.top = `${Math.max(b.top - el.offsetHeight + 8, log.top - 4) - box.top}px`
-  if (li.classList.contains('me')) { el.style.right = `${Math.max(box.right - b.right, 0)}px`; el.style.left = 'auto' } else { el.style.left = `${Math.max(b.left - box.left, 0)}px`; el.style.right = 'auto' }
+  if (li.classList.contains('me') !== rtl()) { el.style.right = `${Math.max(box.right - b.right, 0)}px`; el.style.left = 'auto' } else { el.style.left = `${Math.max(b.left - box.left, 0)}px`; el.style.right = 'auto' } // the bubble's side: my messages sit at the end of the line
 }
 function showTray (li) {
   clearTimeout(trayTimer)
