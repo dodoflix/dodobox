@@ -10,7 +10,7 @@ function build (sel) {
   const wrap = document.createElement('div'); wrap.className = 'dd'
   const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'dd-btn'
   btn.setAttribute('aria-haspopup', 'listbox'); btn.setAttribute('aria-expanded', 'false')
-  const label = sel.closest('.set, .ob-row')?.querySelector('b')?.textContent ?? sel.getAttribute('aria-label')
+  const label = sel.closest('.set, .ob-row')?.querySelector('b')?.textContent
   if (label) btn.setAttribute('aria-label', label)
   sel.hidden = true
   sel.after(wrap); wrap.append(btn)
