@@ -1,8 +1,11 @@
 import { api, getProfile, getToken, setToken } from './api.js'
-import { $, esc, icon } from './util.js'
+import { $, esc, icon, store } from './util.js'
 import { pickProfile } from './session.js'
 import { focusFirst, onBack } from './nav.js'
 import { unlockProfile, lockProfile } from './pin.js'
+import { upgradeSelects } from './dropdown.js'
+import { LANGUAGES } from './onboarding.js'
+import { initI18n, savedUiLang, uiLangFor } from './i18n.js'
 
 const COLORS = ['#f2a65a', '#e5646e', '#6fb7e9', '#7ad3a0', '#b58cf0', '#f0d264']
 const layer = () => $('#layer')
@@ -58,13 +61,16 @@ export function showPicker ({ dismissable = false } = {}) {
       focusFirst(root)
     }
 
-    function form ({ first, edit } = {}) {
-      let color = edit?.color || COLORS[Math.floor(Math.random() * COLORS.length)]
+    // keep: what was typed and picked before the form was drawn again in another language.
+    function form ({ first, edit, keep } = {}) {
+      const name = edit?.name || keep?.name || ''
+      let color = edit?.color || keep?.color || COLORS[Math.floor(Math.random() * COLORS.length)]
       root.innerHTML = `<div class="picker" data-modal>
         <h1>${first ? 'Who\'s watching?' : edit ? 'Edit profile' : 'New profile'}</h1>
         <form class="new-form">
-          <span class="pf wide" style="--c:${color}"><span class="circle" id="prev">${esc((edit?.name || 'A')[0].toUpperCase())}</span></span>
-          <input class="field" name="name" placeholder="Name" maxlength="24" autocomplete="off" value="${esc(edit?.name || '')}" data-autofocus required>
+          ${first ? `<select class="field" id="pf-lang" aria-label="App language">${LANGUAGES.map(([c, , n]) => `<option value="${c}" ${c === savedUiLang() ? 'selected' : ''}>${n}</option>`).join('')}</select>` : ''}
+          <span class="pf wide" style="--c:${color}"><span class="circle" id="prev">${esc((name || 'A')[0].toUpperCase())}</span></span>
+          <input class="field" name="name" placeholder="Name" maxlength="24" autocomplete="off" value="${esc(name)}" data-autofocus required>
           <div class="swatches">${COLORS.map(c => `<button type="button" style="--c:${c}" data-c="${c}" class="${c === color ? 'on' : ''}" aria-label="Color ${c}"></button>`).join('')}</div>
           <div class="actions"><button class="btn btn-ink" type="submit">${edit ? 'Save' : first ? 'Start watching' : 'Create'}</button>
           ${edit ? '<button class="btn btn-danger" type="button" data-del>Delete</button>' : ''}
@@ -73,6 +79,14 @@ export function showPicker ({ dismissable = false } = {}) {
       const f = $('form', root)
       const prev = $('#prev', root)
       f.name.oninput = () => { prev.textContent = (f.name.value.trim()[0] || 'A').toUpperCase() }
+      // The first screen is already in the language picked here; onboarding starts with it.
+      f.onchange = async e => {
+        if (e.target.id !== 'pf-lang') return
+        store.set('ui', uiLangFor(e.target.value))
+        await initI18n(e.target.value)
+        form({ first, keep: { name: f.name.value, color } })
+        $('.dd-btn', root).focus()
+      }
       f.onclick = async e => {
         const b = e.target.closest('button'); if (!b) return
         if (b.dataset.c) { color = b.dataset.c; prev.parentElement.style.setProperty('--c', color); f.querySelectorAll('.swatches button').forEach(x => x.classList.toggle('on', x === b)) }
@@ -89,6 +103,7 @@ export function showPicker ({ dismissable = false } = {}) {
           done(p.id)
         }
       }
+      upgradeSelects(root)
       focusFirst(root)
       $('input', f).focus()
     }

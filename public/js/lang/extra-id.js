@@ -53,7 +53,8 @@ export const rows = [
   'Gunakan Otomatis', 'Gunakan Seimbang', 'Kualitas terlalu tinggi untuk koneksi ini. Gunakan Otomatis', 'Gunakan Terkecil',
   'Bagikan saat mengunduh', 'Mengizinkan orang lain di jaringan torrent mengunduh dari komputer ini. Saat mati, jalur unggah Anda tetap lega untuk game dan panggilan. Beberapa unduhan mungkin mulai sedikit lebih lambat.',
   'Berbagi',
-/*first*/ 'Pertama'
+/*first*/ 'Pertama',
+/*app language*/ 'Bahasa aplikasi'
 ]
 export const patterns = [
   'Hai $1, buat jadi milikmu', 'Musim $1', 'Musim $1 · Episode $2', 'Episode $1', 'Lanjutkan S$1 E$2', 'S$1 E$2$3', 'Tayang $1', '$1 j $2 mnt', '$1 mnt', '$1sisa $2 j $3 mnt', '$1sisa $2 mnt',

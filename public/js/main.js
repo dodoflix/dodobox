@@ -113,7 +113,8 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => { if (e.key === '/' && !e.target.matches?.('input, textarea')) { e.preventDefault(); isTV ? location.hash = '#/search' : quickSearch() } })
 
 async function boot () {
-  setLang(savedUiLang())
+  const drawn = savedUiLang() // the language the page shell (header, tab bar) is translated into
+  setLang(drawn)
   if (/^#?\/?$/.test(location.hash)) warmHome()
   initAmbient()
   await initI18n(savedUiLang())
@@ -126,6 +127,8 @@ async function boot () {
   armLock()
   if (!S.me.settings.onboarded) await profileOnboarding()
   store.set('ui', uiLangFor(S.me.settings.lang))
+  // Text is translated in place, so a shell drawn in another language than the profile's (picked during the first run, or set on another device) starts over in it.
+  if (uiLangFor(S.me.settings.lang) !== drawn) return location.reload()
   await initI18n(S.me.settings.lang)
   installTip()
   initProfileMenu()
