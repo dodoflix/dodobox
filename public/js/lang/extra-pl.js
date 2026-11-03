@@ -54,7 +54,8 @@ export const rows = [
   'Udostępniaj podczas pobierania', 'Pozwala innym osobom w sieci torrent pobierać z tego komputera. Wyłączone zostawia łącze wysyłania wolne dla gier i rozmów. Niektóre pobierania mogą ruszać odrobinę wolniej.',
   'Udostępnianie',
 /*first*/ 'Pierwszy',
-/*app language*/ 'Język aplikacji'
+/*app language*/ 'Język aplikacji',
+/*update check*/ 'Sprawdź aktualizacje', 'Dodobox jest aktualny', 'Nie udało się sprawdzić aktualizacji'
 ]
 export const patterns = [
   'Cześć $1, dostosuj to do siebie', 'Sezon $1', 'Sezon $1 · Odcinek $2', 'Odcinek $1', 'Wznów S$1 O$2', 'S$1 O$2$3', 'Premiera $1', '$1 godz. $2 min', '$1 min', '$1zostało $2 godz. $3 min', '$1zostało $2 min',

@@ -54,7 +54,8 @@ export const rows = [
   'Compartilhar durante o download', 'Permite que outras pessoas na rede torrent baixem deste computador. Desligado, sua linha de envio fica livre para jogos e chamadas. Alguns downloads podem começar um pouco mais devagar.',
   'Compartilhamento',
 /*first*/ 'Primeiro',
-/*app language*/ 'Idioma do app'
+/*app language*/ 'Idioma do app',
+/*update check*/ 'Procurar atualizações', 'O Dodobox está atualizado', 'Não foi possível procurar atualizações'
 ]
 export const patterns = [
   'Olá $1, deixe com a sua cara', 'Temporada $1', 'Temporada $1 · Episódio $2', 'Episódio $1', 'Continuar T$1 E$2', 'T$1 E$2$3', 'Estreia em $1', '$1 h $2 min', '$1 min', '$1faltam $2 h $3 min', '$1faltam $2 min',

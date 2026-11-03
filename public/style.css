@@ -269,6 +269,7 @@ html.tv .poster:focus-visible .art { outline-width: 4px; transform: scale(1.06);
 .set .l { flex: 1 1 15rem; min-width: 0; }
 .set .l b { display: block; font-weight: 700; }
 .set .l span { color: var(--ink3); font-size: var(--fs-s); }
+#updstat { display: block; }
 .field { min-height: 2.6rem; padding: 0 1rem; border-radius: var(--r-field); background: var(--s2); border: 1px solid var(--line); min-width: 0; }
 select.field { padding-inline-end: .5rem; }
 .field:focus-visible { outline-offset: 2px; }
@@ -617,6 +618,9 @@ html.lock, html.lock body { overflow: hidden; }
 /* Dropdowns and the profile menu share the player menu's look */
 button.avatar { border: 0; padding: 0; cursor: pointer; transition: box-shadow .2s, transform .2s var(--ease); }
 button.avatar:hover, button.avatar[aria-expanded="true"] { box-shadow: 0 0 0 3px rgb(255 255 255 / .35); }
+/* An update is waiting (also when its notice was put off) */
+#me-btn.upd { position: relative; }
+#me-btn.upd::before { content: ""; position: absolute; inset-block-start: -.25rem; inset-inline-end: -.25rem; width: .7rem; height: .7rem; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 2px var(--bg); }
 .dd { display: inline-block; max-width: 100%; }
 .dd-btn { display: inline-flex; align-items: center; justify-content: space-between; gap: .75rem; max-width: 100%; min-height: 2.7rem; padding: 0; padding-inline: 1.15rem .85rem; border: 1px solid var(--line); border-radius: var(--r-field); background: var(--s2); color: var(--ink); font-weight: 650; text-align: start; transition: background .2s, border-color .2s; }
 .dd-btn span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

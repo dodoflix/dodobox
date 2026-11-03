@@ -320,6 +320,27 @@ test('a lookup that could not reach the release page says it failed, not that Do
   try { assert.equal(await updates.lookup('0.1.0'), 'failed') } finally { globalThis.fetch = real }
 })
 
+test('a check reuses a recent answer, shares a lookup that is running, and says what the last lookup found', async () => {
+  const real = globalThis.fetch
+  let calls = 0; let answer = () => new Response(JSON.stringify({ tag_name: 'v0.1.0' }), { headers: { 'content-type': 'application/json' } })
+  globalThis.fetch = async () => { calls++; return answer() }
+  try {
+    updates.set({ checkedAt: 0 })
+    await Promise.all([updates.check('0.1.0', 60e3), updates.check('0.1.0', 60e3)])
+    assert.equal(calls, 1, 'two asks at once share one lookup')
+    assert.equal(updates.view('0.1.0', false).checked, 'current')
+    await updates.check('0.1.0', 60e3)
+    assert.equal(calls, 1, 'an answer younger than the age is reused')
+    answer = () => { throw new Error('offline') }
+    await updates.check('0.1.0', 0)
+    assert.equal(calls, 2)
+    assert.equal(updates.view('0.1.0', false).checked, 'failed')
+    process.env.NO_UPDATE_CHECK = '1'
+    await updates.check('0.1.0', 0)
+    assert.equal(calls, 2, 'NO_UPDATE_CHECK turns the check off')
+  } finally { globalThis.fetch = real; delete process.env.NO_UPDATE_CHECK }
+})
+
 // start.sh and Dodobox.command are the same file; run it with a stand-in npm and node that only leave a note.
 test('the launcher installs dependencies on first run and whenever package-lock.json differs from the last install, and stops when a first install fails', { skip: process.platform === 'win32' }, () => {
   const dir = tmpdir('launcher'); const bin = path.join(dir, 'bin'); const app = path.join(dir, 'app')

@@ -49,6 +49,7 @@ test('the desktop app can download an update and install it when the build can r
   const post = what => fetch(`${base}/api/update/${what}`, { method: 'POST' })
   assert.equal((await (await fetch(`${base}/api/update`)).json()).canApply, true)
   assert.equal((await post('install')).status, 409, 'nothing is ready yet')
+  updates.set({ checkedAt: 0 }) // the lookups above are recent, and a recent answer is reused
   await post('check')
   assert.equal((await post('download')).status, 200)
   const t0 = Date.now()

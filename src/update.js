@@ -6,7 +6,8 @@ import { getJSON } from './http.js'
 import { log } from './log.js'
 
 const REPO = 'dodoflix/dodobox'
-const state = { version: null, url: null, phase: 'idle', progress: 0, error: null }
+// checked/checkedAt: the answer of the last lookup ('newer', 'current' or 'failed') and when it came, so the page can say so.
+const state = { version: null, url: null, phase: 'idle', progress: 0, error: null, checked: null, checkedAt: 0 }
 let driver = null
 
 const parts = v => String(v).replace(/^v/, '').split('-')[0].split('.').map(n => parseInt(n, 10) || 0)
@@ -25,6 +26,11 @@ export const onFound = fn => { found = fn }
 
 // Looks the latest release up now. Resolves 'newer', 'current' or 'failed' (offline, rate limited: nothing is known).
 export async function lookup (current) {
+  const r = await ask(current)
+  Object.assign(state, { checked: r, checkedAt: Date.now() })
+  return r
+}
+async function ask (current) {
   try {
     const r = await getJSON(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { accept: 'application/vnd.github+json' }, tries: 1 })
     const latest = String(r.tag_name || '').replace(/^v/, '')
@@ -39,7 +45,7 @@ export async function lookup (current) {
 export function watch (current) {
   if (process.env.NO_UPDATE_CHECK || process.env.DODOBOX_DESKTOP) return
   setTimeout(() => lookup(current), 10e3).unref()
-  setInterval(() => lookup(current), 12 * 3600e3).unref()
+  setInterval(() => lookup(current), 3600e3).unref()
 }
 
 // The desktop app: self is true when this build can replace itself (then it reports what it finds with set()); other builds only
@@ -60,5 +66,12 @@ export function install () {
   if (!driver?.self || state.phase !== 'ready') throw Object.assign(new Error('no update is ready'), { code: 409 })
   driver.install()
 }
-export const check = () => driver?.check()
+// The page asks when it opens and from Settings: the release is looked up again only when the last answer is older than `age`, and
+// asks that come together share one lookup. A build that updates itself looks with its own updater, which reports with set().
+let asking = null
+export function check (current, age = 10 * 60e3) {
+  if (process.env.NO_UPDATE_CHECK || Date.now() - state.checkedAt < age) return Promise.resolve()
+  asking ||= Promise.resolve(driver?.self ? driver.check() : lookup(current)).finally(() => { asking = null })
+  return asking
+}
 export const info = () => (state.phase === 'idle' ? null : { version: state.version, url: state.url })

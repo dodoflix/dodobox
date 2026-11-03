@@ -89,7 +89,8 @@ export async function settings (root) {
     <div class="group"><h3>This device</h3>
       <div class="set"><div class="l"><b>TV layout</b><span>Larger text and remote-control navigation. Turned on automatically on most smart TVs.</span></div>
         <button class="switch" role="switch" id="tv" aria-checked="${isTV}" aria-label="TV layout"></button></div>
-      <div class="set"><div class="l"><b>Dodobox ${esc(srv.version)}</b><span>Video encoder: ${esc(srv.encoder === 'libx264' ? 'software' : srv.encoder)}${srv.update ? ` · <a href="${esc(srv.update.url)}" target="_blank" rel="noreferrer">Version ${esc(srv.update.version)} is available</a>` : ''}</span></div></div>
+      <div class="set"><div class="l"><b>Dodobox ${esc(srv.version)}</b><span>Video encoder: ${esc(srv.encoder === 'libx264' ? 'software' : srv.encoder)}${srv.update ? ` · <a href="${esc(srv.update.url)}" target="_blank" rel="noreferrer">Version ${esc(srv.update.version)} is available</a>` : ''}</span><span id="updstat" role="status"></span></div>
+        <button class="btn btn-ghost sm" id="checkupd">${icon('refresh')}Check for updates</button></div>
     </div>
     </div></div>
   </div>`
@@ -134,6 +135,17 @@ export async function settings (root) {
     if (sw && sw.id === 'tv') { const v = sw.getAttribute('aria-checked') !== 'true'; store.set('tv', v); location.reload() }
     const it = e.target.closest('#interests button')
     if (it) { it.classList.toggle('on'); setSetting('interests', [...root.querySelectorAll('#interests .on')].map(b => b.dataset.t)); return }
+    const cu = e.target.closest('#checkupd')
+    if (cu) {
+      cu.disabled = true
+      const u = await (await import('./update.js')).checkNow()
+      cu.disabled = false
+      $('#updstat').textContent = !u || u.checked === 'failed' ? 'Could not check for updates' : u.phase === 'idle' ? 'Dodobox is up to date' : ''
+      // A version found here joins the line under the version, as one known when the page opened does.
+      const line = cu.closest('.set').querySelector('.l span')
+      if (u?.version && u.phase !== 'idle' && !line.querySelector('a')) line.insertAdjacentHTML('beforeend', ` · <a href="${esc(u.url)}" target="_blank" rel="noreferrer">Version ${esc(u.version)} is available</a>`)
+      return
+    }
     const sg = e.target.closest('[data-seg] button')
     if (sg) { const k = sg.parentElement.dataset.seg; setSetting(k, sg.dataset.v); sg.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === sg)); drawNotes() }
     const fx = e.target.closest('[data-fix]')
