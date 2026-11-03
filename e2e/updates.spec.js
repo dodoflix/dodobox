@@ -61,3 +61,15 @@ test('Check for updates in Settings looks right away and says what it found', as
   assert.deepEqual(errors.filter(e => !/status of 500/.test(e)), [])
   await ctx.close()
 })
+
+test('with NO_UPDATE_CHECK set, Settings offers no Check for updates instead of claiming Dodobox is up to date', async () => {
+  process.env.NO_UPDATE_CHECK = '1'
+  try {
+    const { ctx, page } = await newPage(base)
+    await signIn(page, base, 'Ada')
+    await page.goto(`${base}/#/settings`)
+    await page.locator('#updstat').waitFor({ state: 'attached' })
+    assert.equal(await page.locator('#checkupd').count(), 0)
+    await ctx.close()
+  } finally { delete process.env.NO_UPDATE_CHECK }
+})

@@ -361,7 +361,7 @@ const routes = [
   ['GET', /^\/api\/health$/, (req, res) => json(req, res, { app: 'dodobox', version: VERSION })],
   ['GET', /^\/api\/server$/, async (req, res) => json(req, res, {
     version: VERSION, port, urls: lanAddresses().map(a => `http://${a}:${port}`), mdns: `http://dodobox.local:${port}`,
-    encoder: await encoder(), internetMbps: Math.round(speed.downMbps()), mediaDirs: local.dirs(), localCount: local.all().length, update: updates.info(), betterTranslation: better.available
+    encoder: await encoder(), internetMbps: Math.round(speed.downMbps()), mediaDirs: local.dirs(), localCount: local.all().length, update: updates.info(), updateChecks: !process.env.NO_UPDATE_CHECK, betterTranslation: better.available
   })],
   // Updates: anyone can see that one exists and ask for a check, only a request from the computer Dodobox runs on can start one.
   ['GET', /^\/api\/update$/, (req, res) => json(req, res, updates.view(VERSION, isLocal(req)))],

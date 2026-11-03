@@ -90,7 +90,7 @@ export async function settings (root) {
       <div class="set"><div class="l"><b>TV layout</b><span>Larger text and remote-control navigation. Turned on automatically on most smart TVs.</span></div>
         <button class="switch" role="switch" id="tv" aria-checked="${isTV}" aria-label="TV layout"></button></div>
       <div class="set"><div class="l"><b>Dodobox ${esc(srv.version)}</b><span>Video encoder: ${esc(srv.encoder === 'libx264' ? 'software' : srv.encoder)}${srv.update ? ` · <a href="${esc(srv.update.url)}" target="_blank" rel="noreferrer">Version ${esc(srv.update.version)} is available</a>` : ''}</span><span id="updstat" role="status"></span></div>
-        <button class="btn btn-ghost sm" id="checkupd">${icon('refresh')}Check for updates</button></div>
+        ${srv.updateChecks ? `<button class="btn btn-ghost sm" id="checkupd">${icon('refresh')}Check for updates</button>` : ''}</div>
     </div>
     </div></div>
   </div>`
@@ -140,7 +140,8 @@ export async function settings (root) {
       cu.disabled = true
       const u = await (await import('./update.js')).checkNow()
       cu.disabled = false
-      $('#updstat').textContent = !u || u.checked === 'failed' ? 'Could not check for updates' : u.phase === 'idle' ? 'Dodobox is up to date' : ''
+      // Only a lookup that answered says anything about the version; the update itself has its own notice.
+      $('#updstat').textContent = u?.checked === 'current' || u?.checked === 'newer' ? (u.phase === 'idle' ? 'Dodobox is up to date' : '') : 'Could not check for updates'
       // A version found here joins the line under the version, as one known when the page opened does.
       const line = cu.closest('.set').querySelector('.l span')
       if (u?.version && u.phase !== 'idle' && !line.querySelector('a')) line.insertAdjacentHTML('beforeend', ` · <a href="${esc(u.url)}" target="_blank" rel="noreferrer">Version ${esc(u.version)} is available</a>`)
