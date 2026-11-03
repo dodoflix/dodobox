@@ -31,10 +31,12 @@ Open the address the server prints (for example `http://192.168.1.20:3000`, or `
 
 ## Updates
 
-Dodobox checks the releases page for a newer version now and then.
+Dodobox checks the releases page for a newer version every hour, and again when the app is opened (it reuses an answer less than 10 minutes old). "Check for updates" in Settings checks right away, from any device, and says whether Dodobox is up to date, a newer version is available, or the check did not work.
 
-- **Desktop app**: it asks whether to update. On Windows (installer) and Linux (AppImage) choosing "Update now" downloads it, then offers to restart. The portable exe, the `.deb` and the macOS builds are not signed, so for those it opens the download page. "Check for updates" in the tray menu checks right away and says so when it could not reach the releases page.
-- **Docker, npm and source**: it only writes a line in the log with how to update (`docker pull ghcr.io/dodoflix/dodobox:latest`, then recreate the container). Settings shows the new version next to the current one.
+When a newer version exists, a notice says so. "Later" puts it off for a day; until the update is done, the profile button keeps a dot.
+
+- **Desktop app**: it asks whether to update, and asks again a day after "Later". On Windows (installer) and Linux (AppImage) choosing "Update now" downloads it, then offers to restart; on the computer Dodobox runs on, the page's notice offers "Update now" too. The portable exe, the `.deb` and the macOS builds are not signed, so for those it opens the download page. "Check for updates" in the tray menu checks right away and says so when it could not reach the releases page.
+- **Docker, npm and source**: the notice and the log say how to update (`docker pull ghcr.io/dodoflix/dodobox:latest`, then recreate the container). Settings shows the new version next to the current one.
 - Set `NO_UPDATE_CHECK=1` to turn the check off.
 
 Phones and laptops use plain HTTP on the local network, so "install as app" gives a bookmark-style shortcut. That is a browser rule for non-HTTPS addresses.

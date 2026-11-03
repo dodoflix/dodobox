@@ -453,7 +453,10 @@ export const ROWS = [
   ['Lets other people on the torrent network download from this computer. Off keeps your upload line free for games and calls. Some downloads may start a little slower.', 'Torrent ağındaki diğer kişilerin bu bilgisayardan indirmesine izin verir. Kapalıyken yükleme hattın oyunlar ve görüşmeler için boş kalır. Bazı indirmeler biraz geç başlayabilir.', 'Permite que otras personas de la red torrent descarguen desde este equipo. Desactivado deja libre tu línea de subida para juegos y llamadas. Algunas descargas pueden empezar algo más despacio.', 'Permet à d\'autres personnes du réseau torrent de télécharger depuis cet ordinateur. Désactivé, votre débit montant reste libre pour les jeux et les appels. Certains téléchargements peuvent démarrer un peu plus lentement.', 'Erlaubt anderen im Torrent-Netzwerk, von diesem Computer herunterzuladen. Aus bleibt dein Upload für Spiele und Anrufe frei. Manche Downloads starten etwas langsamer.'],
   ['Sharing', 'Paylaşım', 'Compartir', 'Partage', 'Teilen'],
   ['First', 'İlk', 'Primero', 'Premier', 'Zuerst'],
-  ['App language', 'Uygulama dili', 'Idioma de la aplicación', 'Langue de l\'application', 'App-Sprache']
+  ['App language', 'Uygulama dili', 'Idioma de la aplicación', 'Langue de l\'application', 'App-Sprache'],
+  ['Check for updates', 'Güncellemeleri denetle', 'Buscar actualizaciones', 'Rechercher des mises à jour', 'Nach Updates suchen'],
+  ['Dodobox is up to date', 'Dodobox güncel', 'Dodobox está actualizado', 'Dodobox est à jour', 'Dodobox ist aktuell'],
+  ['Could not check for updates', 'Güncellemeler denetlenemedi', 'No se pudieron buscar actualizaciones', 'Impossible de rechercher des mises à jour', 'Konnte nicht nach Updates suchen']
 ]
 
 // Patterns for text that carries numbers or names. $1, $2 refer to captured groups; the same order for every language.

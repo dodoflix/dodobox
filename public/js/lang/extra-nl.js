@@ -54,7 +54,8 @@ export const rows = [
   'Delen tijdens het downloaden', 'Laat anderen op het torrentnetwerk van deze computer downloaden. Uit houdt je uploadlijn vrij voor games en gesprekken. Sommige downloads starten iets trager.',
   'Delen',
 /*first*/ 'Eerst',
-/*app language*/ 'App-taal'
+/*app language*/ 'App-taal',
+/*update check*/ 'Controleren op updates', 'Dodobox is up-to-date', 'Kon niet controleren op updates'
 ]
 export const patterns = [
   'Hoi $1, maak het van jou', 'Seizoen $1', 'Seizoen $1 · Aflevering $2', 'Aflevering $1', 'Hervat S$1 A$2', 'S$1 A$2$3', 'Verschijnt $1', '$1 u $2 min', '$1 min', '$1nog $2 u $3 min', '$1nog $2 min',

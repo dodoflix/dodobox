@@ -80,7 +80,9 @@ async function boot () {
   const RELEASES = 'https://github.com/dodoflix/dodobox/releases/latest'
   const updates = await import('../src/update.js')
   const idle = () => tray.setToolTip(`Dodobox is running on port ${port}`)
-  let asked = ''
+  // "Later" puts the question off for a day: while the update waits it is asked again once a day, not once per run.
+  let asked = {}
+  const due = v => { if (asked.v === v && Date.now() - asked.at < 24 * 3600e3) return false; asked = { v, at: Date.now() }; return true }
   const upToDate = () => dialog.showMessageBox({ type: 'info', message: 'Dodobox is up to date', detail: `Version ${app.getVersion()}` })
   const checkFailed = () => dialog.showMessageBox({ type: 'warning', message: 'Could not check for updates', detail: 'Dodobox could not reach the releases page. Check your connection and try again.' })
   let manualWait = false // a check the user asked for is waiting for electron-updater to answer
@@ -94,15 +96,21 @@ async function boot () {
       install: () => autoUpdater.quitAndInstall(),
       check: () => autoUpdater.checkForUpdates().catch(() => {})
     })
-    autoUpdater.on('update-not-available', () => { if (manualWait) { manualWait = false; upToDate() } })
-    autoUpdater.on('error', e => { if (manualWait) { manualWait = false; checkFailed() }; log.error('updater', 'error', { err: e }); updates.set({ phase: 'error', error: String(e.message).split('\n')[0].slice(0, 160) }) })
+    // The page shows what the last check found (Settings' "Check for updates").
+    const checked = what => updates.set({ checked: what, checkedAt: Date.now() })
+    autoUpdater.on('update-not-available', () => { checked('current'); if (manualWait) { manualWait = false; upToDate() } })
+    autoUpdater.on('error', e => {
+      if (manualWait) { manualWait = false; checkFailed() }
+      log.error('updater', 'error', { err: e })
+      if (updates.view(app.getVersion(), false).phase !== 'downloading') checked('failed')
+      updates.set({ phase: 'error', error: String(e.message).split('\n')[0].slice(0, 160) })
+    })
     autoUpdater.on('download-progress', p => { updates.set({ progress: Math.round(p.percent) }); tray.setToolTip(`Downloading the update... ${Math.round(p.percent)}%`) })
     autoUpdater.on('update-available', async info => {
-      manualWait = false
+      manualWait = false; checked('newer')
       log.info('updater', 'update available', { version: info.version, current: app.getVersion() })
       updates.set({ version: info.version, url: `https://github.com/dodoflix/dodobox/releases/tag/v${info.version}`, phase: 'available', error: null })
-      if (asked === info.version) return
-      asked = info.version
+      if (!due(info.version)) return
       const { response } = await dialog.showMessageBox({
         type: 'info', title: 'Dodobox update', message: `Dodobox ${info.version} is available`,
         detail: `You have ${app.getVersion()}. Update now? Dodobox restarts when the download is done. You can also do it from the Dodobox page.`,
@@ -121,23 +129,23 @@ async function boot () {
     const checkUpdates = () => { if (app.isPackaged) autoUpdater.checkForUpdates().catch(() => {}) }
     updateCheck = manual => {
       if (!app.isPackaged) return dialog.showMessageBox({ message: 'Updates are checked in the installed app.' })
-      if (manual) { asked = ''; manualWait = true }
+      if (manual) { asked = {}; manualWait = true }
       checkUpdates()
     }
-    setTimeout(checkUpdates, 20e3); setInterval(checkUpdates, 6 * 3600e3)
+    setTimeout(checkUpdates, 20e3); setInterval(checkUpdates, 3600e3)
   } else {
-    // The server's own check (every 12 hours) finds the release; here the user is asked once per version.
+    // The server's own check (every hour) finds the release; here the user is asked when it is new, then again once a day while it waits.
     updates.useDriver({ self: false, download: async () => {}, install: () => {}, check: () => {} })
     const offer = async info => {
-      if (asked === info.version) return
-      asked = info.version
+      if (!due(info.version)) return
       const { response } = await dialog.showMessageBox({ type: 'info', title: 'Dodobox update', message: `Dodobox ${info.version} is available`, detail: `You have ${app.getVersion()}. Open the download page?`, buttons: ['Open download page', 'Later'], defaultId: 0, cancelId: 1 })
       if (response === 0) shell.openExternal(RELEASES)
     }
     updates.onFound(offer)
+    setInterval(() => { const i = updates.info(); if (i) offer(i) }, 3600e3)
     updateCheck = async manual => {
       if (!app.isPackaged) return dialog.showMessageBox({ message: 'Updates are checked in the installed app.' })
-      if (manual) asked = ''
+      if (manual) asked = {}
       const found = await updates.lookup(app.getVersion())
       if (!manual) return
       if (found === 'newer') await offer(updates.info()) // already asked for this version by onFound when it was new

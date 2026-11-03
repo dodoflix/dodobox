@@ -8,10 +8,15 @@ let timer
 let restarting = false
 
 const get = () => api('/api/update').catch(() => null)
-const hidden = u => u.phase === 'available' && store.get('upd-hidden', '') === u.version
+const ask = force => api(`/api/update/check${force ? '?force=1' : ''}`, { method: 'POST' }).catch(() => null)
+// "Later" puts the notice off for a day, not for good: { v: version, until: time }.
+const later = () => store.get('upd-later', null)
+const hidden = u => u.phase === 'available' && later()?.v === u.version && Date.now() < later().until
 
 function paint (u) {
   if (restarting) return
+  // While an update waits, also when its notice was put off, the profile button carries a dot.
+  $('#me-btn')?.classList.toggle('upd', !!u && u.phase !== 'idle')
   if (!u || u.phase === 'idle' || hidden(u)) { box?.remove(); box = null; return }
   if (!box) { box = document.createElement('div'); box.id = 'upd'; box.setAttribute('role', 'status'); document.body.append(box) }
   const link = `<a href="${esc(u.url || '#')}" target="_blank" rel="noreferrer">Release notes</a>`
@@ -25,9 +30,10 @@ function paint (u) {
   }[u.phase] || ''
 }
 
-async function refresh () {
+// check: ask the server to look the release up (it reuses a recent answer), as the page does when it opens or comes back into view.
+async function refresh (check) {
   clearTimeout(timer)
-  const u = await get()
+  const u = await (check ? ask() : get())
   paint(u)
   // Quickly while a download runs, now and then otherwise.
   timer = setTimeout(refresh, u?.phase === 'downloading' ? 1000 : 10 * 60e3)
@@ -48,17 +54,25 @@ async function waitForRestart () {
   refresh()
 }
 
+// Settings' "Check for updates": looks now, and shows a version found this way even when its notice was put off.
+export async function checkNow () {
+  const u = await ask(true)
+  if (u) { store.set('upd-later', null); paint(u) }
+  return u
+}
+
 export function initUpdates () {
+  try { localStorage.removeItem('upd-hidden') } catch {} // "Later" from before it was a snooze
   document.addEventListener('click', async e => {
     const b = e.target.closest('#upd [data-a]'); if (!b) return
     const a = b.dataset.a
-    if (a === 'hide') { store.set('upd-hidden', (await get())?.version); box?.remove(); box = null; return }
+    if (a === 'hide') { store.set('upd-later', { v: (await get())?.version, until: Date.now() + 24 * 3600e3 }); box?.remove(); box = null; return }
     b.disabled = true
     try {
       paint(await api(`/api/update/${a}`, { method: 'POST' }))
       if (a === 'install') waitForRestart(); else refresh()
     } catch (err) { b.disabled = false; $('#upd .t span').textContent = err.message }
   })
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh() })
-  setTimeout(refresh, 3000)
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(true) })
+  setTimeout(() => refresh(true), 3000)
 }

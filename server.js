@@ -361,15 +361,16 @@ const routes = [
   ['GET', /^\/api\/health$/, (req, res) => json(req, res, { app: 'dodobox', version: VERSION })],
   ['GET', /^\/api\/server$/, async (req, res) => json(req, res, {
     version: VERSION, port, urls: lanAddresses().map(a => `http://${a}:${port}`), mdns: `http://dodobox.local:${port}`,
-    encoder: await encoder(), internetMbps: Math.round(speed.downMbps()), mediaDirs: local.dirs(), localCount: local.all().length, update: updates.info(), betterTranslation: better.available
+    encoder: await encoder(), internetMbps: Math.round(speed.downMbps()), mediaDirs: local.dirs(), localCount: local.all().length, update: updates.info(), updateChecks: !process.env.NO_UPDATE_CHECK, betterTranslation: better.available
   })],
-  // Updates: anyone can see that one exists, only a request from the computer Dodobox runs on can start it.
+  // Updates: anyone can see that one exists and ask for a check, only a request from the computer Dodobox runs on can start one.
   ['GET', /^\/api\/update$/, (req, res) => json(req, res, updates.view(VERSION, isLocal(req)))],
-  ['POST', /^\/api\/update\/(download|install|check)$/, async (req, res, [, what]) => {
+  // A check asked for in Settings (force) looks again after 30 s; the one the page makes when it opens reuses an answer under 10 minutes old.
+  ['POST', /^\/api\/update\/check$/, async (req, res, _, q) => { await updates.check(VERSION, q.get('force') ? 30e3 : 10 * 60e3); json(req, res, updates.view(VERSION, isLocal(req))) }],
+  ['POST', /^\/api\/update\/(download|install)$/, async (req, res, [, what]) => {
     if (!isLocal(req)) return fail(req, res, 403, 'Update from the computer Dodobox runs on')
     if (what === 'download') updates.download().catch(e => log.warn('update', 'download failed', { err: e }))
-    else if (what === 'install') updates.install()
-    else updates.check()
+    else updates.install()
     json(req, res, updates.view(VERSION, true))
   }],
   ['GET', /^\/api\/speedtest$/, (req, res, _, q) => speed.sendTestBytes(res, +q.get('bytes'))],

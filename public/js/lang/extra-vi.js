@@ -54,7 +54,8 @@ export const rows = [
   'Chia sẻ khi đang tải', 'Cho phép người khác trên mạng torrent tải từ máy tính này. Khi tắt, đường tải lên của bạn dành cho game và cuộc gọi. Một số bản tải có thể bắt đầu chậm hơn một chút.',
   'Chia sẻ',
 /*first*/ 'Đầu tiên',
-/*app language*/ 'Ngôn ngữ ứng dụng'
+/*app language*/ 'Ngôn ngữ ứng dụng',
+/*update check*/ 'Kiểm tra cập nhật', 'Dodobox đã là bản mới nhất', 'Không thể kiểm tra cập nhật'
 ]
 export const patterns = [
   'Chào $1, hãy biến nó thành của bạn', 'Mùa $1', 'Mùa $1 · Tập $2', 'Tập $1', 'Tiếp tục S$1 E$2', 'S$1 E$2$3', 'Phát sóng $1', '$1 giờ $2 phút', '$1 phút', '$1còn $2 giờ $3 phút', '$1còn $2 phút',
