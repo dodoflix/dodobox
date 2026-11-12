@@ -109,6 +109,9 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      - name: Install rpm tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends rpm
       - run: npm ci
       - run: npx electron-builder ${{ matrix.args }} --publish never
       - name: Attach installers to the release
@@ -122,3 +125,82 @@ jobs:
           files=(dist/Dodobox-*)
           for f in dist/latest.yml dist/latest-linux.yml; do [ -f "$f" ] && files+=("$f"); done
           gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+
+  # Checksums, signatures and the apt and dnf repositories are made from whatever the builds above
+  # attached, so an installer that gets signed in its own job is covered without changes here.
+  publish:
+    needs: [release-please, desktop]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ needs.release-please.outputs.tag }}
+      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag }}
+          persist-credentials: false
+      - name: Import the signing key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: printf '%s' "$GPG_PRIVATE_KEY" | gpg --batch --import
+      - name: Download the release assets
+        run: |
+          gh release download "$TAG" --dir assets --clobber
+          rm -f assets/SHA256SUMS assets/SHA256SUMS.asc
+      - name: Checksum and sign
+        run: |
+          (cd assets && sha256sum -- * > ../SHA256SUMS)
+          mv SHA256SUMS assets/
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" \
+            --armor --detach-sign assets/SHA256SUMS
+          gh release upload "$TAG" assets/SHA256SUMS assets/SHA256SUMS.asc --clobber
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: assets/*
+      - name: Build the apt and dnf repositories
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends apt-utils createrepo-c
+          scripts/linux-repos.sh assets site
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+  pages:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  aur:
+    needs: [release-please, desktop]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag }}
+          persist-credentials: false
+      - name: Publish dodobox-bin
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag }}
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          gh release download "$TAG" --pattern '*-linux-amd64.deb' --dir assets
+          scripts/publish-aur.sh packaging/aur/PKGBUILD.in dodobox-bin assets/*.deb
